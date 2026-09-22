@@ -36,6 +36,11 @@ enum TipoLancamento {
   SAIDA
 }
 
+enum PeriodicidadeAssinatura {
+  MENSAL
+  TRIMESTRAL
+}
+
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
@@ -101,13 +106,16 @@ model Cliente {
   barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   criadoEm    DateTime @default(now())
 
+  assinaturaTipo       PeriodicidadeAssinatura?
+  assinaturaValor      Decimal?  @db.Decimal(10, 2)
+  assinaturaVencimento DateTime?
+
   agendamentos Agendamento[]
 
   @@unique([barbeariaId, telefone])
   @@index([barbeariaId])
   @@map("clientes")
 }
-
 model Servico {
   id                 String   @id @default(cuid())
   nome               String
