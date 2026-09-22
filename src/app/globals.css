@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #000000;
+  --surface: #141414;
+  --surface-2: #1d1d1d;
+  --line: #2b2b2b;
+  --text: #f4f4f2;
+  --muted: #a6a6a6;
+  --neon: #a6ff00;
+  --neon-hover: #c2ff4d;
+  --on-neon: #000000;
+  --danger: #e5484d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  border: 2px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--neon);
+  color: var(--on-neon);
+}
+.btn-primary:hover {
+  background: var(--neon-hover);
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  border-color: #444;
+  color: var(--text);
+  background: transparent;
+}
+.btn-ghost:hover {
+  border-color: var(--neon);
+  color: var(--neon);
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+.input:focus {
+  outline: 2px solid var(--neon);
+  outline-offset: 1px;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.badge-ativo {
+  background: rgba(166, 255, 0, 0.12);
+  color: var(--neon);
+}
+.badge-inativo {
+  background: rgba(229, 72, 77, 0.12);
+  color: var(--danger);
+}
+
+.erro-form {
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin-top: 8px;
+}
