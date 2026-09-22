@@ -30,7 +30,7 @@ export default async function LayoutPainel({
           <Link href="/painel" style={{ fontWeight: 900, letterSpacing: "0.03em" }}>
             BARB<span style={{ color: "var(--neon)" }}>IUM</span>
           </Link>
-          <nav style={{ display: "flex", gap: 20, fontSize: "0.9375rem" }}>
+          <nav style={{ display: "flex", gap: 16, rowGap: 8, fontSize: "0.9375rem", flexWrap: "wrap" }}>
             <Link href="/painel">Agenda</Link>
             <Link href="/painel/clientes">Clientes</Link>
             <Link href="/painel/servicos">Serviços</Link>

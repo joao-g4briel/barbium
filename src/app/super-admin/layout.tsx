@@ -33,7 +33,7 @@ export default async function LayoutSuperAdmin({
             BARB<span style={{ color: "var(--neon)" }}>IUM</span>{" "}
             <span style={{ color: "var(--muted)", fontWeight: 500 }}>super admin</span>
           </Link>
-          <nav style={{ display: "flex", gap: 20, fontSize: "0.9375rem" }}>
+          <nav style={{ display: "flex", gap: 16, rowGap: 8, fontSize: "0.9375rem", flexWrap: "wrap" }}>
             <Link href="/super-admin">Visão geral</Link>
             <Link href="/super-admin/barbearias">Barbearias</Link>
           </nav>

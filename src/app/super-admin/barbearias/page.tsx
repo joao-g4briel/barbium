@@ -36,8 +36,8 @@ export default async function ListaBarbearias() {
           Nenhuma barbearia cadastrada ainda. Crie a primeira pra começar.
         </p>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="card" style={{ padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--line)" }}>
                 {["Barbearia", "Dono", "Plano", "Status", ""].map((cabecalho) => (
@@ -64,7 +64,7 @@ export default async function ListaBarbearias() {
                     <td style={{ padding: "14px 20px" }}>
                       <div style={{ fontWeight: 700 }}>{barbearia.nome}</div>
                       <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                        /{barbearia.slug}
+                        /agendar/{barbearia.slug}
                       </div>
                     </td>
                     <td style={{ padding: "14px 20px" }}>

@@ -1,5 +1,7 @@
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
+import { ROTULO_STATUS, classeBadgeStatus } from "@/lib/status-agendamento";
+import { AcoesAgendamento } from "@/components/acoes-agendamento";
 
 export default async function AgendaDoDia() {
   const sessao = await obterSessao();
@@ -42,6 +44,8 @@ export default async function AgendaDoDia() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
                 padding: 16,
               }}
             >
@@ -58,7 +62,12 @@ export default async function AgendaDoDia() {
                   {sessao.role === "DONO" && ` · ${agendamento.barbeiro.nome}`}
                 </div>
               </div>
-              <span className="badge badge-ativo">{agendamento.status}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className={classeBadgeStatus(agendamento.status)}>
+                  {ROTULO_STATUS[agendamento.status]}
+                </span>
+                <AcoesAgendamento id={agendamento.id} status={agendamento.status} />
+              </div>
             </div>
           ))}
         </div>
