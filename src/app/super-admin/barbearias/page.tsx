@@ -8,7 +8,7 @@ export default async function ListaBarbearias() {
     include: {
       usuarios: {
         where: { role: "DONO" },
-        select: { nome: true, email: true },
+        select: { nome: true },
         take: 1,
       },
     },
@@ -36,65 +36,29 @@ export default async function ListaBarbearias() {
           Nenhuma barbearia cadastrada ainda. Crie a primeira pra começar.
         </p>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                {["Barbearia", "Dono", "Plano", "Status", ""].map((cabecalho) => (
-                  <th
-                    key={cabecalho}
-                    style={{
-                      textAlign: "left",
-                      padding: "12px 20px",
-                      color: "var(--muted)",
-                      fontSize: "0.8125rem",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {cabecalho}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {barbearias.map((barbearia) => {
-                const dono = barbearia.usuarios[0];
-                return (
-                  <tr key={barbearia.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "14px 20px" }}>
-                      <div style={{ fontWeight: 700 }}>{barbearia.nome}</div>
-                      <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                        /agendar/{barbearia.slug}
-                      </div>
-                    </td>
-                    <td style={{ padding: "14px 20px" }}>
-                      {dono ? (
-                        <>
-                          <div>{dono.nome}</div>
-                          <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                            {dono.email}
-                          </div>
-                        </>
-                      ) : (
-                        <span style={{ color: "var(--muted)" }}>Sem dono cadastrado</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "14px 20px" }}>{ROTULO_PLANO[barbearia.plano]}</td>
-                    <td style={{ padding: "14px 20px" }}>
-                      <span className={barbearia.ativo ? "badge badge-ativo" : "badge badge-inativo"}>
-                        {barbearia.ativo ? "Ativa" : "Suspensa"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                      <Link href={`/super-admin/barbearias/${barbearia.id}`} className="btn btn-ghost btn-sm">
-                        Gerenciar
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="item-list">
+          {barbearias.map((barbearia) => {
+            const dono = barbearia.usuarios[0];
+            return (
+              <div key={barbearia.id} className="card item-row">
+                <div className="item-row-main">
+                  <div className="item-row-title">{barbearia.nome}</div>
+                  <div className="item-row-sub">
+                    /agendar/{barbearia.slug} · {ROTULO_PLANO[barbearia.plano]}
+                    {dono ? ` · ${dono.nome}` : " · sem dono"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className={barbearia.ativo ? "badge badge-ativo" : "badge badge-inativo"}>
+                    {barbearia.ativo ? "Ativa" : "Suspensa"}
+                  </span>
+                  <Link href={`/super-admin/barbearias/${barbearia.id}`} className="btn btn-ghost btn-sm">
+                    Gerenciar
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

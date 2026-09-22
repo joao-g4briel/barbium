@@ -35,34 +35,23 @@ export default async function AgendaDoDia() {
           </p>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className="item-list">
           {agendamentosHoje.map((agendamento) => (
-            <div
-              key={agendamento.id}
-              className="card"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 12,
-                padding: 16,
-              }}
-            >
-              <div>
-                <strong>
+            <div key={agendamento.id} className="card item-row">
+              <div className="item-row-main">
+                <div className="item-row-title">
                   {agendamento.inicio.toLocaleTimeString("pt-BR", {
                     hour: "2-digit",
                     minute: "2-digit",
-                  })}
-                </strong>{" "}
-                — {agendamento.cliente.nome}
-                <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                  })}{" "}
+                  — {agendamento.cliente.nome}
+                </div>
+                <div className="item-row-sub">
                   {agendamento.servico.nome}
                   {sessao.role === "DONO" && ` · ${agendamento.barbeiro.nome}`}
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <span className={classeBadgeStatus(agendamento.status)}>
                   {ROTULO_STATUS[agendamento.status]}
                 </span>

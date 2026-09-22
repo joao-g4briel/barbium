@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { obterSessao } from "@/lib/sessao";
 import { BotaoSair } from "@/components/botao-sair";
+import { NavInferior, type ItemNavInferior } from "@/components/nav-inferior";
 
 export default async function LayoutPainel({
   children,
@@ -13,37 +14,45 @@ export default async function LayoutPainel({
     redirect("/login");
   }
 
+  const itensNav: ItemNavInferior[] = [
+    { href: "/painel", rotulo: "Agenda", icone: "calendar" },
+    { href: "/painel/clientes", rotulo: "Clientes", icone: "users" },
+    { href: "/painel/servicos", rotulo: "Serviços", icone: "scissors" },
+    ...(sessao.role === "DONO"
+      ? [{ href: "/painel/equipe", rotulo: "Equipe", icone: "user-plus" as const }]
+      : []),
+    ...(sessao.role === "DONO"
+      ? [{ href: "/painel/caixa", rotulo: "Caixa", icone: "wallet" as const }]
+      : []),
+  ];
+
   return (
     <div style={{ minHeight: "100dvh" }}>
-      <header
-        style={{
-          borderBottom: "1px solid var(--line)",
-          padding: "16px 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          <Link href="/painel" style={{ fontWeight: 900, letterSpacing: "0.03em" }}>
-            BARB<span style={{ color: "var(--neon)" }}>IUM</span>
+      <header className="app-header">
+        <div className="container-app app-header-inner">
+          <Link href="/painel" className="brand">
+            <span className="brand-mark" aria-hidden="true"></span>
+            BARBIUM
           </Link>
-          <nav style={{ display: "flex", gap: 16, rowGap: 8, fontSize: "0.9375rem", flexWrap: "wrap" }}>
-            <Link href="/painel">Agenda</Link>
-            <Link href="/painel/clientes">Clientes</Link>
-            <Link href="/painel/servicos">Serviços</Link>
-            {sessao.role === "DONO" && <Link href="/painel/equipe">Equipe</Link>}
-            {sessao.role === "DONO" && <Link href="/painel/caixa">Caixa</Link>}
+
+          <nav className="top-nav-links">
+            {itensNav.map((item) => (
+              <Link key={item.href} href={item.href}>
+                {item.rotulo}
+              </Link>
+            ))}
           </nav>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>{sessao.nome}</span>
-          <BotaoSair />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span className="header-nome">{sessao.nome}</span>
+            <BotaoSair />
+          </div>
         </div>
       </header>
-      <main style={{ padding: 24, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
+
+      <main className="app-main">{children}</main>
+
+      <NavInferior itens={itensNav} />
     </div>
   );
 }

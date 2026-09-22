@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 
 interface Servico {
   id: string;
@@ -52,8 +53,29 @@ function proximosDiasCliente(quantidade: number): Date[] {
   return dias;
 }
 
+function ResumoPasso({
+  rotulo,
+  valor,
+  onTrocar,
+}: {
+  rotulo: string;
+  valor: string;
+  onTrocar: () => void;
+}) {
+  return (
+    <div className="card resumo-passo">
+      <div style={{ minWidth: 0 }}>
+        <p className="resumo-passo-rotulo">{rotulo}</p>
+        <p className="resumo-passo-valor">{valor}</p>
+      </div>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onTrocar}>
+        Trocar
+      </button>
+    </div>
+  );
+}
+
 export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) {
-  const [passo, setPasso] = useState<1 | 2 | 3 | 4>(1);
   const [servico, setServico] = useState<Servico | null>(null);
   const [profissional, setProfissional] = useState<Profissional | null>(null);
   const [dia, setDia] = useState<Date | null>(null);
@@ -68,6 +90,38 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
   const [confirmado, setConfirmado] = useState(false);
 
   const dias = proximosDiasCliente(7);
+
+  function trocarServico() {
+    setServico(null);
+    setProfissional(null);
+    setDia(null);
+    setHorario(null);
+    setHorariosDisponiveis([]);
+    setErro(null);
+  }
+
+  function trocarProfissional() {
+    setProfissional(null);
+    setDia(null);
+    setHorario(null);
+    setHorariosDisponiveis([]);
+    setErro(null);
+  }
+
+  function trocarHorario() {
+    setDia(null);
+    setHorario(null);
+    setHorariosDisponiveis([]);
+    setErro(null);
+  }
+
+  function recomecar() {
+    trocarServico();
+    setNome("");
+    setTelefone("");
+    setConfirmado(false);
+    setConfirmando(false);
+  }
 
   async function aoEscolherDia(diaEscolhido: Date) {
     if (!servico || !profissional) return;
@@ -133,163 +187,143 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
 
   if (confirmado && servico && profissional && horario) {
     return (
-      <div className="card" style={{ display: "grid", gap: 8 }}>
-        <p style={{ color: "var(--neon)", fontWeight: 700, margin: 0 }}>
+      <div className="card" style={{ display: "grid", gap: 10, textAlign: "center", padding: 28 }}>
+        <CheckCircle2 size={40} color="var(--neon)" style={{ margin: "0 auto" }} />
+        <p style={{ color: "var(--neon)", fontWeight: 700, margin: 0, fontSize: "1.0625rem" }}>
           Agendamento confirmado!
         </p>
         <p style={{ margin: 0, color: "var(--muted)" }}>
           {servico.nome} com {profissional.nome}
         </p>
-        <p style={{ margin: 0 }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>
           {horario.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
           {" às "}
           {horario.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </p>
+        <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={recomecar}>
+          Fazer outro agendamento
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
+    <div style={{ display: "grid", gap: 16 }}>
       {/* Passo 1 — serviço */}
-      <div>
-        <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: "0 0 10px" }}>
-          1. Escolha o serviço
-        </p>
-        <div style={{ display: "grid", gap: 8 }}>
-          {servicos.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => {
-                setServico(s);
-                setProfissional(null);
-                setDia(null);
-                setHorario(null);
-                setHorariosDisponiveis([]);
-                setPasso(2);
-              }}
-              className="card"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                textAlign: "left",
-                cursor: "pointer",
-                border:
-                  servico?.id === s.id ? "1px solid var(--neon)" : "1px solid var(--line)",
-              }}
-            >
-              <div>
-                <strong>{s.nome}</strong>
-                <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                  {s.duracaoMinutos} min
-                </div>
-              </div>
-              <strong>{formatarPreco(s.preco)}</strong>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Passo 2 — profissional */}
-      {passo >= 2 && servico && (
+      {servico ? (
+        <ResumoPasso
+          rotulo="Serviço"
+          valor={`${servico.nome} · ${formatarPreco(servico.preco)}`}
+          onTrocar={trocarServico}
+        />
+      ) : (
         <div>
-          <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: "0 0 10px" }}>
-            2. Escolha o profissional
-          </p>
+          <p className="wizard-step-label">Escolha o serviço</p>
           <div style={{ display: "grid", gap: 8 }}>
-            {profissionais.map((p) => (
+            {servicos.map((s) => (
               <button
-                key={p.id}
+                key={s.id}
                 type="button"
-                onClick={() => {
-                  setProfissional(p);
-                  setDia(null);
-                  setHorario(null);
-                  setHorariosDisponiveis([]);
-                  setPasso(3);
-                }}
-                className="card"
-                style={{
-                  textAlign: "left",
-                  cursor: "pointer",
-                  border:
-                    profissional?.id === p.id ? "1px solid var(--neon)" : "1px solid var(--line)",
-                }}
+                onClick={() => setServico(s)}
+                className="option-row"
               >
-                {p.nome}
+                <div>
+                  <strong>{s.nome}</strong>
+                  <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                    {s.duracaoMinutos} min
+                  </div>
+                </div>
+                <strong>{formatarPreco(s.preco)}</strong>
               </button>
             ))}
           </div>
         </div>
+      )}
+
+      {/* Passo 2 — profissional */}
+      {servico && (
+        profissional ? (
+          <ResumoPasso rotulo="Profissional" valor={profissional.nome} onTrocar={trocarProfissional} />
+        ) : (
+          <div>
+            <p className="wizard-step-label">Escolha o profissional</p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {profissionais.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setProfissional(p)}
+                  className="option-row"
+                >
+                  {p.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {/* Passo 3 — dia e horário */}
-      {passo >= 3 && profissional && (
-        <div>
-          <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: "0 0 10px" }}>
-            3. Escolha o dia e o horário
-          </p>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-            {dias.map((d) => (
-              <button
-                key={chaveDia(d)}
-                type="button"
-                onClick={() => aoEscolherDia(d)}
-                className="btn btn-ghost btn-sm"
-                style={{
-                  flex: "0 0 auto",
-                  borderColor: dia && chaveDia(dia) === chaveDia(d) ? "var(--neon)" : undefined,
-                  color: dia && chaveDia(dia) === chaveDia(d) ? "var(--neon)" : undefined,
-                }}
-              >
-                {rotuloDia(d)}
-              </button>
-            ))}
-          </div>
-
-          {dia && (
-            <div style={{ marginTop: 14 }}>
-              {carregandoHorarios ? (
-                <p style={{ color: "var(--muted)" }}>Carregando horários…</p>
-              ) : horariosDisponiveis.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>
-                  Sem horários livres nesse dia. Tente outro dia.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {horariosDisponiveis.map((h) => (
-                    <button
-                      key={h.toISOString()}
-                      type="button"
-                      onClick={() => {
-                        setHorario(h);
-                        setPasso(4);
-                      }}
-                      className="btn btn-ghost btn-sm"
-                      style={{
-                        borderColor:
-                          horario?.toISOString() === h.toISOString() ? "var(--neon)" : undefined,
-                        color: horario?.toISOString() === h.toISOString() ? "var(--neon)" : undefined,
-                      }}
-                    >
-                      {h.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    </button>
-                  ))}
-                </div>
-              )}
+      {servico && profissional && (
+        horario && dia ? (
+          <ResumoPasso
+            rotulo="Data e horário"
+            valor={`${dia.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${horario.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`}
+            onTrocar={trocarHorario}
+          />
+        ) : (
+          <div>
+            <p className="wizard-step-label">Escolha o dia e o horário</p>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+              {dias.map((d) => (
+                <button
+                  key={chaveDia(d)}
+                  type="button"
+                  onClick={() => aoEscolherDia(d)}
+                  className="btn btn-ghost btn-sm"
+                  style={{
+                    flex: "0 0 auto",
+                    borderColor: dia && chaveDia(dia) === chaveDia(d) ? "var(--neon)" : undefined,
+                    color: dia && chaveDia(dia) === chaveDia(d) ? "var(--neon)" : undefined,
+                  }}
+                >
+                  {rotuloDia(d)}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+
+            {dia && (
+              <div style={{ marginTop: 14 }}>
+                {carregandoHorarios ? (
+                  <p style={{ color: "var(--muted)" }}>Carregando horários…</p>
+                ) : horariosDisponiveis.length === 0 ? (
+                  <p style={{ color: "var(--muted)" }}>
+                    Sem horários livres nesse dia. Tente outro dia.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {horariosDisponiveis.map((h) => (
+                      <button
+                        key={h.toISOString()}
+                        type="button"
+                        onClick={() => setHorario(h)}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        {h.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* Passo 4 — dados do cliente */}
-      {passo >= 4 && horario && (
+      {servico && profissional && horario && (
         <div>
-          <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: "0 0 10px" }}>
-            4. Seus dados
-          </p>
+          <p className="wizard-step-label">Seus dados</p>
           <div className="card" style={{ display: "grid", gap: 16 }}>
             <div>
               <label htmlFor="nome">Nome</label>
@@ -326,6 +360,8 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
           </div>
         </div>
       )}
+
+      {erro && !horario && <p className="erro-form">{erro}</p>}
     </div>
   );
 }

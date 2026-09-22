@@ -45,53 +45,29 @@ export default async function PaginaServicos() {
           </p>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                {["Serviço", "Duração", "Preço", "Comissão", "Status", ""].map((cabecalho) => (
-                  <th
-                    key={cabecalho}
-                    style={{
-                      textAlign: "left",
-                      padding: "12px 20px",
-                      color: "var(--muted)",
-                      fontSize: "0.8125rem",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {cabecalho}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {servicos.map((servico) => (
-                <tr key={servico.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td style={{ padding: "14px 20px", fontWeight: 700 }}>{servico.nome}</td>
-                  <td style={{ padding: "14px 20px" }}>{servico.duracaoMinutos} min</td>
-                  <td style={{ padding: "14px 20px" }}>{formatarPreco(servico.preco)}</td>
-                  <td style={{ padding: "14px 20px" }}>
-                    {servico.comissaoPercentual != null
-                      ? `${Number(servico.comissaoPercentual)}%`
-                      : <span style={{ color: "var(--muted)" }}>—</span>}
-                  </td>
-                  <td style={{ padding: "14px 20px" }}>
-                    <span className={servico.ativo ? "badge badge-ativo" : "badge badge-inativo"}>
-                      {servico.ativo ? "Ativo" : "Inativo"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                    {souDono && (
-                      <Link href={`/painel/servicos/${servico.id}`} className="btn btn-ghost btn-sm">
-                        Editar
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="item-list">
+          {servicos.map((servico) => (
+            <div key={servico.id} className="card item-row">
+              <div className="item-row-main">
+                <div className="item-row-title">{servico.nome}</div>
+                <div className="item-row-sub">
+                  {servico.duracaoMinutos} min · {formatarPreco(servico.preco)}
+                  {servico.comissaoPercentual != null &&
+                    ` · comissão ${Number(servico.comissaoPercentual)}%`}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className={servico.ativo ? "badge badge-ativo" : "badge badge-inativo"}>
+                  {servico.ativo ? "Ativo" : "Inativo"}
+                </span>
+                {souDono && (
+                  <Link href={`/painel/servicos/${servico.id}`} className="btn btn-ghost btn-sm">
+                    Editar
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

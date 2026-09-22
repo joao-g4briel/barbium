@@ -23,33 +23,42 @@ export default async function AgendamentoPublico({
   if (!barbearia || !barbearia.ativo) notFound();
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>{barbearia.nome}</h1>
+    <>
+      <header className="public-header">
+        <h1>{barbearia.nome}</h1>
+      </header>
 
-      {barbearia.servicos.length === 0 ? (
-        <div className="card">
-          <p style={{ margin: 0, color: "var(--muted)" }}>
-            Essa barbearia ainda não cadastrou os serviços.
-          </p>
-        </div>
-      ) : barbearia.usuarios.length === 0 ? (
-        <div className="card">
-          <p style={{ margin: 0, color: "var(--muted)" }}>
-            Essa barbearia ainda não tem profissionais disponíveis.
-          </p>
-        </div>
-      ) : (
-        <AssistenteAgendamento
-          slug={slug}
-          servicos={barbearia.servicos.map((s) => ({
-            id: s.id,
-            nome: s.nome,
-            duracaoMinutos: s.duracaoMinutos,
-            preco: Number(s.preco),
-          }))}
-          profissionais={barbearia.usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
-        />
-      )}
-    </main>
+      <main className="public-main">
+        {barbearia.servicos.length === 0 ? (
+          <div className="card">
+            <p style={{ margin: 0, color: "var(--muted)" }}>
+              Essa barbearia ainda não cadastrou os serviços.
+            </p>
+          </div>
+        ) : barbearia.usuarios.length === 0 ? (
+          <div className="card">
+            <p style={{ margin: 0, color: "var(--muted)" }}>
+              Essa barbearia ainda não tem profissionais disponíveis.
+            </p>
+          </div>
+        ) : (
+          <AssistenteAgendamento
+            slug={slug}
+            servicos={barbearia.servicos.map((s) => ({
+              id: s.id,
+              nome: s.nome,
+              duracaoMinutos: s.duracaoMinutos,
+              preco: Number(s.preco),
+            }))}
+            profissionais={barbearia.usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
+          />
+        )}
+      </main>
+
+      <footer className="public-footer">
+        <span className="brand-mark" aria-hidden="true" style={{ display: "inline-block" }}></span>
+        Agendamento via BARBIUM
+      </footer>
+    </>
   );
 }

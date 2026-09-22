@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { obterSessao } from "@/lib/sessao";
 import { BotaoSair } from "@/components/botao-sair";
+import { NavInferior, type ItemNavInferior } from "@/components/nav-inferior";
 
 // O middleware já bloqueia quem não é SUPER_ADMIN antes de chegar aqui.
 // Essa checagem é uma segunda camada — nunca confie só no middleware.
@@ -15,35 +16,39 @@ export default async function LayoutSuperAdmin({
     redirect("/login");
   }
 
+  const itensNav: ItemNavInferior[] = [
+    { href: "/super-admin", rotulo: "Visão geral", icone: "layout-dashboard" },
+    { href: "/super-admin/barbearias", rotulo: "Barbearias", icone: "store" },
+  ];
+
   return (
     <div style={{ minHeight: "100dvh" }}>
-      <header
-        style={{
-          borderBottom: "1px solid var(--line)",
-          padding: "16px 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          <Link href="/super-admin" style={{ fontWeight: 900, letterSpacing: "0.03em" }}>
-            BARB<span style={{ color: "var(--neon)" }}>IUM</span>{" "}
-            <span style={{ color: "var(--muted)", fontWeight: 500 }}>super admin</span>
+      <header className="app-header">
+        <div className="container-app app-header-inner">
+          <Link href="/super-admin" className="brand">
+            <span className="brand-mark" aria-hidden="true"></span>
+            BARBIUM{" "}
+            <span style={{ color: "var(--muted)", fontWeight: 500 }}>admin</span>
           </Link>
-          <nav style={{ display: "flex", gap: 16, rowGap: 8, fontSize: "0.9375rem", flexWrap: "wrap" }}>
-            <Link href="/super-admin">Visão geral</Link>
-            <Link href="/super-admin/barbearias">Barbearias</Link>
+
+          <nav className="top-nav-links">
+            {itensNav.map((item) => (
+              <Link key={item.href} href={item.href}>
+                {item.rotulo}
+              </Link>
+            ))}
           </nav>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>{sessao.nome}</span>
-          <BotaoSair />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span className="header-nome">{sessao.nome}</span>
+            <BotaoSair />
+          </div>
         </div>
       </header>
-      <main style={{ padding: 24, maxWidth: 1120, margin: "0 auto" }}>{children}</main>
+
+      <main className="app-main">{children}</main>
+
+      <NavInferior itens={itensNav} />
     </div>
   );
 }
