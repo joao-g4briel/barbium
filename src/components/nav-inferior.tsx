@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Users, Scissors, UserPlus, Wallet, LayoutDashboard, Store } from "lucide-react";
+import { Calendar, Users, Scissors, UserPlus, Wallet, LayoutDashboard, Store, Clock } from "lucide-react";
 
 const MAPA_ICONES = {
   calendar: Calendar,
@@ -12,6 +12,7 @@ const MAPA_ICONES = {
   wallet: Wallet,
   "layout-dashboard": LayoutDashboard,
   store: Store,
+  clock: Clock,
 } as const;
 
 export type NomeIcone = keyof typeof MAPA_ICONES;

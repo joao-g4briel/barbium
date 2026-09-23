@@ -41,6 +41,16 @@ enum PeriodicidadeAssinatura {
   TRIMESTRAL
 }
 
+enum DiaSemana {
+  DOMINGO
+  SEGUNDA
+  TERCA
+  QUARTA
+  QUINTA
+  SEXTA
+  SABADO
+}
+
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
@@ -91,9 +101,46 @@ model Usuario {
   criadoEm       DateTime @default(now())
 
   agendamentos Agendamento[] @relation("BarbeiroAgendamentos")
+  expediente   ExpedienteDia[]
+  bloqueios    BloqueioAgenda[]
 
   @@index([barbeariaId])
   @@map("usuarios")
+}
+
+// Expediente semanal do profissional: um registro por dia da semana.
+// Horários guardados como texto "HH:mm" — evita lidar com fuso/data numa
+// informação que é só "que horas", não um instante específico no tempo.
+model ExpedienteDia {
+  id           String    @id @default(cuid())
+  usuarioId    String
+  usuario      Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  diaSemana    DiaSemana
+  atende       Boolean   @default(true)
+  horaInicio   String    @default("09:00")
+  horaFim      String    @default("19:00")
+  almocoInicio String?
+  almocoFim    String?
+
+  @@unique([usuarioId, diaSemana])
+  @@map("expediente_dias")
+}
+
+// Bloqueio de agenda do profissional. Serve pra dois casos com o mesmo
+// formato: um período já com data de volta definida (férias, folga) ou um
+// bloqueio indefinido (fim = null) usado como trava de emergência — "não
+// aceitar mais agendamentos a partir de agora", até alguém desativar.
+model BloqueioAgenda {
+  id        String    @id @default(cuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  inicio    DateTime
+  fim       DateTime?
+  motivo    String?
+  criadoEm  DateTime  @default(now())
+
+  @@index([usuarioId, inicio])
+  @@map("bloqueios_agenda")
 }
 
 // Cliente final da barbearia. Não tem login — é identificado por telefone
@@ -106,6 +153,10 @@ model Cliente {
   barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   criadoEm    DateTime @default(now())
 
+  // Assinatura simples: sem tabela própria, sem histórico — o vencimento é
+  // a fonte da verdade, o status (em dia / vencida) é calculado comparando
+  // com a data atual, não fica guardado. null em assinaturaVencimento
+  // significa "nunca assinou ou cancelou".
   assinaturaTipo       PeriodicidadeAssinatura?
   assinaturaValor      Decimal?  @db.Decimal(10, 2)
   assinaturaVencimento DateTime?
@@ -116,6 +167,7 @@ model Cliente {
   @@index([barbeariaId])
   @@map("clientes")
 }
+
 model Servico {
   id                 String   @id @default(cuid())
   nome               String

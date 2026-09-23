@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { DiaSemana } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirSuperAdmin } from "@/lib/sessao";
 import { hashSenha, gerarSenhaTemporaria } from "@/lib/auth";
@@ -80,6 +81,22 @@ export async function POST(request: Request) {
         role: "DONO",
         barbeariaId: barbearia.id,
       },
+    });
+
+    // Expediente padrão: segunda a sábado, 09h–19h. Sem isso, o dono
+    // nasceria sem nenhum horário disponível até configurar manualmente.
+    const diasUteis: DiaSemana[] = ["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO"];
+    await tx.expedienteDia.createMany({
+      data: [
+        { usuarioId: dono.id, diaSemana: "DOMINGO", atende: false },
+        ...diasUteis.map((diaSemana) => ({
+          usuarioId: dono.id,
+          diaSemana,
+          atende: true,
+          horaInicio: "09:00",
+          horaFim: "19:00",
+        })),
+      ],
     });
 
     return { barbearia, dono };

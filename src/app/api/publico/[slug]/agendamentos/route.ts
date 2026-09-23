@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { horariosLivres } from "@/lib/agenda";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -56,6 +57,26 @@ export async function POST(
   const telefoneNormalizado = dados.data.telefone.replace(/\D/g, "");
   if (telefoneNormalizado.length < 8) {
     return NextResponse.json({ erro: "Informe um telefone válido." }, { status: 400 });
+  }
+
+  // Confere se esse horário respeita o expediente do profissional (dia,
+  // horário, almoço) e não cai em cima de um bloqueio — reaproveita a
+  // mesma função que gera a lista de horários oferecidos, pra não ter
+  // duas regras de negócio diferentes que podem se desalinhar.
+  const inicioDoDia = new Date(inicio);
+  inicioDoDia.setHours(0, 0, 0, 0);
+  const disponiveis = await horariosLivres({
+    barbeariaId: barbearia.id,
+    profissionalId: profissional.id,
+    data: inicioDoDia,
+    duracaoMinutos: servico.duracaoMinutos,
+  });
+  const aindaDisponivel = disponiveis.some((h) => h.getTime() === inicio.getTime());
+  if (!aindaDisponivel) {
+    return NextResponse.json(
+      { erro: "Esse horário não está mais disponível. Escolha outro." },
+      { status: 409 },
+    );
   }
 
   try {

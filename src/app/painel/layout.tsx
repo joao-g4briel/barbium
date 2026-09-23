@@ -16,6 +16,7 @@ export default async function LayoutPainel({
 
   const itensNav: ItemNavInferior[] = [
     { href: "/painel", rotulo: "Agenda", icone: "calendar" },
+    { href: "/painel/disponibilidade", rotulo: "Horários", icone: "clock" },
     { href: "/painel/clientes", rotulo: "Clientes", icone: "users" },
     { href: "/painel/servicos", rotulo: "Serviços", icone: "scissors" },
     ...(sessao.role === "DONO"

@@ -1,10 +1,15 @@
 import { prisma } from "./prisma";
+import type { DiaSemana } from "@prisma/client";
 
-// Expediente fixo pra todo mundo, por enquanto — todo profissional atende
-// nesse horário, todo dia da semana. Configurar expediente por barbeiro/dia
-// é uma melhoria natural pra depois, quando o cadastro de Equipe existir.
-export const HORARIO_ABERTURA = 9; // 09:00
-export const HORARIO_FECHAMENTO = 19; // 19:00
+const DIAS_SEMANA_POR_INDICE: DiaSemana[] = [
+  "DOMINGO",
+  "SEGUNDA",
+  "TERCA",
+  "QUARTA",
+  "QUINTA",
+  "SEXTA",
+  "SABADO",
+];
 
 export function proximosDias(quantidade: number): Date[] {
   const dias: Date[] = [];
@@ -18,6 +23,23 @@ export function proximosDias(quantidade: number): Date[] {
   return dias;
 }
 
+function horaParaMinutos(hora: string): number {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutosParaData(base: Date, minutosDoDia: number): Date {
+  const resultado = new Date(base);
+  resultado.setHours(0, 0, 0, 0);
+  resultado.setMinutes(minutosDoDia);
+  return resultado;
+}
+
+interface Intervalo {
+  inicio: Date;
+  fim: Date;
+}
+
 interface ParametrosHorariosLivres {
   barbeariaId: string;
   profissionalId: string;
@@ -25,32 +47,63 @@ interface ParametrosHorariosLivres {
   duracaoMinutos: number;
 }
 
-// Gera os horários possíveis dentro do expediente, em passos do tamanho do
-// serviço, e remove os que colidem com algum agendamento já confirmado
-// desse profissional naquele dia.
+// Gera os horários possíveis dentro do expediente do profissional pra
+// aquele dia da semana, e remove os que colidem com agendamentos já
+// confirmados, com o intervalo de almoço, ou com algum bloqueio de agenda
+// (folga, férias, trava de emergência).
 export async function horariosLivres({
   barbeariaId,
   profissionalId,
   data,
   duracaoMinutos,
 }: ParametrosHorariosLivres): Promise<Date[]> {
-  const inicioDoDia = new Date(data);
-  inicioDoDia.setHours(HORARIO_ABERTURA, 0, 0, 0);
-  const fimDoDia = new Date(data);
-  fimDoDia.setHours(HORARIO_FECHAMENTO, 0, 0, 0);
+  const diaSemana = DIAS_SEMANA_POR_INDICE[data.getDay()];
 
-  const agora = new Date();
-
-  const agendamentosDoDia = await prisma.agendamento.findMany({
-    where: {
-      barbeariaId,
-      barbeiroId: profissionalId,
-      status: { not: "CANCELADO" },
-      inicio: { gte: inicioDoDia, lt: fimDoDia },
-    },
-    select: { inicio: true, fim: true },
+  const expediente = await prisma.expedienteDia.findUnique({
+    where: { usuarioId_diaSemana: { usuarioId: profissionalId, diaSemana } },
   });
 
+  if (!expediente || !expediente.atende) return [];
+
+  const inicioDoDia = minutosParaData(data, horaParaMinutos(expediente.horaInicio));
+  const fimDoDia = minutosParaData(data, horaParaMinutos(expediente.horaFim));
+  if (fimDoDia <= inicioDoDia) return [];
+
+  const [agendamentosDoDia, bloqueiosRelevantes] = await Promise.all([
+    prisma.agendamento.findMany({
+      where: {
+        barbeariaId,
+        barbeiroId: profissionalId,
+        status: { not: "CANCELADO" },
+        inicio: { gte: inicioDoDia, lt: fimDoDia },
+      },
+      select: { inicio: true, fim: true },
+    }),
+    prisma.bloqueioAgenda.findMany({
+      where: {
+        usuarioId: profissionalId,
+        inicio: { lt: fimDoDia },
+        OR: [{ fim: null }, { fim: { gt: inicioDoDia } }],
+      },
+      select: { inicio: true, fim: true },
+    }),
+  ]);
+
+  const ocupados: Intervalo[] = [
+    ...agendamentosDoDia,
+    // Bloqueio indefinido (fim null, a trava de emergência) conta como
+    // ocupando o resto desse dia inteiro.
+    ...bloqueiosRelevantes.map((b) => ({ inicio: b.inicio, fim: b.fim ?? fimDoDia })),
+  ];
+
+  if (expediente.almocoInicio && expediente.almocoFim) {
+    ocupados.push({
+      inicio: minutosParaData(data, horaParaMinutos(expediente.almocoInicio)),
+      fim: minutosParaData(data, horaParaMinutos(expediente.almocoFim)),
+    });
+  }
+
+  const agora = new Date();
   const passoMs = duracaoMinutos * 60 * 1000;
   const livres: Date[] = [];
 
@@ -59,12 +112,10 @@ export async function horariosLivres({
     horario.getTime() + passoMs <= fimDoDia.getTime();
     horario = new Date(horario.getTime() + passoMs)
   ) {
-    if (horario < agora) continue; // não oferece horário que já passou
+    if (horario < agora) continue;
 
     const fimCandidato = new Date(horario.getTime() + passoMs);
-    const conflita = agendamentosDoDia.some(
-      (agendamento) => horario < agendamento.fim && fimCandidato > agendamento.inicio,
-    );
+    const conflita = ocupados.some((o) => horario < o.fim && fimCandidato > o.inicio);
 
     if (!conflita) livres.push(horario);
   }
