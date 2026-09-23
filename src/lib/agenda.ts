@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { diaDaSemanaBrasil, horarioBrasil } from "./fuso-brasil";
+import { horarioBrasil } from "./fuso-brasil";
 import type { DiaSemana } from "@prisma/client";
 
 const DIAS_SEMANA_POR_INDICE: DiaSemana[] = [
@@ -40,7 +40,12 @@ export async function horariosLivres({
   data,
   duracaoMinutos,
 }: ParametrosHorariosLivres): Promise<Date[]> {
-  const diaSemana = DIAS_SEMANA_POR_INDICE[diaDaSemanaBrasil(data)];
+  // `data` já chega como meia-noite UTC do dia certo em Brasília (ver o
+  // comentário no parâmetro) — não é um instante bruto que precise passar
+  // pela conversão de fuso de novo. Aplicar diaDaSemanaBrasil aqui seria
+  // subtrair 3h de um valor que já é meia-noite exata, empurrando pro dia
+  // anterior. Por isso é getUTCDay() direto, sem o helper de fuso.
+  const diaSemana = DIAS_SEMANA_POR_INDICE[data.getUTCDay()];
 
   const expediente = await prisma.expedienteDia.findUnique({
     where: { usuarioId_diaSemana: { usuarioId: profissionalId, diaSemana } },
