@@ -51,7 +51,7 @@ export async function GET(
   }
 
   const [ano, mes, dia] = dados.data.data.split("-").map(Number);
-  const dataAlvo = new Date(ano, mes - 1, dia);
+  const dataAlvo = new Date(Date.UTC(ano, mes - 1, dia));
 
   const livres = await horariosLivres({
     barbeariaId: barbearia.id,

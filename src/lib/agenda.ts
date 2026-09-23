@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { diaDaSemanaBrasil, horarioBrasil } from "./fuso-brasil";
 import type { DiaSemana } from "@prisma/client";
 
 const DIAS_SEMANA_POR_INDICE: DiaSemana[] = [
@@ -11,28 +12,9 @@ const DIAS_SEMANA_POR_INDICE: DiaSemana[] = [
   "SABADO",
 ];
 
-export function proximosDias(quantidade: number): Date[] {
-  const dias: Date[] = [];
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  for (let i = 0; i < quantidade; i++) {
-    const dia = new Date(hoje);
-    dia.setDate(dia.getDate() + i);
-    dias.push(dia);
-  }
-  return dias;
-}
-
 function horaParaMinutos(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
   return h * 60 + (m || 0);
-}
-
-function minutosParaData(base: Date, minutosDoDia: number): Date {
-  const resultado = new Date(base);
-  resultado.setHours(0, 0, 0, 0);
-  resultado.setMinutes(minutosDoDia);
-  return resultado;
 }
 
 interface Intervalo {
@@ -43,21 +25,22 @@ interface Intervalo {
 interface ParametrosHorariosLivres {
   barbeariaId: string;
   profissionalId: string;
-  data: Date; // qualquer horário do dia desejado — só a data importa
+  data: Date; // meia-noite UTC do dia desejado (ver inicioDoDiaBrasil)
   duracaoMinutos: number;
 }
 
 // Gera os horários possíveis dentro do expediente do profissional pra
 // aquele dia da semana, e remove os que colidem com agendamentos já
 // confirmados, com o intervalo de almoço, ou com algum bloqueio de agenda
-// (folga, férias, trava de emergência).
+// (folga, férias, trava de emergência). Todo o cálculo é no horário de
+// Brasília, não no fuso onde o servidor está rodando.
 export async function horariosLivres({
   barbeariaId,
   profissionalId,
   data,
   duracaoMinutos,
 }: ParametrosHorariosLivres): Promise<Date[]> {
-  const diaSemana = DIAS_SEMANA_POR_INDICE[data.getDay()];
+  const diaSemana = DIAS_SEMANA_POR_INDICE[diaDaSemanaBrasil(data)];
 
   const expediente = await prisma.expedienteDia.findUnique({
     where: { usuarioId_diaSemana: { usuarioId: profissionalId, diaSemana } },
@@ -65,8 +48,8 @@ export async function horariosLivres({
 
   if (!expediente || !expediente.atende) return [];
 
-  const inicioDoDia = minutosParaData(data, horaParaMinutos(expediente.horaInicio));
-  const fimDoDia = minutosParaData(data, horaParaMinutos(expediente.horaFim));
+  const inicioDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaInicio));
+  const fimDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaFim));
   if (fimDoDia <= inicioDoDia) return [];
 
   const [agendamentosDoDia, bloqueiosRelevantes] = await Promise.all([
@@ -98,8 +81,8 @@ export async function horariosLivres({
 
   if (expediente.almocoInicio && expediente.almocoFim) {
     ocupados.push({
-      inicio: minutosParaData(data, horaParaMinutos(expediente.almocoInicio)),
-      fim: minutosParaData(data, horaParaMinutos(expediente.almocoFim)),
+      inicio: horarioBrasil(data, horaParaMinutos(expediente.almocoInicio)),
+      fim: horarioBrasil(data, horaParaMinutos(expediente.almocoFim)),
     });
   }
 

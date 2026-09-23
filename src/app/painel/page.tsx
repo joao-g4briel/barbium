@@ -1,5 +1,6 @@
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
+import { inicioDoDiaBrasil, fimDoDiaBrasil } from "@/lib/fuso-brasil";
 import { ROTULO_STATUS, classeBadgeStatus } from "@/lib/status-agendamento";
 import { AcoesAgendamento } from "@/components/acoes-agendamento";
 
@@ -7,10 +8,9 @@ export default async function AgendaDoDia() {
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
 
-  const inicioDoDia = new Date();
-  inicioDoDia.setHours(0, 0, 0, 0);
-  const fimDoDia = new Date();
-  fimDoDia.setHours(23, 59, 59, 999);
+  const agora = new Date();
+  const inicioDoDia = inicioDoDiaBrasil(agora);
+  const fimDoDia = fimDoDiaBrasil(agora);
 
   const agendamentosHoje = await prisma.agendamento.findMany({
     where: {

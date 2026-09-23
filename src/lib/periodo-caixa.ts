@@ -1,3 +1,5 @@
+import { inicioDoDiaBrasil, fimDoDiaBrasil } from "./fuso-brasil";
+
 export type PeriodoCaixa = "hoje" | "semana" | "mes";
 
 export const ROTULO_PERIODO: Record<PeriodoCaixa, string> = {
@@ -7,18 +9,17 @@ export const ROTULO_PERIODO: Record<PeriodoCaixa, string> = {
 };
 
 export function intervaloPeriodo(periodo: PeriodoCaixa): { inicio: Date; fim: Date } {
-  const fim = new Date();
-  fim.setHours(23, 59, 59, 999);
+  const agora = new Date();
+  const fim = fimDoDiaBrasil(agora);
+  const hojeInicio = inicioDoDiaBrasil(agora);
 
-  const inicio = new Date();
+  let inicio: Date;
   if (periodo === "hoje") {
-    inicio.setHours(0, 0, 0, 0);
+    inicio = hojeInicio;
   } else if (periodo === "semana") {
-    inicio.setDate(inicio.getDate() - 6);
-    inicio.setHours(0, 0, 0, 0);
+    inicio = new Date(hojeInicio.getTime() - 6 * 24 * 60 * 60 * 1000);
   } else {
-    inicio.setDate(1);
-    inicio.setHours(0, 0, 0, 0);
+    inicio = new Date(Date.UTC(hojeInicio.getUTCFullYear(), hojeInicio.getUTCMonth(), 1));
   }
 
   return { inicio, fim };

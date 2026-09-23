@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
+import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -63,8 +64,7 @@ export async function POST(
   // horário, almoço) e não cai em cima de um bloqueio — reaproveita a
   // mesma função que gera a lista de horários oferecidos, pra não ter
   // duas regras de negócio diferentes que podem se desalinhar.
-  const inicioDoDia = new Date(inicio);
-  inicioDoDia.setHours(0, 0, 0, 0);
+  const inicioDoDia = inicioDoDiaBrasil(inicio);
   const disponiveis = await horariosLivres({
     barbeariaId: barbearia.id,
     profissionalId: profissional.id,
