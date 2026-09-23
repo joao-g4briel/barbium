@@ -5,6 +5,12 @@
 // suficiente, sem precisar de biblioteca de fuso horário.
 const OFFSET_MINUTOS = 180;
 
+// Pra usar em toLocaleTimeString/toLocaleDateString em qualquer tela que
+// renderiza no servidor (Server Component) — sem isso, o navegador do
+// servidor (UTC na Vercel) formata a hora errada, mesmo com locale "pt-BR"
+// certo. O locale controla o idioma/formato; o fuso é outra opção, à parte.
+export const FUSO_BRASIL = "America/Sao_Paulo";
+
 // Meia-noite (como instante UTC) do dia de calendário em que esse
 // instante cai no horário de Brasília. Uso típico: "que dia é hoje" ou
 // "em que dia da semana isso cai", sem depender do fuso do servidor.

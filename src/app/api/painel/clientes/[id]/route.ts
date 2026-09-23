@@ -61,3 +61,40 @@ export async function PATCH(
 
   return NextResponse.json({ cliente });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const sessao = await exigirUsuarioDaBarbearia().catch(() => null);
+  if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 403 });
+
+  if (sessao.role !== "DONO") {
+    return NextResponse.json(
+      { erro: "Só o dono da barbearia pode excluir clientes." },
+      { status: 403 },
+    );
+  }
+
+  const { id } = await params;
+  const cliente = await prisma.cliente.findUnique({ where: { id } });
+  if (!cliente || cliente.barbeariaId !== sessao.barbeariaId) {
+    return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
+  }
+
+  // Nunca apaga um cliente com histórico — perderia o registro dos
+  // agendamentos (e, por tabela, do caixa). Só dá pra excluir quem nunca
+  // teve nenhum atendimento, tipo um cadastro de teste feito por engano.
+  const totalAgendamentos = await prisma.agendamento.count({ where: { clienteId: id } });
+  if (totalAgendamentos > 0) {
+    return NextResponse.json(
+      {
+        erro: `Esse cliente tem ${totalAgendamentos} agendamento(s) no histórico — não dá pra excluir.`,
+      },
+      { status: 400 },
+    );
+  }
+
+  await prisma.cliente.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

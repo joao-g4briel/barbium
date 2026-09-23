@@ -1,6 +1,6 @@
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
-import { inicioDoDiaBrasil, fimDoDiaBrasil } from "@/lib/fuso-brasil";
+import { inicioDoDiaBrasil, fimDoDiaBrasil, FUSO_BRASIL } from "@/lib/fuso-brasil";
 import { ROTULO_STATUS, classeBadgeStatus } from "@/lib/status-agendamento";
 import { AcoesAgendamento } from "@/components/acoes-agendamento";
 
@@ -43,6 +43,7 @@ export default async function AgendaDoDia() {
                   {agendamento.inicio.toLocaleTimeString("pt-BR", {
                     hour: "2-digit",
                     minute: "2-digit",
+                    timeZone: FUSO_BRASIL,
                   })}{" "}
                   — {agendamento.cliente.nome}
                 </div>

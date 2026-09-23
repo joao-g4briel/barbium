@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
+import { FUSO_BRASIL } from "@/lib/fuso-brasil";
 import { ROTULO_STATUS as ROTULO_STATUS_AGENDAMENTO, classeBadgeStatus } from "@/lib/status-agendamento";
 import { FormularioEditarCliente } from "./formulario-editar-cliente";
 import { SecaoAssinatura } from "./secao-assinatura";
+import { BotaoExcluirCliente } from "./botao-excluir-cliente";
 
 export default async function DetalheCliente({
   params,
@@ -42,6 +44,8 @@ export default async function DetalheCliente({
         </div>
       )}
 
+      {souDono && <BotaoExcluirCliente clienteId={cliente.id} />}
+
       {souDono && (
         <SecaoAssinatura
           clienteId={cliente.id}
@@ -67,11 +71,13 @@ export default async function DetalheCliente({
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
+                      timeZone: FUSO_BRASIL,
                     })}{" "}
                     às{" "}
                     {agendamento.inicio.toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
                       minute: "2-digit",
+                      timeZone: FUSO_BRASIL,
                     })}
                   </div>
                   <div className="item-row-sub">

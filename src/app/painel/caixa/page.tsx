@@ -7,6 +7,7 @@ import {
   ROTULO_PERIODO,
   type PeriodoCaixa,
 } from "@/lib/periodo-caixa";
+import { FUSO_BRASIL } from "@/lib/fuso-brasil";
 import { BotaoExcluirLancamento } from "./botao-excluir-lancamento";
 
 function formatarPreco(valor: unknown): string {
@@ -115,6 +116,7 @@ export default async function PaginaCaixa({
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
+                    timeZone: FUSO_BRASIL,
                   })}
                 </div>
               </div>
