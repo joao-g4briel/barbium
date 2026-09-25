@@ -19,12 +19,15 @@ export default async function DetalheCliente({
   const cliente = await prisma.cliente.findUnique({ where: { id } });
   if (!cliente || cliente.barbeariaId !== sessao.barbeariaId) notFound();
 
-  const agendamentos = await prisma.agendamento.findMany({
-    where: { clienteId: cliente.id },
-    orderBy: { inicio: "desc" },
-    take: 10,
-    include: { servico: true, barbeiro: true },
-  });
+  const [agendamentos, totalAgendamentos] = await Promise.all([
+    prisma.agendamento.findMany({
+      where: { clienteId: cliente.id },
+      orderBy: { inicio: "desc" },
+      take: 10,
+      include: { servico: true, barbeiro: true },
+    }),
+    prisma.agendamento.count({ where: { clienteId: cliente.id } }),
+  ]);
 
   const souDono = sessao.role === "DONO";
 
@@ -44,7 +47,7 @@ export default async function DetalheCliente({
         </div>
       )}
 
-      {souDono && <BotaoExcluirCliente clienteId={cliente.id} />}
+      {souDono && <BotaoExcluirCliente clienteId={cliente.id} totalAgendamentos={totalAgendamentos} />}
 
       {souDono && (
         <SecaoAssinatura

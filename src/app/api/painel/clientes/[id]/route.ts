@@ -82,19 +82,24 @@ export async function DELETE(
     return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
   }
 
-  // Nunca apaga um cliente com histórico — perderia o registro dos
-  // agendamentos (e, por tabela, do caixa). Só dá pra excluir quem nunca
-  // teve nenhum atendimento, tipo um cadastro de teste feito por engano.
-  const totalAgendamentos = await prisma.agendamento.count({ where: { clienteId: id } });
-  if (totalAgendamentos > 0) {
-    return NextResponse.json(
-      {
-        erro: `Esse cliente tem ${totalAgendamentos} agendamento(s) no histórico — não dá pra excluir.`,
-      },
-      { status: 400 },
-    );
-  }
+  // Apaga em cascata: primeiro os lançamentos de caixa ligados aos
+  // agendamentos desse cliente, depois os agendamentos, depois o cliente.
+  // É uma exclusão de verdade — o confirm() do botão já avisa isso antes
+  // de chegar aqui.
+  await prisma.$transaction(async (tx) => {
+    const agendamentosDoCliente = await tx.agendamento.findMany({
+      where: { clienteId: id },
+      select: { id: true },
+    });
+    const agendamentoIds = agendamentosDoCliente.map((a) => a.id);
 
-  await prisma.cliente.delete({ where: { id } });
+    if (agendamentoIds.length > 0) {
+      await tx.caixaLancamento.deleteMany({ where: { agendamentoId: { in: agendamentoIds } } });
+      await tx.agendamento.deleteMany({ where: { clienteId: id } });
+    }
+
+    await tx.cliente.delete({ where: { id } });
+  });
+
   return NextResponse.json({ ok: true });
 }
