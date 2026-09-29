@@ -1,28 +1,32 @@
-import { inicioDoDiaBrasil, fimDoDiaBrasil } from "./fuso-brasil";
+import { inicioDoDiaBrasil, horarioBrasil } from "./fuso-brasil";
 
 export type PeriodoCaixa = "hoje" | "semana" | "mes";
 
 export const ROTULO_PERIODO: Record<PeriodoCaixa, string> = {
   hoje: "Hoje",
-  semana: "Esta semana",
+  semana: "Últimos 7 dias",
   mes: "Este mês",
 };
 
+// Instantes reais em Brasília: da 00:00 do primeiro dia até 23:59:59.999
+// de hoje. inicioDoDiaBrasil devolve o DIA de calendário (meia-noite UTC);
+// usar esse valor direto como instante deslocava o período em 3 horas.
 export function intervaloPeriodo(periodo: PeriodoCaixa): { inicio: Date; fim: Date } {
-  const agora = new Date();
-  const fim = fimDoDiaBrasil(agora);
-  const hojeInicio = inicioDoDiaBrasil(agora);
+  const hoje = inicioDoDiaBrasil(new Date());
 
-  let inicio: Date;
+  let primeiroDia: Date;
   if (periodo === "hoje") {
-    inicio = hojeInicio;
+    primeiroDia = hoje;
   } else if (periodo === "semana") {
-    inicio = new Date(hojeInicio.getTime() - 6 * 24 * 60 * 60 * 1000);
+    primeiroDia = new Date(hoje.getTime() - 6 * 24 * 60 * 60 * 1000);
   } else {
-    inicio = new Date(Date.UTC(hojeInicio.getUTCFullYear(), hojeInicio.getUTCMonth(), 1));
+    primeiroDia = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1));
   }
 
-  return { inicio, fim };
+  return {
+    inicio: horarioBrasil(primeiroDia, 0),
+    fim: new Date(horarioBrasil(hoje, 24 * 60).getTime() - 1),
+  };
 }
 
 export function periodoValido(valor: string | undefined): PeriodoCaixa {

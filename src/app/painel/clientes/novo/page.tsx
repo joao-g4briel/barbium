@@ -1,10 +1,22 @@
+import type { Metadata } from "next";
+import { obterSessao } from "@/lib/sessao";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { FormularioNovoCliente } from "./formulario-novo-cliente";
 
-export default function NovoCliente() {
+export const metadata: Metadata = { title: "Novo cliente" };
+
+export default async function NovoCliente() {
+  const sessao = await obterSessao();
+
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Novo cliente</h1>
-      <FormularioNovoCliente />
-    </div>
+    <>
+      <CabecalhoPagina titulo="Novo cliente" voltar={{ href: "/painel/clientes", rotulo: "Clientes" }} />
+      {sessao?.role === "DONO" ? (
+        <FormularioNovoCliente />
+      ) : (
+        <AcessoRestrito descricao="Só o dono da barbearia pode cadastrar clientes manualmente." />
+      )}
+    </>
   );
 }

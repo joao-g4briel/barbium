@@ -1,28 +1,31 @@
+import type { Metadata } from "next";
+import { Marca } from "@/components/ui/marca";
 import { FormularioLogin } from "./formulario-login";
 
-export default async function PaginaLogin({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string }>;
-}) {
+export const metadata: Metadata = { title: "Entrar" };
+
+// Só aceita redirecionar pra dentro do próprio app depois do login.
+function rotaSegura(valor: string | undefined): string | null {
+  if (!valor || !valor.startsWith("/") || valor.startsWith("//")) return null;
+  return valor;
+}
+
+export default async function PaginaLogin({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
 
   return (
-    <main
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <span style={{ fontWeight: 900, fontSize: "1.5rem", letterSpacing: "0.03em" }}>
-            BARB<span style={{ color: "var(--neon)" }}>IUM</span>
-          </span>
+    <main className="auth">
+      <div className="auth-caixa">
+        <div className="auth-cabecalho">
+          <Marca variante="login" tamanho={28} />
+          <div>
+            <h1 className="auth-titulo">Entrar no painel</h1>
+            <p className="auth-subtitulo">Agenda, clientes e caixa da sua barbearia.</p>
+          </div>
         </div>
-        <FormularioLogin proximaRota={next ?? null} />
+        <div className="card" style={{ padding: 24 }}>
+          <FormularioLogin proximaRota={rotaSegura(next)} />
+        </div>
       </div>
     </main>
   );

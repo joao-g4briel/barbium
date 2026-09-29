@@ -1,10 +1,22 @@
-import { FormularioNovoServico } from "./formulario-novo-servico";
+import type { Metadata } from "next";
+import { obterSessao } from "@/lib/sessao";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { AcessoRestrito } from "@/components/ui/acesso-restrito";
+import { FormularioServico } from "../formulario-servico";
 
-export default function NovoServico() {
+export const metadata: Metadata = { title: "Novo serviço" };
+
+export default async function NovoServico() {
+  const sessao = await obterSessao();
+
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Novo serviço</h1>
-      <FormularioNovoServico />
-    </div>
+    <>
+      <CabecalhoPagina titulo="Novo serviço" voltar={{ href: "/painel/servicos", rotulo: "Serviços" }} />
+      {sessao?.role === "DONO" ? (
+        <FormularioServico />
+      ) : (
+        <AcessoRestrito descricao="Só o dono da barbearia cadastra serviços, preços e comissões." />
+      )}
+    </>
   );
 }

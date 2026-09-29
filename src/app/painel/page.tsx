@@ -1,262 +1,331 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  ArrowRight,
+  CalendarCheck,
+  CalendarX2,
+  CheckCircle2,
+  CircleSlash,
+  Clock,
+  Receipt,
+  Wallet,
+} from "lucide-react";
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
+import { obterBarbearia } from "@/lib/barbearia-atual";
+import { inicioDoDiaBrasil, horarioBrasil } from "@/lib/fuso-brasil";
 import {
-  inicioDoDiaBrasil,
-  fimDoDiaBrasil,
-  fimDesseDiaCalendario,
-  FUSO_BRASIL,
-} from "@/lib/fuso-brasil";
-import { ROTULO_STATUS, classeBadgeStatus } from "@/lib/status-agendamento";
-import { AcoesAgendamento } from "@/components/acoes-agendamento";
-import type { Agendamento, Cliente, Servico, Usuario } from "@prisma/client";
+  capitalizar,
+  formatarDataInstante,
+  formatarHora,
+  formatarMoeda,
+  formatarTempoAte,
+} from "@/lib/formatar";
+import { INCLUIR_AGENDAMENTO_COMPLETO, paraAgendamentoVM } from "@/lib/agenda-vm";
+import { obterAssinaturasAVencer } from "@/lib/dashboard-painel";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { Indicador } from "@/components/ui/indicador";
+import { EstadoVazio } from "@/components/ui/estado-vazio";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { AgendaInterativa } from "@/components/agenda/agenda-interativa";
+import { BotaoNovoAgendamento } from "@/components/agenda/botao-novo-agendamento";
 
-type Visualizacao = "dia" | "semana" | "mes" | "periodo";
+export const metadata: Metadata = { title: "Visão geral" };
 
-const ROTULO_ABA: Record<Visualizacao, string> = {
-  dia: "Dia",
-  semana: "Semana",
-  mes: "Mês",
-  periodo: "Período",
-};
-
-// Estas datas representam só um DIA DE CALENDÁRIO (meia-noite UTC que já
-// significa "esse dia em Brasília" — ver fuso-brasil.ts), não um instante
-// real. Por isso são formatadas com timeZone "UTC": ler os componentes
-// como estão, sem converter de novo — converter de novo é o mesmo tipo de
-// bug de 3 horas que já corrigimos, só que ao contrário.
-function chaveDia(data: Date): string {
-  const ano = data.getUTCFullYear();
-  const mes = String(data.getUTCMonth() + 1).padStart(2, "0");
-  const dia = String(data.getUTCDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-}
-
-function rotuloDiaCompleto(data: Date): string {
-  const rotulo = data.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    timeZone: "UTC",
-  });
-  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
-}
-
-function rotuloDiaCurto(data: Date): string {
-  const rotulo = data.toLocaleDateString("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "UTC",
-  });
-  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
-}
-
-function parseDataParam(valor: string | undefined): Date {
-  if (valor && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
-    const [ano, mes, dia] = valor.split("-").map(Number);
-    return new Date(Date.UTC(ano, mes - 1, dia));
-  }
-  return inicioDoDiaBrasil(new Date());
-}
-
-function somarDias(data: Date, dias: number): Date {
-  return new Date(data.getTime() + dias * 24 * 60 * 60 * 1000);
-}
-
-function somarMeses(data: Date, meses: number): Date {
-  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth() + meses, 1));
-}
-
-type AgendamentoCompleto = Agendamento & { cliente: Cliente; servico: Servico; barbeiro: Usuario };
-
-function LinhaAgendamento({ agendamento, mostrarBarbeiro }: { agendamento: AgendamentoCompleto; mostrarBarbeiro: boolean }) {
-  return (
-    <div className="card item-row">
-      <div className="item-row-main">
-        <div className="item-row-title">
-          {agendamento.inicio.toLocaleTimeString("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: FUSO_BRASIL,
-          })}{" "}
-          — {agendamento.cliente.nome}
-        </div>
-        <div className="item-row-sub">
-          {agendamento.servico.nome}
-          {mostrarBarbeiro && ` · ${agendamento.barbeiro.nome}`}
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span className={classeBadgeStatus(agendamento.status)}>
-          {ROTULO_STATUS[agendamento.status]}
-        </span>
-        <AcoesAgendamento id={agendamento.id} status={agendamento.status} />
-      </div>
-    </div>
-  );
-}
-
-export default async function PaginaAgenda({
+export default async function VisaoGeral({
   searchParams,
 }: {
-  searchParams: Promise<{ visualizacao?: string; data?: string; de?: string; ate?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  // A agenda morava em /painel?visualizacao=…&data=…; links antigos seguem
+  // funcionando e caem na agenda nova.
+  const params = await searchParams;
+  if (params.visualizacao || params.data || params.de || params.ate) {
+    const busca = new URLSearchParams();
+    for (const chave of ["visualizacao", "data", "de", "ate"]) {
+      const valor = params[chave];
+      if (valor) busca.set(chave, valor);
+    }
+    redirect(`/painel/agenda?${busca.toString()}`);
+  }
+
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
+  const barbeariaId = sessao.barbeariaId;
+  const souDono = sessao.role === "DONO";
 
-  const params = await searchParams;
-  const visualizacao: Visualizacao =
-    params.visualizacao === "semana" || params.visualizacao === "mes" || params.visualizacao === "periodo"
-      ? params.visualizacao
-      : "dia";
+  const agora = new Date();
+  const hoje = inicioDoDiaBrasil(agora);
+  const inicioHoje = horarioBrasil(hoje, 0);
+  const fimHoje = new Date(horarioBrasil(hoje, 24 * 60).getTime() - 1);
 
-  const dataRef = parseDataParam(params.data);
+  const [barbearia, agendamentos, profissionais, entradasHoje, ultimosLancamentos, assinaturas] = await Promise.all([
+    obterBarbearia(barbeariaId),
+    prisma.agendamento.findMany({
+      where: {
+        barbeariaId,
+        inicio: { gte: inicioHoje, lte: fimHoje },
+        ...(souDono ? {} : { barbeiroId: sessao.sub }),
+      },
+      orderBy: { inicio: "asc" },
+      include: INCLUIR_AGENDAMENTO_COMPLETO,
+    }),
+    souDono
+      ? prisma.usuario.findMany({
+          where: { barbeariaId, ativo: true, role: { in: ["DONO", "BARBEIRO"] } },
+          select: { id: true, nome: true },
+          orderBy: { nome: "asc" },
+        })
+      : Promise.resolve([]),
+    souDono
+      ? prisma.caixaLancamento.aggregate({
+          where: { barbeariaId, tipo: "ENTRADA", criadoEm: { gte: inicioHoje, lte: fimHoje } },
+          _sum: { valor: true },
+        })
+      : Promise.resolve(null),
+    souDono
+      ? prisma.caixaLancamento.findMany({
+          where: { barbeariaId },
+          orderBy: { criadoEm: "desc" },
+          take: 5,
+        })
+      : Promise.resolve([]),
+    souDono ? obterAssinaturasAVencer(barbeariaId) : Promise.resolve([]),
+  ]);
 
-  let inicio: Date;
-  let fim: Date;
+  const ativos = agendamentos.filter((a) => a.status !== "CANCELADO");
+  const concluidos = agendamentos.filter((a) => a.status === "CONCLUIDO");
+  const confirmados = agendamentos.filter((a) => a.status === "CONFIRMADO");
+  const cancelados = agendamentos.filter((a) => a.status === "CANCELADO").length;
+  const faltas = agendamentos.filter((a) => a.status === "FALTA").length;
 
-  if (visualizacao === "semana") {
-    // Calculado direto aqui, sem os helpers de fuso: dataRef já é um dia
-    // puro de calendário (sem precisar de conversão), e os helpers
-    // inicioDaSemanaBrasil/fimDaSemanaBrasil esperam um instante real —
-    // usá-los aqui empurraria a semana inteira um domingo pra trás, de
-    // novo o mesmo tipo de bug que já corrigimos em outros lugares.
-    const indiceDiaSemana = dataRef.getUTCDay(); // 0 = domingo
-    inicio = somarDias(dataRef, -indiceDiaSemana);
-    fim = fimDesseDiaCalendario(somarDias(inicio, 6));
-  } else if (visualizacao === "mes") {
-    // Mesma lógica: dataRef já é dia puro, não precisa (e não pode) passar
-    // pelos helpers de conversão de fuso, que assumem um instante real.
-    inicio = new Date(Date.UTC(dataRef.getUTCFullYear(), dataRef.getUTCMonth(), 1));
-    fim = new Date(Date.UTC(dataRef.getUTCFullYear(), dataRef.getUTCMonth() + 1, 1) - 1);
-  } else if (visualizacao === "periodo") {
-    inicio = params.de ? parseDataParam(params.de) : inicioDoDiaBrasil(new Date());
-    fim = params.ate ? fimDesseDiaCalendario(parseDataParam(params.ate)) : fimDoDiaBrasil(new Date());
-  } else {
-    inicio = dataRef;
-    fim = fimDesseDiaCalendario(dataRef);
-  }
+  // Recebido = o que já entrou no caixa hoje (concluir um atendimento lança
+  // a entrada automaticamente). A receber = confirmados de hoje que ainda
+  // não foram concluídos — é previsão, não dinheiro em caixa.
+  const recebido = Number(entradasHoje?._sum.valor ?? 0);
+  const aReceber = confirmados.reduce((soma, a) => soma + Number(a.servico.preco), 0);
 
-  const agendamentos = await prisma.agendamento.findMany({
-    where: {
-      barbeariaId: sessao.barbeariaId,
-      inicio: { gte: inicio, lte: fim },
-      ...(sessao.role === "BARBEIRO" ? { barbeiroId: sessao.sub } : {}),
-    },
-    orderBy: { inicio: "asc" },
-    include: { cliente: true, servico: true, barbeiro: true },
-  });
-
-  const mostrarBarbeiro = sessao.role === "DONO";
-  const agrupaPorDia = visualizacao !== "dia";
-
-  const grupos = new Map<string, { data: Date; itens: AgendamentoCompleto[] }>();
-  if (agrupaPorDia) {
-    for (const agendamento of agendamentos) {
-      const diaAg = inicioDoDiaBrasil(agendamento.inicio);
-      const chave = chaveDia(diaAg);
-      if (!grupos.has(chave)) grupos.set(chave, { data: diaAg, itens: [] });
-      grupos.get(chave)!.itens.push(agendamento);
-    }
-  }
-  const gruposOrdenados = [...grupos.values()].sort((a, b) => a.data.getTime() - b.data.getTime());
-
-  // Rótulo do período e alvos de navegação (anterior/próximo), um por aba.
-  let rotuloPeriodo = "";
-  let hrefAnterior = "";
-  let hrefProximo = "";
-
-  if (visualizacao === "dia") {
-    rotuloPeriodo = rotuloDiaCompleto(dataRef);
-    hrefAnterior = `/painel?visualizacao=dia&data=${chaveDia(somarDias(dataRef, -1))}`;
-    hrefProximo = `/painel?visualizacao=dia&data=${chaveDia(somarDias(dataRef, 1))}`;
-  } else if (visualizacao === "semana") {
-    const rotuloInicio = inicio.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" });
-    const rotuloFim = fim.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" });
-    rotuloPeriodo = `${rotuloInicio} a ${rotuloFim}`;
-    hrefAnterior = `/painel?visualizacao=semana&data=${chaveDia(somarDias(inicio, -7))}`;
-    hrefProximo = `/painel?visualizacao=semana&data=${chaveDia(somarDias(inicio, 7))}`;
-  } else if (visualizacao === "mes") {
-    const rotuloMes = inicio.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
-    rotuloPeriodo = rotuloMes.charAt(0).toUpperCase() + rotuloMes.slice(1);
-    hrefAnterior = `/painel?visualizacao=mes&data=${chaveDia(somarMeses(inicio, -1))}`;
-    hrefProximo = `/painel?visualizacao=mes&data=${chaveDia(somarMeses(inicio, 1))}`;
-  }
+  const proximos = confirmados.filter((a) => a.fim > agora).slice(0, 4);
+  const mostrarGrade = souDono && profissionais.length >= 2;
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Agenda</h1>
+    <>
+      <CabecalhoPagina
+        titulo="Visão geral"
+        descricao={`Hoje, ${formatarDataInstante(agora, { weekday: "long", day: "2-digit", month: "long" })}`}
+        acoes={<BotaoNovoAgendamento slug={barbearia?.slug} />}
+      />
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {(Object.keys(ROTULO_ABA) as Visualizacao[]).map((v) => (
-          <Link
-            key={v}
-            href={`/painel?visualizacao=${v}&data=${chaveDia(dataRef)}`}
-            className="btn btn-ghost btn-sm"
-            style={{
-              borderColor: v === visualizacao ? "var(--neon)" : undefined,
-              color: v === visualizacao ? "var(--neon)" : undefined,
-            }}
-          >
-            {ROTULO_ABA[v]}
-          </Link>
-        ))}
-      </div>
+      <div className="pilha">
+        <section aria-label="Resumo de hoje" className="indicadores">
+          {souDono ? (
+            <Indicador
+              rotulo="Recebido hoje"
+              valor={formatarMoeda(recebido)}
+              tomValor={recebido > 0 ? "positivo" : undefined}
+              icone={<Wallet size={22} />}
+              tomIcone="primario"
+              detalhe={
+                aReceber > 0
+                  ? `${formatarMoeda(aReceber)} a receber de ${confirmados.length} ${confirmados.length === 1 ? "confirmado" : "confirmados"}`
+                  : "Nada pendente para hoje"
+              }
+            />
+          ) : (
+            <Indicador
+              rotulo="Pela frente"
+              valor={proximos.length}
+              icone={<Clock size={22} />}
+              tomIcone="primario"
+              detalhe={proximos[0] ? `Próximo às ${formatarHora(proximos[0].inicio)}` : "Nenhum atendimento restante"}
+            />
+          )}
+          <Indicador
+            rotulo="Agendamentos"
+            valor={ativos.length}
+            icone={<CalendarCheck size={22} />}
+            detalhe={`${confirmados.length} ${confirmados.length === 1 ? "confirmado" : "confirmados"}`}
+          />
+          <Indicador
+            rotulo="Concluídos"
+            valor={concluidos.length}
+            icone={<CheckCircle2 size={22} />}
+            detalhe={ativos.length > 0 ? `de ${ativos.length} ${ativos.length === 1 ? "agendamento" : "agendamentos"}` : "Nenhum atendimento ainda"}
+          />
+          <Indicador
+            rotulo="Cancelamentos"
+            valor={cancelados + faltas}
+            icone={<CircleSlash size={22} />}
+            detalhe={`${cancelados} ${cancelados === 1 ? "cancelado" : "cancelados"} · ${faltas} ${faltas === 1 ? "falta" : "faltas"}`}
+          />
+        </section>
 
-      {visualizacao === "periodo" ? (
-        <form method="get" className="card" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
-          <input type="hidden" name="visualizacao" value="periodo" />
-          <div>
-            <label htmlFor="de">De</label>
-            <input id="de" type="date" name="de" className="input" defaultValue={params.de ?? ""} />
-          </div>
-          <div>
-            <label htmlFor="ate">Até</label>
-            <input id="ate" type="date" name="ate" className="input" defaultValue={params.ate ?? ""} />
-          </div>
-          <button type="submit" className="btn btn-primary btn-sm">
-            Ver
-          </button>
-        </form>
-      ) : (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <Link href={hrefAnterior} className="btn btn-ghost btn-sm">
-            ← Anterior
-          </Link>
-          <strong style={{ textAlign: "center" }}>{rotuloPeriodo}</strong>
-          <Link href={hrefProximo} className="btn btn-ghost btn-sm">
-            Próximo →
-          </Link>
-        </div>
-      )}
-
-      {agendamentos.length === 0 ? (
-        <div className="card">
-          <p style={{ margin: 0, color: "var(--muted)" }}>Nenhum agendamento nesse período.</p>
-        </div>
-      ) : agrupaPorDia ? (
-        <div style={{ display: "grid", gap: 20 }}>
-          {gruposOrdenados.map((grupo) => (
-            <div key={chaveDia(grupo.data)}>
-              <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: "0 0 8px" }}>
-                {rotuloDiaCurto(grupo.data)}
-              </p>
-              <div className="item-list">
-                {grupo.itens.map((agendamento) => (
-                  <LinhaAgendamento key={agendamento.id} agendamento={agendamento} mostrarBarbeiro={mostrarBarbeiro} />
-                ))}
-              </div>
+        <div className="grade-painel grade-painel-2-1">
+          <section className="card card-sem-padding" aria-labelledby="titulo-agenda-hoje">
+            <div className="card-cabecalho">
+              <h2 id="titulo-agenda-hoje" className="card-titulo">
+                Agenda de hoje
+              </h2>
+              <Link href="/painel/agenda" className="link texto-pequeno">
+                Abrir agenda <ArrowRight size={16} aria-hidden="true" />
+              </Link>
             </div>
-          ))}
+            <div className={agendamentos.length > 0 ? "card-corpo" : undefined}>
+              <AgendaInterativa
+                emCard
+                grupos={[{ chave: "hoje", rotulo: "", itens: agendamentos.map(paraAgendamentoVM) }]}
+                agora={agora.toISOString()}
+                mostrarProfissional={souDono}
+                grade={mostrarGrade ? { inicioDia: inicioHoje.toISOString(), profissionais } : null}
+                vazio={
+                  <EstadoVazio
+                    icone={<CalendarX2 size={22} />}
+                    titulo="Nenhum agendamento hoje"
+                    descricao="Compartilhe o link de agendamento da barbearia para receber novos horários."
+                  />
+                }
+              />
+            </div>
+          </section>
+
+          <section className="card card-sem-padding" aria-labelledby="titulo-proximos">
+            <div className="card-cabecalho">
+              <h2 id="titulo-proximos" className="card-titulo">
+                Próximos clientes
+              </h2>
+              <Link href="/painel/agenda" className="link texto-pequeno">
+                Ver agenda <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+            {proximos.length === 0 ? (
+              <EstadoVazio
+                compacto
+                icone={<Clock size={22} />}
+                titulo="Nenhum atendimento pela frente"
+                descricao={ativos.length > 0 ? "Todos os horários de hoje já passaram." : "Não há agendamentos para hoje."}
+              />
+            ) : (
+              <ol className="proximos" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                {proximos.map((a) => {
+                  const minutos = (a.inicio.getTime() - agora.getTime()) / 60000;
+                  return (
+                    <li key={a.id} className="proximo">
+                      <div>
+                        <time className="proximo-hora" dateTime={a.inicio.toISOString()}>
+                          {formatarHora(a.inicio)}
+                        </time>
+                        <p className="proximo-relativo">{capitalizar(formatarTempoAte(minutos))}</p>
+                      </div>
+                      <div className="proximo-texto">
+                        <p className="lista-item-titulo">{a.cliente.nome}</p>
+                        <p className="lista-item-sub">
+                          {a.servico.nome}
+                          {souDono && ` · ${a.barbeiro.nome}`}
+                        </p>
+                      </div>
+                      {minutos <= 0 ? (
+                        <Badge tom="sucesso" icone={<Clock size={13} strokeWidth={2.2} aria-hidden="true" />}>
+                          Agora
+                        </Badge>
+                      ) : (
+                        <StatusBadge status={a.status} />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
         </div>
-      ) : (
-        <div className="item-list">
-          {agendamentos.map((agendamento) => (
-            <LinhaAgendamento key={agendamento.id} agendamento={agendamento} mostrarBarbeiro={mostrarBarbeiro} />
-          ))}
-        </div>
-      )}
-    </div>
+
+        {souDono && (
+          <div className={`grade-painel${assinaturas.length > 0 ? " grade-painel-2-1" : ""}`}>
+            <section className="card card-sem-padding" aria-labelledby="titulo-lancamentos">
+              <div className="card-cabecalho">
+                <h2 id="titulo-lancamentos" className="card-titulo">
+                  Últimos lançamentos
+                </h2>
+                <Link href="/painel/caixa" className="link texto-pequeno">
+                  Ver financeiro <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </div>
+              {ultimosLancamentos.length === 0 ? (
+                <EstadoVazio
+                  compacto
+                  icone={<Receipt size={22} />}
+                  titulo="Nenhum lançamento ainda"
+                  descricao="Atendimentos concluídos entram no caixa automaticamente."
+                />
+              ) : (
+                <div className="tabela-wrap">
+                  <table className="tabela tabela-responsiva">
+                    <thead>
+                      <tr>
+                        <th scope="col">Descrição</th>
+                        <th scope="col">Data</th>
+                        <th scope="col">Origem</th>
+                        <th scope="col" className="alinhar-direita">
+                          Valor
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ultimosLancamentos.map((l) => (
+                        <tr key={l.id}>
+                          <td className="tabela-td-principal tabela-celula-principal">{l.descricao ?? "Lançamento"}</td>
+                          <td data-rotulo="Data" className="num">
+                            <span>
+                              {formatarDataInstante(l.criadoEm, { day: "2-digit", month: "2-digit" })}{" "}
+                              <span className="texto-secundario">{formatarHora(l.criadoEm)}</span>
+                            </span>
+                          </td>
+                          <td data-rotulo="Origem" className="texto-secundario">
+                            {l.agendamentoId ? "Atendimento" : "Manual"}
+                          </td>
+                          <td data-rotulo="Valor" className="alinhar-direita tabela-celula-principal">
+                            <span style={{ color: l.tipo === "ENTRADA" ? "var(--color-primary)" : "var(--color-text)" }}>
+                              {l.tipo === "ENTRADA" ? "+ " : "− "}
+                              {formatarMoeda(Number(l.valor))}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {assinaturas.length > 0 && (
+              <section className="card card-sem-padding" aria-labelledby="titulo-assinaturas">
+                <div className="card-cabecalho">
+                  <div>
+                    <h2 id="titulo-assinaturas" className="card-titulo">
+                      Assinaturas a vencer
+                    </h2>
+                    <p className="card-descricao">Vencidas ou vencendo nos próximos 7 dias</p>
+                  </div>
+                </div>
+                <div className="lista">
+                  {assinaturas.map((a) => (
+                    <Link key={a.id} href={`/painel/clientes/${a.id}`} className="lista-item">
+                      <div className="lista-item-principal">
+                        <p className="lista-item-titulo">{a.nome}</p>
+                        <p className="lista-item-sub">
+                          {a.vencida ? "Venceu em " : "Vence em "}
+                          {formatarDataInstante(a.vencimento, { day: "2-digit", month: "2-digit" })}
+                        </p>
+                      </div>
+                      <Badge tom={a.vencida ? "atencao" : "info"}>{a.vencida ? "Vencida" : "Vencendo"}</Badge>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

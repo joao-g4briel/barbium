@@ -1,13 +1,14 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
-import { FormularioEditarServico } from "./formulario-editar-servico";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { AcessoRestrito } from "@/components/ui/acesso-restrito";
+import { FormularioServico } from "../formulario-servico";
 
-export default async function EditarServico({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export const metadata: Metadata = { title: "Editar serviço" };
+
+export default async function EditarServico({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
@@ -19,18 +20,23 @@ export default async function EditarServico({
   if (!servico || servico.barbeariaId !== sessao.barbeariaId) notFound();
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>{servico.nome}</h1>
-      <FormularioEditarServico
-        servicoId={servico.id}
-        nomeInicial={servico.nome}
-        duracaoInicial={servico.duracaoMinutos}
-        precoInicial={Number(servico.preco)}
-        comissaoInicial={
-          servico.comissaoPercentual != null ? Number(servico.comissaoPercentual) : null
-        }
-        ativoInicial={servico.ativo}
-      />
-    </div>
+    <>
+      <CabecalhoPagina titulo={servico.nome} voltar={{ href: "/painel/servicos", rotulo: "Serviços" }} />
+      {sessao.role === "DONO" ? (
+        <FormularioServico
+          servicoId={servico.id}
+          valoresIniciais={{
+            nome: servico.nome,
+            duracaoMinutos: String(servico.duracaoMinutos),
+            preco: String(Number(servico.preco)).replace(".", ","),
+            comissaoPercentual:
+              servico.comissaoPercentual != null ? String(Number(servico.comissaoPercentual)).replace(".", ",") : "",
+            ativo: servico.ativo,
+          }}
+        />
+      ) : (
+        <AcessoRestrito descricao="Só o dono da barbearia edita serviços, preços e comissões." />
+      )}
+    </>
   );
 }

@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarOff, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { Botao } from "@/components/ui/botao";
+import { Campo, ariaCampo } from "@/components/ui/campo";
+import { Alerta } from "@/components/ui/alerta";
+import { Badge } from "@/components/ui/badge";
+import { EstadoVazio } from "@/components/ui/estado-vazio";
+import { DialogoConfirmacao } from "@/components/ui/dialogo-confirmacao";
 
 interface Bloqueio {
   id: string;
@@ -10,203 +17,257 @@ interface Bloqueio {
   motivo: string | null;
 }
 
+// Bloqueios são criados no fuso do navegador (datas escolhidas no
+// calendário local) e exibidos da mesma forma, como sempre foram.
 function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export function SecaoBloqueios({ bloqueiosIniciais }: { bloqueiosIniciais: Bloqueio[] }) {
   const router = useRouter();
-  const [processando, setProcessando] = useState(false);
+  const [processando, setProcessando] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [erros, setErros] = useState<{ inicio?: string; fim?: string }>({});
   const [erro, setErro] = useState<string | null>(null);
+  const [remover, setRemover] = useState<Bloqueio | null>(null);
 
   // Sempre deriva da prop, nunca guarda cópia própria — router.refresh()
   // já traz a lista atualizada do servidor depois de cada ação.
   const travaAtiva = bloqueiosIniciais.find((b) => b.fim === null) ?? null;
   const periodosAgendados = bloqueiosIniciais.filter((b) => b.fim !== null);
 
-  async function trancarAgora() {
-    setProcessando(true);
+  async function requisitar(chave: string, url: string, init: RequestInit): Promise<boolean> {
+    setProcessando(chave);
     setErro(null);
-    const resposta = await fetch("/api/painel/bloqueios", {
+    try {
+      const resposta = await fetch(url, init);
+      if (!resposta.ok) {
+        const corpo = await resposta.json().catch(() => null);
+        setErro(corpo?.erro ?? "Não foi possível salvar.");
+        return false;
+      }
+      router.refresh();
+      return true;
+    } catch {
+      setErro("Falha de conexão. Tente novamente.");
+      return false;
+    } finally {
+      setProcessando(null);
+    }
+  }
+
+  function trancarAgora() {
+    return requisitar("trava", "/api/painel/bloqueios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inicio: new Date().toISOString(), fim: null, motivo: "Trava de emergência" }),
+    });
+  }
+
+  function destravar(id: string) {
+    return requisitar("trava", `/api/painel/bloqueios/${id}`, { method: "DELETE" });
+  }
+
+  async function confirmarRemocao() {
+    if (!remover) return;
+    const ok = await requisitar(`remover-${remover.id}`, `/api/painel/bloqueios/${remover.id}`, { method: "DELETE" });
+    if (ok) setRemover(null);
+  }
+
+  async function criarPeriodo(evento: FormEvent) {
+    evento.preventDefault();
+    const validacao: { inicio?: string; fim?: string } = {};
+    if (!dataInicio) validacao.inicio = "Escolha o primeiro dia.";
+    if (!dataFim) validacao.fim = "Escolha o último dia.";
+    if (dataInicio && dataFim && dataFim < dataInicio) validacao.fim = "O último dia precisa ser depois do primeiro.";
+    setErros(validacao);
+    if (Object.keys(validacao).length > 0) return;
+
+    const ok = await requisitar("periodo", "/api/painel/bloqueios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        inicio: new Date().toISOString(),
-        fim: null,
-        motivo: "Trava de emergência",
+        inicio: new Date(`${dataInicio}T00:00:00`).toISOString(),
+        fim: new Date(`${dataFim}T23:59:59`).toISOString(),
+        motivo: motivo || undefined,
       }),
     });
-    setProcessando(false);
-    if (resposta.ok) router.refresh();
-  }
-
-  async function excluir(id: string) {
-    setProcessando(true);
-    const resposta = await fetch(`/api/painel/bloqueios/${id}`, { method: "DELETE" });
-    setProcessando(false);
-    if (resposta.ok) router.refresh();
-  }
-
-  async function criarPeriodo() {
-    if (!dataInicio || !dataFim) return;
-    setErro(null);
-    setProcessando(true);
-
-    const inicio = new Date(`${dataInicio}T00:00:00`).toISOString();
-    const fim = new Date(`${dataFim}T23:59:59`).toISOString();
-
-    const resposta = await fetch("/api/painel/bloqueios", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inicio, fim, motivo: motivo || undefined }),
-    });
-
-    if (!resposta.ok) {
-      const corpo = await resposta.json().catch(() => null);
-      setErro(corpo?.erro ?? "Não foi possível salvar.");
-      setProcessando(false);
-      return;
+    if (ok) {
+      setMostrarForm(false);
+      setDataInicio("");
+      setDataFim("");
+      setMotivo("");
     }
-
-    setProcessando(false);
-    setMostrarForm(false);
-    setDataInicio("");
-    setDataFim("");
-    setMotivo("");
-    router.refresh();
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div
-        className="card"
-        style={{
-          borderColor: travaAtiva ? "var(--danger)" : undefined,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>
-          <p style={{ margin: 0, fontWeight: 700 }}>
-            {travaAtiva ? "Agenda trancada" : "Agenda aberta pra novos agendamentos"}
-          </p>
-          <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.875rem" }}>
-            {travaAtiva
-              ? "Ninguém consegue marcar horário com você até destravar."
-              : "Clientes conseguem agendar normalmente, dentro do seu expediente."}
-          </p>
+    <>
+      <section className="card" aria-labelledby="titulo-trava">
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0, flex: "1 1 280px" }}>
+            <span className="estado-vazio-icone" style={{ margin: 0 }} aria-hidden="true">
+              {travaAtiva ? <Lock size={20} /> : <LockOpen size={20} />}
+            </span>
+            <div style={{ display: "grid", gap: 4 }}>
+              <h2 id="titulo-trava" className="card-titulo" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                Agenda {travaAtiva ? "trancada" : "aberta"}
+                <Badge tom={travaAtiva ? "atencao" : "sucesso"}>{travaAtiva ? "Sem novos agendamentos" : "Recebendo agendamentos"}</Badge>
+              </h2>
+              <p className="texto-secundario texto-pequeno">
+                {travaAtiva
+                  ? "Ninguém consegue marcar horário com você até destravar."
+                  : "Clientes agendam normalmente, dentro do seu expediente. Trancar é útil para um imprevisto."}
+              </p>
+            </div>
+          </div>
+          {travaAtiva ? (
+            <Botao
+              variante="primary"
+              icone={<LockOpen size={18} aria-hidden="true" />}
+              onClick={() => destravar(travaAtiva.id)}
+              carregando={processando === "trava"}
+              textoCarregando="Destravando…"
+            >
+              Destravar agenda
+            </Botao>
+          ) : (
+            <Botao
+              icone={<Lock size={18} aria-hidden="true" />}
+              onClick={trancarAgora}
+              carregando={processando === "trava"}
+              textoCarregando="Trancando…"
+            >
+              Trancar agenda agora
+            </Botao>
+          )}
         </div>
-        {travaAtiva ? (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => excluir(travaAtiva.id)}
-            disabled={processando}
-          >
-            Destravar agenda
-          </button>
-        ) : (
-          <button className="btn btn-ghost btn-sm" onClick={trancarAgora} disabled={processando}>
-            Trancar agenda agora
-          </button>
-        )}
-      </div>
+      </section>
 
-      <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 10,
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, margin: 0 }}>
-            Períodos de folga marcados
-          </h2>
-          <button className="btn btn-ghost btn-sm" onClick={() => setMostrarForm((v) => !v)}>
-            {mostrarForm ? "Cancelar" : "+ Marcar período"}
-          </button>
+      <section className="card card-sem-padding" aria-labelledby="titulo-folgas">
+        <div className="card-cabecalho">
+          <div>
+            <h2 id="titulo-folgas" className="card-titulo">
+              Folgas e férias
+            </h2>
+            <p className="card-descricao">Dias em que você não recebe agendamentos.</p>
+          </div>
+          {!mostrarForm && (
+            <Botao pequeno icone={<Plus size={16} aria-hidden="true" />} onClick={() => setMostrarForm(true)}>
+              Marcar período
+            </Botao>
+          )}
         </div>
+
+        {erro && !remover && (
+          <div style={{ padding: "16px 20px 0" }}>
+            <Alerta tom="perigo">{erro}</Alerta>
+          </div>
+        )}
 
         {mostrarForm && (
-          <div className="card" style={{ display: "grid", gap: 12, marginBottom: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label htmlFor="dataInicio">De</label>
+          <form onSubmit={criarPeriodo} className="form" noValidate style={{ padding: 20, borderBottom: "1px solid var(--color-border)" }}>
+            <div className="form-grade form-grade-2">
+              <Campo id="dataInicio" rotulo="Primeiro dia" erro={erros.inicio}>
                 <input
-                  id="dataInicio"
+                  {...ariaCampo("dataInicio", { erro: erros.inicio })}
                   type="date"
                   className="input"
                   value={dataInicio}
                   onChange={(e) => setDataInicio(e.target.value)}
                 />
-              </div>
-              <div>
-                <label htmlFor="dataFim">Até</label>
+              </Campo>
+              <Campo id="dataFim" rotulo="Último dia" erro={erros.fim}>
                 <input
-                  id="dataFim"
+                  {...ariaCampo("dataFim", { erro: erros.fim })}
                   type="date"
                   className="input"
                   value={dataFim}
+                  min={dataInicio || undefined}
                   onChange={(e) => setDataFim(e.target.value)}
                 />
-              </div>
+              </Campo>
             </div>
-            <div>
-              <label htmlFor="motivo">Motivo (opcional)</label>
+            <Campo id="motivo" rotulo="Motivo" opcional>
               <input
                 id="motivo"
                 className="input"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 placeholder="Ex.: Férias"
+                maxLength={200}
               />
+            </Campo>
+            <div className="form-acoes">
+              <Botao type="submit" variante="primary" carregando={processando === "periodo"} textoCarregando="Salvando…">
+                Salvar período
+              </Botao>
+              <Botao
+                variante="ghost"
+                onClick={() => {
+                  setMostrarForm(false);
+                  setErros({});
+                }}
+              >
+                Cancelar
+              </Botao>
             </div>
-            {erro && <p className="erro-form">{erro}</p>}
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={criarPeriodo}
-              disabled={processando || !dataInicio || !dataFim}
-              style={{ justifySelf: "start" }}
-            >
-              Salvar período
-            </button>
-          </div>
+          </form>
         )}
 
         {periodosAgendados.length === 0 ? (
-          <p style={{ color: "var(--muted)" }}>Nenhum período marcado.</p>
+          <EstadoVazio
+            compacto
+            icone={<CalendarOff size={22} />}
+            titulo="Nenhum período marcado"
+            descricao="Marque férias ou folgas para bloquear esses dias no link de agendamento."
+          />
         ) : (
-          <div className="item-list">
+          <div className="lista">
             {periodosAgendados.map((b) => (
-              <div key={b.id} className="card item-row">
-                <div className="item-row-main">
-                  <div className="item-row-title">
-                    {formatarData(b.inicio)} até {formatarData(b.fim!)}
-                  </div>
-                  {b.motivo && <div className="item-row-sub">{b.motivo}</div>}
+              <div key={b.id} className="lista-item">
+                <div className="lista-item-principal">
+                  <p className="lista-item-titulo num">
+                    {formatarData(b.inicio)} a {formatarData(b.fim!)}
+                  </p>
+                  {b.motivo && <p className="lista-item-sub">{b.motivo}</p>}
                 </div>
                 <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => excluir(b.id)}
-                  disabled={processando}
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-icone"
+                  onClick={() => setRemover(b)}
+                  aria-label={`Remover período de ${formatarData(b.inicio)} a ${formatarData(b.fim!)}`}
+                  title="Remover período"
                 >
-                  Remover
+                  <Trash2 size={16} aria-hidden="true" />
                 </button>
               </div>
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+
+      <DialogoConfirmacao
+        aberto={remover !== null}
+        titulo="Remover período?"
+        descricao={
+          remover
+            ? `Os dias de ${formatarData(remover.inicio)} a ${formatarData(remover.fim!)} voltam a aceitar agendamentos.`
+            : ""
+        }
+        rotuloConfirmar="Remover período"
+        textoCarregando="Removendo…"
+        perigo
+        processando={remover !== null && processando === `remover-${remover.id}`}
+        erro={remover ? erro : null}
+        aoConfirmar={confirmarRemocao}
+        aoCancelar={() => {
+          setRemover(null);
+          setErro(null);
+        }}
+      />
+    </>
   );
 }

@@ -1,10 +1,22 @@
+import type { Metadata } from "next";
+import { obterSessao } from "@/lib/sessao";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { FormularioNovoLancamento } from "./formulario-novo-lancamento";
 
-export default function NovoLancamento() {
+export const metadata: Metadata = { title: "Novo lançamento" };
+
+export default async function NovoLancamento() {
+  const sessao = await obterSessao();
+
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Novo lançamento</h1>
-      <FormularioNovoLancamento />
-    </div>
+    <>
+      <CabecalhoPagina titulo="Novo lançamento" voltar={{ href: "/painel/caixa", rotulo: "Financeiro" }} />
+      {sessao?.role === "DONO" ? (
+        <FormularioNovoLancamento />
+      ) : (
+        <AcessoRestrito descricao="Só o dono da barbearia pode lançar no caixa." />
+      )}
+    </>
   );
 }

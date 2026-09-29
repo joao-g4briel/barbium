@@ -7,6 +7,13 @@ export const ROTULO_STATUS: Record<StatusAgendamento, string> = {
   FALTA: "Falta",
 };
 
-export function classeBadgeStatus(status: StatusAgendamento): string {
-  return status === "CANCELADO" || status === "FALTA" ? "badge badge-inativo" : "badge badge-ativo";
-}
+export type TomBadge = "neutro" | "sucesso" | "info" | "atencao" | "perigo";
+
+// Cancelado não é erro — fica neutro. Vermelho é reservado para erros e
+// ações destrutivas; falta pede atenção.
+export const TOM_STATUS: Record<StatusAgendamento, TomBadge> = {
+  CONFIRMADO: "info",
+  CONCLUIDO: "sucesso",
+  CANCELADO: "neutro",
+  FALTA: "atencao",
+};

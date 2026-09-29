@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
 import { ORDEM_DIAS_SEMANA } from "@/lib/dias-semana";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { FormularioExpediente } from "./formulario-expediente";
 import { SecaoBloqueios } from "./secao-bloqueios";
+
+export const metadata: Metadata = { title: "Meus horários" };
 
 export default async function PaginaDisponibilidade() {
   const sessao = await obterSessao();
@@ -30,29 +34,19 @@ export default async function PaginaDisponibilidade() {
   });
 
   return (
-    <div style={{ display: "grid", gap: 28 }}>
-      <div>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: 4 }}>Disponibilidade</h1>
-        <p style={{ color: "var(--muted)", margin: 0 }}>
-          Define quando você atende e trava a agenda quando precisar.
-        </p>
-      </div>
-
-      <SecaoBloqueios
-        bloqueiosIniciais={bloqueios.map((b) => ({
-          id: b.id,
-          inicio: b.inicio.toISOString(),
-          fim: b.fim?.toISOString() ?? null,
-          motivo: b.motivo,
-        }))}
-      />
-
-      <div>
-        <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, marginBottom: 10 }}>
-          Expediente semanal
-        </h2>
+    <>
+      <CabecalhoPagina titulo="Meus horários" descricao="Quando você atende e quando sua agenda fica fechada." />
+      <div className="pilha">
+        <SecaoBloqueios
+          bloqueiosIniciais={bloqueios.map((b) => ({
+            id: b.id,
+            inicio: b.inicio.toISOString(),
+            fim: b.fim?.toISOString() ?? null,
+            motivo: b.motivo,
+          }))}
+        />
         <FormularioExpediente diasIniciais={dias} />
       </div>
-    </div>
+    </>
   );
 }

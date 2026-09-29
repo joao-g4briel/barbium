@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CalendarCheck, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { ROTULO_PAPEL, formatarDataInstante } from "@/lib/formatar";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
+import { Indicador } from "@/components/ui/indicador";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioEditarBarbearia } from "./formulario-editar-barbearia";
 
-export default async function DetalheBarbearia({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export const metadata: Metadata = { title: "Gerenciar barbearia" };
+
+export default async function DetalheBarbearia({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const barbearia = await prisma.barbearia.findUnique({
@@ -20,44 +26,63 @@ export default async function DetalheBarbearia({
   if (!barbearia) notFound();
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <div>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0 }}>{barbearia.nome}</h1>
-        <p style={{ color: "var(--muted)", margin: "4px 0 0" }}>/{barbearia.slug}</p>
-      </div>
+    <>
+      <CabecalhoPagina
+        voltar={{ href: "/super-admin/barbearias", rotulo: "Barbearias" }}
+        titulo={barbearia.nome}
+        descricao={
+          <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            /agendar/{barbearia.slug}
+            {barbearia.ativo ? <Badge tom="sucesso">Ativa</Badge> : <Badge tom="atencao">Suspensa</Badge>}
+          </span>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
-        <FormularioEditarBarbearia
-          barbeariaId={barbearia.id}
-          planoAtual={barbearia.plano}
-          ativoAtual={barbearia.ativo}
-        />
+      <div className="pilha">
+        <section className="indicadores" style={{ "--indicadores-colunas": 2 } as React.CSSProperties} aria-label="Uso">
+          <Indicador rotulo="Clientes cadastrados" valor={barbearia._count.clientes} icone={<Users size={22} />} />
+          <Indicador rotulo="Agendamentos no total" valor={barbearia._count.agendamentos} icone={<CalendarCheck size={22} />} />
+        </section>
 
-        <div className="card">
-          <h2 style={{ fontSize: "1.0625rem", fontWeight: 700, marginTop: 0 }}>Equipe</h2>
-          {barbearia.usuarios.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>Nenhum usuário cadastrado.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
-              {barbearia.usuarios.map((usuario) => (
-                <li key={usuario.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-                  <div style={{ fontWeight: 700 }}>{usuario.nome}</div>
-                  <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                    {usuario.email} · {usuario.role === "DONO" ? "Dono" : "Barbeiro"}
+        <div className="grade-painel grade-painel-1-1">
+          <FormularioEditarBarbearia
+            barbeariaId={barbearia.id}
+            nome={barbearia.nome}
+            planoAtual={barbearia.plano}
+            ativoAtual={barbearia.ativo}
+          />
+
+          <section className="card card-sem-padding" aria-labelledby="titulo-equipe">
+            <div className="card-cabecalho">
+              <div>
+                <h2 id="titulo-equipe" className="card-titulo">
+                  Equipe
+                </h2>
+                <p className="card-descricao">Criada em {formatarDataInstante(barbearia.criadoEm)}</p>
+              </div>
+            </div>
+            {barbearia.usuarios.length === 0 ? (
+              <EstadoVazio compacto icone={<Users size={22} />} titulo="Nenhum usuário cadastrado" />
+            ) : (
+              <div className="lista">
+                {barbearia.usuarios.map((usuario) => (
+                  <div key={usuario.id} className="lista-item">
+                    <Avatar nome={usuario.nome} tamanho={36} />
+                    <div className="lista-item-principal">
+                      <p className="lista-item-titulo">{usuario.nome}</p>
+                      <p className="lista-item-sub">{usuario.email}</p>
+                    </div>
+                    <div className="lista-item-lateral">
+                      <Badge tom={usuario.role === "DONO" ? "info" : "neutro"}>{ROTULO_PAPEL[usuario.role]}</Badge>
+                      {!usuario.ativo && <Badge tom="atencao">Inativo</Badge>}
+                    </div>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: "16px 0" }} />
-
-          <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>
-            {barbearia._count.clientes} clientes cadastrados · {barbearia._count.agendamentos}{" "}
-            agendamentos no total
-          </p>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
-    </div>
+    </>
   );
 }

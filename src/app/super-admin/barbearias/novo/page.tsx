@@ -1,10 +1,14 @@
+import type { Metadata } from "next";
+import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { FormularioNovaBarbearia } from "./formulario-nova-barbearia";
+
+export const metadata: Metadata = { title: "Nova barbearia" };
 
 export default function NovaBarbearia() {
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Nova barbearia</h1>
+    <>
+      <CabecalhoPagina titulo="Nova barbearia" voltar={{ href: "/super-admin/barbearias", rotulo: "Barbearias" }} />
       <FormularioNovaBarbearia />
-    </div>
+    </>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle, Check } from "lucide-react";
 import { ROTULO_DIA_SEMANA } from "@/lib/dias-semana";
 import type { DiaSemana } from "@prisma/client";
+import { Botao } from "@/components/ui/botao";
+import { Alerta } from "@/components/ui/alerta";
 
 interface DiaExpediente {
   diaSemana: DiaSemana;
@@ -14,11 +17,26 @@ interface DiaExpediente {
   almocoFim: string | null;
 }
 
+// Mesmas regras da rota PUT /api/painel/expediente, mostradas no próprio dia.
+function erroDoDia(dia: DiaExpediente): string | null {
+  if (!dia.atende) return null;
+  if (!dia.horaInicio || !dia.horaFim) return "Preencha início e fim do expediente.";
+  if (dia.horaFim <= dia.horaInicio) return "O fim precisa ser depois do início.";
+  if (Boolean(dia.almocoInicio) !== Boolean(dia.almocoFim)) {
+    return "Preencha início e fim do almoço, ou deixe os dois em branco.";
+  }
+  if (dia.almocoInicio && dia.almocoFim && dia.almocoFim <= dia.almocoInicio) {
+    return "O fim do almoço precisa ser depois do início.";
+  }
+  return null;
+}
+
 export function FormularioExpediente({ diasIniciais }: { diasIniciais: DiaExpediente[] }) {
   const router = useRouter();
   const [dias, setDias] = useState(diasIniciais);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [mostrarErros, setMostrarErros] = useState(false);
   const [salvo, setSalvo] = useState(false);
 
   function atualizarDia(diaSemana: DiaSemana, alteracoes: Partial<DiaExpediente>) {
@@ -28,104 +46,146 @@ export function FormularioExpediente({ diasIniciais }: { diasIniciais: DiaExpedi
 
   async function salvar() {
     setErro(null);
+    setMostrarErros(true);
+    if (dias.some((d) => erroDoDia(d))) return;
+
     setSalvando(true);
-
-    const resposta = await fetch("/api/painel/expediente", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dias }),
-    });
-
-    if (!resposta.ok) {
-      const corpo = await resposta.json().catch(() => null);
-      setErro(corpo?.erro ?? "Não foi possível salvar.");
+    try {
+      const resposta = await fetch("/api/painel/expediente", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dias }),
+      });
+      if (!resposta.ok) {
+        const corpo = await resposta.json().catch(() => null);
+        setErro(corpo?.erro ?? "Não foi possível salvar.");
+        return;
+      }
+      setSalvo(true);
+      setMostrarErros(false);
+      router.refresh();
+    } catch {
+      setErro("Falha de conexão. Suas alterações continuam aqui — tente novamente.");
+    } finally {
       setSalvando(false);
-      return;
     }
-
-    setSalvando(false);
-    setSalvo(true);
-    router.refresh();
   }
 
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {dias.map((dia) => (
-        <div key={dia.diaSemana} className="card" style={{ display: "grid", gap: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={dia.atende}
-              onChange={(e) => atualizarDia(dia.diaSemana, { atende: e.target.checked })}
-              style={{ width: 18, height: 18 }}
-            />
-            <strong>{ROTULO_DIA_SEMANA[dia.diaSemana]}</strong>
-          </label>
-
-          {dia.atende && (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label htmlFor={`inicio-${dia.diaSemana}`}>Início</label>
-                  <input
-                    id={`inicio-${dia.diaSemana}`}
-                    type="time"
-                    className="input"
-                    value={dia.horaInicio}
-                    onChange={(e) => atualizarDia(dia.diaSemana, { horaInicio: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`fim-${dia.diaSemana}`}>Fim</label>
-                  <input
-                    id={`fim-${dia.diaSemana}`}
-                    type="time"
-                    className="input"
-                    value={dia.horaFim}
-                    onChange={(e) => atualizarDia(dia.diaSemana, { horaFim: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label htmlFor={`almoco-inicio-${dia.diaSemana}`}>Almoço (opcional)</label>
-                  <input
-                    id={`almoco-inicio-${dia.diaSemana}`}
-                    type="time"
-                    className="input"
-                    value={dia.almocoInicio ?? ""}
-                    onChange={(e) =>
-                      atualizarDia(dia.diaSemana, { almocoInicio: e.target.value || null })
-                    }
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`almoco-fim-${dia.diaSemana}`}>até</label>
-                  <input
-                    id={`almoco-fim-${dia.diaSemana}`}
-                    type="time"
-                    className="input"
-                    value={dia.almocoFim ?? ""}
-                    onChange={(e) =>
-                      atualizarDia(dia.diaSemana, { almocoFim: e.target.value || null })
-                    }
-                  />
-                </div>
-              </div>
-            </>
-          )}
+    <section className="card card-sem-padding" aria-labelledby="titulo-expediente">
+      <div className="card-cabecalho">
+        <div>
+          <h2 id="titulo-expediente" className="card-titulo">
+            Expediente semanal
+          </h2>
+          <p className="card-descricao">Os horários oferecidos no link de agendamento seguem este expediente.</p>
         </div>
-      ))}
-
-      {erro && <p className="erro-form">{erro}</p>}
-
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button className="btn btn-primary" onClick={salvar} disabled={salvando}>
-          {salvando ? "Salvando…" : "Salvar expediente"}
-        </button>
-        {salvo && <span style={{ color: "var(--neon)", fontSize: "0.875rem" }}>Salvo!</span>}
       </div>
-    </div>
+
+      <div>
+        {dias.map((dia) => {
+          const erroDia = mostrarErros ? erroDoDia(dia) : null;
+          const id = dia.diaSemana.toLowerCase();
+          return (
+            <div key={dia.diaSemana} className="expediente-dia">
+              <div className="expediente-dia-topo">
+                <label className="interruptor">
+                  <input
+                    type="checkbox"
+                    checked={dia.atende}
+                    onChange={(e) => atualizarDia(dia.diaSemana, { atende: e.target.checked })}
+                  />
+                  <span className="interruptor-trilho" aria-hidden="true" />
+                  {ROTULO_DIA_SEMANA[dia.diaSemana]}
+                </label>
+                {!dia.atende && <span className="texto-secundario texto-pequeno">Não atende</span>}
+              </div>
+
+              {dia.atende && (
+                <>
+                  <div className="expediente-dia-horarios">
+                    <div className="campo">
+                      <label htmlFor={`inicio-${id}`} className="campo-rotulo">
+                        Início
+                      </label>
+                      <input
+                        id={`inicio-${id}`}
+                        type="time"
+                        className="input num"
+                        value={dia.horaInicio}
+                        aria-invalid={erroDia ? true : undefined}
+                        onChange={(e) => atualizarDia(dia.diaSemana, { horaInicio: e.target.value })}
+                      />
+                    </div>
+                    <div className="campo">
+                      <label htmlFor={`fim-${id}`} className="campo-rotulo">
+                        Fim
+                      </label>
+                      <input
+                        id={`fim-${id}`}
+                        type="time"
+                        className="input num"
+                        value={dia.horaFim}
+                        aria-invalid={erroDia ? true : undefined}
+                        onChange={(e) => atualizarDia(dia.diaSemana, { horaFim: e.target.value })}
+                      />
+                    </div>
+                    <div className="campo">
+                      <label htmlFor={`almoco-inicio-${id}`} className="campo-rotulo">
+                        Almoço <span className="campo-opcional">(opcional)</span>
+                      </label>
+                      <input
+                        id={`almoco-inicio-${id}`}
+                        type="time"
+                        className="input num"
+                        value={dia.almocoInicio ?? ""}
+                        onChange={(e) => atualizarDia(dia.diaSemana, { almocoInicio: e.target.value || null })}
+                      />
+                    </div>
+                    <div className="campo">
+                      <label htmlFor={`almoco-fim-${id}`} className="campo-rotulo">
+                        Fim do almoço
+                      </label>
+                      <input
+                        id={`almoco-fim-${id}`}
+                        type="time"
+                        className="input num"
+                        value={dia.almocoFim ?? ""}
+                        onChange={(e) => atualizarDia(dia.diaSemana, { almocoFim: e.target.value || null })}
+                      />
+                    </div>
+                  </div>
+                  {erroDia && (
+                    <p className="campo-erro" role="alert">
+                      <AlertCircle size={14} aria-hidden="true" />
+                      {erroDia}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card-rodape">
+        {erro && (
+          <div style={{ flexBasis: "100%" }}>
+            <Alerta tom="perigo">{erro}</Alerta>
+          </div>
+        )}
+        <Botao variante="primary" onClick={salvar} carregando={salvando} textoCarregando="Salvando…">
+          Salvar expediente
+        </Botao>
+        <span role="status" aria-live="polite">
+          {salvo && (
+            <span className="feedback-salvo">
+              <Check size={16} aria-hidden="true" />
+              Expediente salvo
+            </span>
+          )}
+        </span>
+      </div>
+    </section>
   );
 }

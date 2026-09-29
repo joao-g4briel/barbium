@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T00:00:00Z",
+  "title": "Design System: Barbium",
+  "provenance": "Recorded from the shipped build after an impeccable finish review (fix, then verdict 'ship' on the 8 scored fixes; not a fresh full-surface review) and production renders at 390/768/1440. Per-professional agenda grid verified from code only; known same-start overlap in one grid column. Replaces the superseded 'financial terminal' direction.",
+  "extensions": {
+    "colorMeta": {
+      "bg": { "role": "neutral", "displayName": "Night Green", "canonical": "#0d1110", "tonalRamp": ["#0d1110", "#131a16", "#19221c", "#1f2a23", "#2a362e", "#3a4a40", "#84928a", "#f4f7f5"] },
+      "surface": { "role": "neutral", "displayName": "Shop Floor", "canonical": "#131a16", "tonalRamp": ["#0d1110", "#131a16", "#19221c", "#1f2a23", "#2a362e", "#3a4a40", "#84928a", "#f4f7f5"] },
+      "card": { "role": "neutral", "displayName": "Counter Top", "canonical": "#19221c", "tonalRamp": ["#0d1110", "#131a16", "#19221c", "#1f2a23", "#2a362e", "#3a4a40", "#84928a", "#f4f7f5"] },
+      "card-hover": { "role": "neutral", "displayName": "Counter Top Hover", "canonical": "#1f2a23" },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#2a362e" },
+      "border-strong": { "role": "neutral", "displayName": "Hairline Strong", "canonical": "#3a4a40" },
+      "text": { "role": "neutral", "displayName": "Chalk", "canonical": "#f4f7f5" },
+      "text-muted": { "role": "neutral", "displayName": "Sage Gray", "canonical": "#a3afa7" },
+      "text-subtle": { "role": "neutral", "displayName": "Faded Sage", "canonical": "#84928a" },
+      "primary": { "role": "primary", "displayName": "Barber Mint", "canonical": "#4ade80", "tonalRamp": ["#0c411f", "#147036", "#1da04d", "#26cf64", "#4edf83", "#7ee7a4", "#b1f1c9", "#e1f9ea"] },
+      "primary-hover": { "role": "primary", "displayName": "Barber Mint Hover", "canonical": "#6be597" },
+      "primary-press": { "role": "primary", "displayName": "Barber Mint Press", "canonical": "#3bc96f" },
+      "primary-ink": { "role": "primary", "displayName": "Pine Ink", "canonical": "#0b1a10" },
+      "primary-soft": { "role": "primary", "displayName": "Mint Wash", "canonical": "rgba(74, 222, 128, 0.12)" },
+      "primary-border": { "role": "primary", "displayName": "Mint Edge", "canonical": "rgba(74, 222, 128, 0.4)" },
+      "info": { "role": "secondary", "displayName": "Ledger Blue", "canonical": "#7cb6fa", "tonalRamp": ["#062447", "#0a3e7b", "#0e58af", "#1272e2", "#3e8fef", "#71adf4", "#aacef8", "#deecfc"] },
+      "info-soft": { "role": "secondary", "displayName": "Ledger Blue Wash", "canonical": "rgba(96, 165, 250, 0.12)" },
+      "info-surface": { "role": "secondary", "displayName": "Ledger Blue Block", "canonical": "#1a2533" },
+      "warning": { "role": "tertiary", "displayName": "Caution Yellow", "canonical": "#facc15", "tonalRamp": ["#473a06", "#7b640a", "#af8e0e", "#e2b912", "#efcc3e", "#f4d971", "#f8e8aa", "#fcf6de"] },
+      "warning-soft": { "role": "tertiary", "displayName": "Caution Wash", "canonical": "rgba(250, 204, 21, 0.1)" },
+      "warning-surface": { "role": "tertiary", "displayName": "Caution Block", "canonical": "#2a2714" },
+      "danger": { "role": "tertiary", "displayName": "Alarm Red", "canonical": "#f87171", "tonalRamp": ["#470606", "#7b0a0a", "#af0e0e", "#e21212", "#ef3e3e", "#f47171", "#f8aaaa", "#fcdede"] },
+      "danger-soft": { "role": "tertiary", "displayName": "Alarm Wash", "canonical": "rgba(248, 113, 113, 0.12)" },
+      "success-surface": { "role": "primary", "displayName": "Mint Block", "canonical": "#183021" },
+      "neutral-soft": { "role": "neutral", "displayName": "Neutral Wash", "canonical": "rgba(163, 175, 167, 0.1)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page and login titles; 1.75rem on phones, 2.125rem from 768px." },
+      "headline": { "displayName": "Headline", "purpose": "Public booking header barbershop name; mobile indicator value size." },
+      "metric": { "displayName": "Metric", "purpose": "Indicator values from 1024px; tabular; mint when positive, red when negative." },
+      "title": { "displayName": "Title", "purpose": "Card, dialog and booking-step titles; day-strip numbers; next-client times." },
+      "body": { "displayName": "Body", "purpose": "Default text, table cells, nav items (600). Inputs render at 1rem." },
+      "label": { "displayName": "Label", "purpose": "Field labels, small buttons, segmented items." },
+      "caption": { "displayName": "Caption", "purpose": "Badges, indicator details, bottom-nav labels, grid blocks; uppercase only in table headers." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "0 24px 48px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35)", "purpose": "Dialogs, side sheets and bottom sheets only." },
+      { "name": "focus-field", "value": "0 0 0 3px rgba(74, 222, 128, 0.12)", "purpose": "Input focus ring, paired with a mint border." },
+      { "name": "state-ring", "value": "inset 0 0 0 1px var(--color-border-strong)", "purpose": "Selected segment in the segmented control; mint variant marks the 'Agora' appointment." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Dialog and sheet entrances, toggle knob." },
+      { "name": "dur-1", "value": "120ms", "purpose": "Hover, color and border transitions; button press nudge." },
+      { "name": "dur-2", "value": "220ms", "purpose": "Dialog rise-and-scale, side-sheet slide, bottom-sheet slide-up, backdrop fade." },
+      { "name": "reduced-motion", "value": "animation/transition 0.01ms", "purpose": "prefers-reduced-motion collapses motion; spinner keeps a slow 1.4s turn." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px", "purpose": "Dialogs become bottom sheets below; paired form fields and indicator icons appear above." },
+      { "name": "md", "value": "768px", "purpose": "Tables stack below; page title steps up and main padding widens above." },
+      { "name": "lg", "value": "1024px", "purpose": "Sidebar shell replaces top bar and bottom nav; 2:1 and 1:1 panel grids; four-up indicators." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled mint action per view, e.g. 'Novo agendamento'.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Novo agendamento</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid transparent; font-family: var(--font-body, Manrope, system-ui, sans-serif); font-weight: 700; font-size: 0.9375rem; line-height: 1; cursor: pointer; transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out, transform 120ms ease-out; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; } .ds-btn-primary { background: #4ade80; color: #0b1a10; } .ds-btn-primary:hover { background: #6be597; } .ds-btn-primary:active { background: #3bc96f; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions on a Counter Top fill with a hairline.",
+      "html": "<button class=\"ds-btn-secondary\">Hoje</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #2a362e; background: #19221c; color: #f4f7f5; font-family: Manrope, system-ui, sans-serif; font-weight: 700; font-size: 0.9375rem; cursor: pointer; transition: background-color 120ms ease-out, border-color 120ms ease-out; } .ds-btn-secondary:hover { background: #1f2a23; border-color: #3a4a40; } .ds-btn-secondary:active { transform: translateY(1px); } .ds-btn-secondary:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Outline Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Opens a destructive confirmation; the confirm step uses the filled red variant.",
+      "html": "<button class=\"ds-btn-danger-outline\">Excluir cliente</button>",
+      "css": ".ds-btn-danger-outline { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(248, 113, 113, 0.4); background: transparent; color: #f87171; font-family: Manrope, system-ui, sans-serif; font-weight: 700; font-size: 0.9375rem; cursor: pointer; transition: background-color 120ms ease-out; } .ds-btn-danger-outline:hover { background: rgba(248, 113, 113, 0.12); } .ds-btn-danger-outline:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled field on the Night Green ground with a mint focus ring.",
+      "html": "<label class=\"ds-campo\"><span class=\"ds-campo-rotulo\">Telefone</span><input class=\"ds-input\" placeholder=\"(11) 99999-9999\"><span class=\"ds-campo-dica\">Usado para lembrar o cliente pelo WhatsApp.</span></label>",
+      "css": ".ds-campo { display: grid; gap: 8px; font-family: Manrope, system-ui, sans-serif; } .ds-campo-rotulo { font-size: 0.8125rem; font-weight: 700; color: #f4f7f5; } .ds-campo-dica { font-size: 0.8125rem; color: #a3afa7; } .ds-input { width: 100%; min-height: 44px; padding: 0 12px; background: #0d1110; border: 1px solid #3a4a40; border-radius: 10px; color: #f4f7f5; font: inherit; font-size: 1rem; transition: border-color 120ms ease-out, box-shadow 120ms ease-out; } .ds-input::placeholder { color: #84928a; } .ds-input:hover { border-color: #4a5c50; } .ds-input:focus-visible { outline: none; border-color: #4ade80; box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.12); }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-info",
+      "description": "Appointment status: tone + Lucide icon + word, never color alone.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-info\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4\"/></svg>Confirmado</span><span class=\"ds-badge ds-sucesso\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg>Concluído</span><span class=\"ds-badge ds-atencao\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M17 8l5 5M22 8l-5 5\"/></svg>Falta</span><span class=\"ds-badge\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M22 2 2 22\"/></svg>Cancelado</span></div>",
+      "css": ".ds-badges { display: flex; flex-wrap: wrap; gap: 8px; } .ds-badge { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(163, 175, 167, 0.3); background: rgba(163, 175, 167, 0.1); color: #a3afa7; font-family: Manrope, system-ui, sans-serif; font-size: 0.75rem; font-weight: 700; white-space: nowrap; } .ds-info { border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.12); color: #7cb6fa; } .ds-sucesso { border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.12); color: #4ade80; } .ds-atencao { border-color: rgba(250, 204, 21, 0.35); background: rgba(250, 204, 21, 0.1); color: #facc15; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Desktop sidebar items; active route in Mint Wash.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" aria-current=\"page\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 21v-8H9v8\"/><path d=\"M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/></svg>Visão geral</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg>Agenda</a><p class=\"ds-nav-grupo\">Barbearia</p><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\"><circle cx=\"6\" cy=\"6\" r=\"3\"/><circle cx=\"6\" cy=\"18\" r=\"3\"/><path d=\"M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12\"/></svg>Serviços</a></nav>",
+      "css": ".ds-nav { display: grid; gap: 2px; width: 224px; padding: 16px; background: #131a16; font-family: Manrope, system-ui, sans-serif; } .ds-nav-grupo { margin: 18px 0 0; padding: 0 12px 4px; color: #84928a; font-size: 0.75rem; font-weight: 600; } .ds-nav-item { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 0 12px; border-radius: 10px; color: #a3afa7; font-weight: 600; font-size: 0.9375rem; text-decoration: none; transition: background-color 120ms ease-out, color 120ms ease-out; } .ds-nav-item:hover { background: #19221c; color: #f4f7f5; } .ds-nav-item[aria-current=\"page\"] { background: rgba(74, 222, 128, 0.12); color: #4ade80; } .ds-nav-item:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }"
+    },
+    {
+      "name": "Indicator Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Visão geral indicator: tinted icon tile, muted label, heavy tabular value, caption detail.",
+      "html": "<div class=\"ds-indicador\"><span class=\"ds-indicador-icone\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1\"/><path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\"/></svg></span><div class=\"ds-indicador-texto\"><span class=\"ds-indicador-rotulo\">Recebido hoje</span><span class=\"ds-indicador-valor\">R$ 240,00</span><span class=\"ds-indicador-detalhe\">R$ 90,00 a receber</span></div></div>",
+      "css": ".ds-indicador { display: flex; align-items: flex-start; gap: 16px; padding: 20px; background: #19221c; border: 1px solid #2a362e; border-radius: 14px; font-family: Manrope, system-ui, sans-serif; color: #f4f7f5; max-width: 280px; } .ds-indicador-icone { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: rgba(74, 222, 128, 0.12); color: #4ade80; flex-shrink: 0; } .ds-indicador-texto { display: grid; gap: 2px; } .ds-indicador-rotulo { color: #a3afa7; font-size: 0.8125rem; font-weight: 600; } .ds-indicador-valor { font-size: 1.625rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; } .ds-indicador-detalhe { color: #a3afa7; font-size: 0.75rem; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Week Day Strip",
+      "kind": "custom",
+      "refersTo": "day-strip-selected",
+      "description": "Seven-day selector above the agenda; selected day filled mint, today marked with a dot.",
+      "html": "<div class=\"ds-faixa\"><button class=\"ds-dia\">Dom<span>20</span></button><button class=\"ds-dia\">Seg<span>21</span></button><button class=\"ds-dia\" aria-pressed=\"true\">Ter<span>22</span></button><button class=\"ds-dia\" data-hoje=\"true\">Qua<span>23</span></button><button class=\"ds-dia\">Qui<span>24</span></button><button class=\"ds-dia\">Sex<span>25</span></button><button class=\"ds-dia\">Sáb<span>26</span></button></div>",
+      "css": ".ds-faixa { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; max-width: 420px; font-family: Manrope, system-ui, sans-serif; } .ds-dia { position: relative; display: grid; justify-items: center; gap: 2px; min-height: 60px; padding: 8px 0; border-radius: 10px; border: 1px solid #2a362e; background: #131a16; color: #a3afa7; font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background-color 120ms ease-out, border-color 120ms ease-out; } .ds-dia span { color: #f4f7f5; font-size: 1.125rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; } .ds-dia:hover { border-color: #3a4a40; color: #f4f7f5; } .ds-dia[aria-pressed=\"true\"] { background: #4ade80; border-color: #4ade80; color: #0b1a10; } .ds-dia[aria-pressed=\"true\"] span { color: #0b1a10; } .ds-dia[data-hoje=\"true\"]::after { content: \"\"; position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: #4ade80; } .ds-dia:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }"
+    },
+    {
+      "name": "Time-Rail Appointment",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Chronological agenda row: time, rail node, appointment card; 'Agora' marks the real-time current one in mint.",
+      "html": "<div class=\"ds-linha\" data-agora=\"true\"><time class=\"ds-hora\">14:00</time><span class=\"ds-trilho\"></span><button class=\"ds-ag\"><span class=\"ds-avatar\">GA</span><span class=\"ds-ag-corpo\"><span class=\"ds-ag-cliente\">Gabriel</span><span class=\"ds-ag-badge\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4\"/></svg>Confirmado</span><span class=\"ds-ag-servico\">Corte · 30 min</span></span></button></div>",
+      "css": ".ds-linha { display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); column-gap: 8px; max-width: 380px; font-family: Manrope, system-ui, sans-serif; color: #f4f7f5; } .ds-hora { padding-top: 18px; text-align: right; color: #a3afa7; font-size: 0.8125rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-trilho { position: relative; } .ds-trilho::before { content: \"\"; position: absolute; top: 22px; bottom: 0; left: 50%; width: 1px; background: #2a362e; transform: translateX(-50%); } .ds-trilho::after { content: \"\"; position: absolute; top: 21px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: #3a4a40; box-shadow: 0 0 0 3px #0d1110; transform: translateX(-50%); } .ds-linha[data-agora=\"true\"] .ds-hora { color: #4ade80; } .ds-linha[data-agora=\"true\"] .ds-trilho::after { background: #4ade80; } .ds-ag { display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: #19221c; border: 1px solid #2a362e; border-radius: 14px; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color 120ms ease-out, background-color 120ms ease-out; } .ds-ag:hover { border-color: #3a4a40; background: #1f2a23; } .ds-linha[data-agora=\"true\"] .ds-ag { border-color: rgba(74, 222, 128, 0.4); box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.4); } .ds-ag:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; } .ds-avatar { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #243029; border: 1px solid #3a4a40; font-weight: 700; font-size: 14px; flex-shrink: 0; } .ds-ag-corpo { display: grid; gap: 4px; justify-items: start; } .ds-ag-cliente { font-weight: 800; font-size: 1rem; line-height: 1.3; } .ds-ag-badge { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.12); color: #7cb6fa; font-size: 0.75rem; font-weight: 700; } .ds-ag-servico { color: #a3afa7; font-size: 0.8125rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Front Desk",
+    "overview": "Barbium is the barbershop's front desk after closing time: dark, quiet, and in order. The schedule and the money are the two things on the counter, and everything else steps back. The ground is a deep green-black, surfaces rise one tonal step at a time, and a single mint-green carries every \"go\" signal: the main action, the current page, the money that came in, the appointment that was done. Everything else is neutral gray-green until a status has something to say.\n\nDensity is balanced rather than packed. Pages open with a large title and today's date, then a row of at most four indicators, then working panels. Rows are tall enough for a thumb (44px minimum on every control), times and money always sit in tabular figures, and all copy is plain Brazilian Portuguese. Status is never color alone; it always arrives with an icon and a word.\n\nThe world rejects generic neon-on-black SaaS styling and decorative barbershop kitsch. The one piece of barbershop heritage is the brand symbol: the barber pole redrawn as a rounded capsule with diagonal stripes, in the primary green, beside a lowercase \"barbium\" wordmark.",
+    "keyCharacteristics": [
+      "Deep green-black ground with three tonal surface steps and hairline borders.",
+      "One primary green that doubles as the success tone; blue, yellow and red appear only when they mean something.",
+      "Manrope throughout, weights 400–800, tabular figures for every time and amount.",
+      "Gently rounded forms (8/10/14px), flat at rest; shadows only on overlays.",
+      "One detail panel for every appointment: side sheet on desktop, bottom sheet on phones."
+    ],
+    "rules": [
+      { "name": "The One Green Rule", "body": "Mint is both the brand accent and the success tone. There is no separate success hue; \"Concluído\", money received and the primary action share the same green.", "section": "colors" },
+      { "name": "The Red Is For Harm Rule", "body": "Red marks errors, destructive actions and negative money only. A cancelled appointment is neutral gray and a no-show is yellow; neither is red.", "section": "colors" },
+      { "name": "The Word-and-Icon Rule", "body": "Every status carries its color, a Lucide icon and its label (Confirmado = calendar-check, Concluído = check-circle, Falta = user-x, Cancelado = circle-slash). Color alone never carries meaning.", "section": "colors" },
+      { "name": "The Tabular Figures Rule", "body": "Every time, date, amount and count sits in tabular figures (`<time>`, `.num`, tables, lists, facts, indicators) so columns of numbers align.", "section": "typography" },
+      { "name": "The Plain Portuguese Rule", "body": "Dates, money and times follow pt-BR format in the Brasília time zone (\"R$ 30,00\", \"22/09 13:25\", \"Terça-feira, 22 de setembro\"), in sentence case.", "section": "typography" },
+      { "name": "The Overlay-Only Shadow Rule", "body": "A surface casts a shadow only when it floats above the page as a modal layer. Cards, indicators and buttons stay flat.", "section": "elevation" },
+      { "name": "The One Card Deep Rule", "body": "Cards never nest. A list placed inside a card drops its own row frames (flat rows that highlight on hover) instead of stacking bordered cards inside a bordered card.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** keep one filled mint button per view, for the main action; everything else is secondary, ghost or link.",
+      "**Do** pair every status color with its Lucide icon and word, using `TOM_STATUS` and `ICONE_STATUS`.",
+      "**Do** set every time, date and amount in tabular figures, in pt-BR format and Brasília time.",
+      "**Do** build depth from the tonal steps (`bg` → `surface` → `card` → `card-hover`) and 1px hairlines.",
+      "**Do** keep every interactive target at least 44px tall (36px only for small buttons inside dense rows and headers).",
+      "**Do** open appointment details in the shared panel: side sheet from 640px, bottom sheet below.",
+      "**Do** respect reduced motion; the stylesheet collapses animations and transitions to near zero (the spinner keeps a slow turn)."
+    ],
+    "donts": [
+      "**Don't** use red for cancelled appointments or neutral information; red is for errors, destructive actions and negative money.",
+      "**Don't** add shadows to cards, indicators or buttons; the overlay shadow belongs to dialogs and sheets.",
+      "**Don't** nest bordered cards; flatten rows inside a card.",
+      "**Don't** add glow, glass, backdrop blur or decorative gradients; the build uses none.",
+      "**Don't** introduce a second typeface or icon family; Manrope and Lucide at stroke ~1.9–2.2 only.",
+      "**Don't** mark \"Agora\" or any status that the data does not support; \"Agora\" comes from the real clock.",
+      "**Don't** put uppercase eyebrow or kicker labels above titles; uppercase is limited to table column headers."
+    ]
+  }
+}

@@ -1,15 +1,26 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
 
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "BARBIUM",
-  description: "Painel de gestão do BARBIUM",
+  title: {
+    default: "Barbium",
+    template: "%s · Barbium",
+  },
+  description: "Agenda, clientes e caixa da sua barbearia em um só lugar.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "BARBIUM",
+    title: "Barbium",
   },
   icons: {
     icon: [
@@ -23,14 +34,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#000000",
+  themeColor: "#0d1110",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={manrope.variable}>
       <body>
         {children}
         <RegistrarServiceWorker />

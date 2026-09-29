@@ -2,11 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
+import { Campo } from "@/components/ui/campo";
+import { Botao } from "@/components/ui/botao";
+import { Alerta } from "@/components/ui/alerta";
 
 export function FormularioLogin({ proximaRota }: { proximaRota: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -22,10 +27,10 @@ export function FormularioLogin({ proximaRota }: { proximaRota: string | null })
         body: JSON.stringify({ email, senha }),
       });
 
-      const dados = await resposta.json();
+      const dados = await resposta.json().catch(() => null);
 
       if (!resposta.ok) {
-        setErro(dados.erro ?? "Não foi possível entrar.");
+        setErro(dados?.erro ?? "Não foi possível entrar.");
         setCarregando(false);
         return;
       }
@@ -40,36 +45,49 @@ export function FormularioLogin({ proximaRota }: { proximaRota: string | null })
   }
 
   return (
-    <form onSubmit={aoEnviar} className="card" style={{ display: "grid", gap: 16 }}>
-      <div>
-        <label htmlFor="email">E-mail</label>
+    <form onSubmit={aoEnviar} className="form">
+      {erro && <Alerta tom="perigo">{erro}</Alerta>}
+
+      <Campo id="email" rotulo="E-mail">
         <input
           id="email"
           type="email"
           className="input"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          inputMode="email"
           required
           autoFocus
         />
-      </div>
-      <div>
-        <label htmlFor="senha">Senha</label>
-        <input
-          id="senha"
-          type="password"
-          className="input"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          required
-        />
-      </div>
+      </Campo>
 
-      {erro && <p className="erro-form">{erro}</p>}
+      <Campo id="senha" rotulo="Senha">
+        <div className="senha-campo">
+          <input
+            id="senha"
+            type={mostrarSenha ? "text" : "password"}
+            className="input"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            className="btn btn-ghost btn-icone"
+            onClick={() => setMostrarSenha((v) => !v)}
+            aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={mostrarSenha}
+          >
+            {mostrarSenha ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+          </button>
+        </div>
+      </Campo>
 
-      <button type="submit" className="btn btn-primary" disabled={carregando}>
-        {carregando ? "Entrando…" : "Entrar"}
-      </button>
+      <Botao type="submit" variante="primary" bloco carregando={carregando} textoCarregando="Entrando…">
+        Entrar
+      </Botao>
     </form>
   );
 }
