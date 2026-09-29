@@ -1406,7 +1406,8 @@ a.lista-item:hover {
 .dialogo-corpo {
   padding: var(--space-2) var(--space-5) var(--space-5);
   overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .dialogo-rodape {
   display: flex;
