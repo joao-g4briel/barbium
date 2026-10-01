@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
-import { obterBarbearia } from "@/lib/barbearia-atual";
 import { liberarSinaisExpirados } from "@/lib/sinal";
 import { inicioDoDiaBrasil, horarioBrasil } from "@/lib/fuso-brasil";
 import {
@@ -63,8 +62,7 @@ export default async function VisaoGeral({
 
   await liberarSinaisExpirados(barbeariaId);
 
-  const [barbearia, servicos, agendamentos, profissionais, entradasHoje, ultimosLancamentos, assinaturas] = await Promise.all([
-    obterBarbearia(barbeariaId),
+  const [servicos, agendamentos, profissionais, entradasHoje, ultimosLancamentos, assinaturas] = await Promise.all([
     obterServicosAtivos(barbeariaId),
     prisma.agendamento.findMany({
       where: {
@@ -108,7 +106,11 @@ export default async function VisaoGeral({
   // a entrada automaticamente). A receber = confirmados de hoje que ainda
   // não foram concluídos — é previsão, não dinheiro em caixa.
   const recebido = Number(entradasHoje?._sum.valor ?? 0);
-  const aReceber = confirmados.reduce((soma, a) => soma + Number(a.servico.preco), 0);
+  // O sinal já pago entrou no caixa (está em "Recebido"): aqui só o restante.
+  const aReceber = confirmados.reduce((soma, a) => {
+    const sinal = a.caixaLancamentos.find((l) => l.origem === "SINAL");
+    return soma + Math.max(0, Number(a.servico.preco) - Number(sinal?.valor ?? 0));
+  }, 0);
 
   const proximos = confirmados.filter((a) => a.fim > agora).slice(0, 4);
   const mostrarGrade = souDono && profissionais.length >= 2;
@@ -118,7 +120,7 @@ export default async function VisaoGeral({
       <CabecalhoPagina
         titulo="Visão geral"
         descricao={`Hoje, ${formatarDataInstante(agora, { weekday: "long", day: "2-digit", month: "long" })}`}
-        acoes={<BotaoNovoAgendamento slug={barbearia?.slug} />}
+        acoes={<BotaoNovoAgendamento />}
       />
 
       <div className="pilha">
@@ -182,6 +184,7 @@ export default async function VisaoGeral({
                 servicos={servicos}
                 agora={agora.toISOString()}
                 mostrarProfissional={souDono}
+                souDono={souDono}
                 grade={mostrarGrade ? { inicioDia: inicioHoje.toISOString(), profissionais } : null}
                 vazio={
                   <EstadoVazio
@@ -286,7 +289,7 @@ export default async function VisaoGeral({
                             </span>
                           </td>
                           <td data-rotulo="Origem" className="texto-secundario">
-                            {l.agendamentoId ? "Atendimento" : "Manual"}
+                            {l.origem === "SINAL" ? "Sinal" : l.origem === "ATENDIMENTO" ? "Atendimento" : "Manual"}
                           </td>
                           <td data-rotulo="Valor" className="alinhar-direita tabela-celula-principal">
                             <span style={{ color: l.tipo === "ENTRADA" ? "var(--color-primary)" : "var(--color-text)" }}>

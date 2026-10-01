@@ -36,7 +36,12 @@ Ainda não definida. O usuário confirmou que o foco atual é terminar o MVP fun
 - Cliente final não tem conta/login; identificado por telefone (único por barbearia).
 - Stack já definida pelo projeto existente: Next.js 15 (App Router) na Vercel, Postgres serverless (Neon) via Prisma com o driver adapter oficial — fora de escopo decidir de novo aqui.
 - O README do repositório descreve um MVP ainda incompleto (fluxo público de agendamento ponta a ponta, CRUDs de clientes/serviços/equipe, lançamento automático de comissão por barbeiro), mas parte disso já avançou no código atual (ex.: assistente de agendamento público e CRUD de clientes/serviços já existem) — tratar o README como possivelmente desatualizado, não como status corrente.
-- Sem backend hoje (a interface não deve fingir que existe): criar agendamento por dentro do painel (o "Novo agendamento" leva ao link público, que aplica as regras de expediente e conflito); cadastrar/editar profissionais da equipe; editar dados da barbearia ou do perfil pelo painel; recuperar senha; forma de pagamento dos lançamentos; apuração de comissão (os percentuais existem no cadastro, o cálculo não).
+- Comissão: vale o percentual do profissional; sem ele, o do serviço; sem nenhum, zero. Base: valor cheio do serviço (o sinal faz parte). Calculada e guardada na conclusão (mudar o percentual depois não altera atendimentos fechados); some ao reabrir. Pagamento de comissão é lançado à mão como saída.
+- Caixa por origem: SINAL (Pix, entra quando o Mercado Pago aprova), ATENDIMENTO (o restante, na conclusão, com forma de pagamento Pix/Dinheiro/Débito/Crédito) e MANUAL. Sinal de agendamento cancelado continua no caixa até o dono registrar a devolução (feita no Mercado Pago).
+- Limite de profissionais ativos por plano (dono incluído): Solo 1, Barbearia 5, Rede ilimitado. Vale ao cadastrar, ao reativar e ao rebaixar o plano no super-admin.
+- Recuperação de senha por e-mail via Resend (link de uso único, 1 hora, só o hash do token no banco). Trocar ou redefinir a senha encerra as sessões abertas em outros aparelhos.
+- Agendamento pelo painel usa as mesmas regras do link público (expediente, almoço, folgas, conflito), com grade de 15 minutos e aceitando o horário que acabou de começar; entra confirmado, sem sinal.
+- Sessão é conferida no banco a cada requisição: desativar um profissional ou suspender a barbearia corta o acesso na hora.
 - Caixa e visão da equipe são exclusivos do dono (as rotas de escrita já exigiam isso; as telas agora também).
 
 ## Brand Commitments

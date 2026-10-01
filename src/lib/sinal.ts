@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { decifrar } from "./segredos";
 import { buscarPagamento, cancelarPagamento, type PagamentoMP } from "./mercadopago";
+import { registrarSinalPago, restanteAReceber } from "./caixa-agendamento";
 
 // Tempo que o horário fica reservado esperando o Pix. 30 minutos é o mínimo
 // que o Mercado Pago aceita como validade de um Pix.
@@ -56,12 +57,38 @@ export async function aplicarPagamento(barbeariaId: string, pagamento: Pagamento
   const agendamentoId = pagamento.external_reference;
 
   return prisma.$transaction(async (tx) => {
-    const ag = await tx.agendamento.findUnique({ where: { id: agendamentoId } });
+    const ag = await tx.agendamento.findUnique({
+      where: { id: agendamentoId },
+      include: { servico: { select: { nome: true, preco: true } } },
+    });
     if (!ag || ag.barbeariaId !== barbeariaId || ag.sinalPagamentoId !== String(pagamento.id)) return "ignorado";
     if (ag.sinalStatus === "PAGO" || ag.sinalValor === null) return "ignorado";
     if (Math.round(pagamento.transaction_amount * 100) !== Math.round(Number(ag.sinalValor) * 100)) return "ignorado";
 
     const pago = { sinalStatus: "PAGO" as const, sinalPagoEm: new Date() };
+
+    // O dinheiro do sinal entrou: vai pro caixa agora, seja qual for o status.
+    await registrarSinalPago(tx, {
+      id: ag.id,
+      barbeariaId: ag.barbeariaId,
+      sinalValor: ag.sinalValor,
+      servicoNome: ag.servico.nome,
+    });
+
+    // Já concluído com o valor cheio (a barbearia confirmou sem sinal e o
+    // cliente pagou o Pix depois): a entrada da conclusão vira só o restante,
+    // pra não contar o sinal duas vezes.
+    if (ag.status === "CONCLUIDO") {
+      const restante = await restanteAReceber(tx, ag.id, Number(ag.servico.preco));
+      if (restante > 0) {
+        await tx.caixaLancamento.updateMany({
+          where: { agendamentoId: ag.id, origem: "ATENDIMENTO" },
+          data: { valor: restante },
+        });
+      } else {
+        await tx.caixaLancamento.deleteMany({ where: { agendamentoId: ag.id, origem: "ATENDIMENTO" } });
+      }
+    }
 
     if (ag.status === "AGUARDANDO_PAGAMENTO") {
       await tx.agendamento.update({ where: { id: ag.id }, data: { ...pago, status: "CONFIRMADO" } });

@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Agendamento } from "@prisma/client";
+import type { Agendamento, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { formatarHora } from "@/lib/formatar";
 import { cancelarPixPendente } from "@/lib/sinal";
+import {
+  desfazerConclusao,
+  registrarConclusao,
+  registrarSinalDevolvido,
+  restanteAReceber,
+} from "@/lib/caixa-agendamento";
 
 const corpoSchema = z.union([
   z.object({ servicoId: z.string().min(1) }),
-  z.object({ status: z.enum(["CONFIRMADO", "CONCLUIDO", "CANCELADO", "FALTA"]) }),
+  z.object({
+    status: z.enum(["CONFIRMADO", "CONCLUIDO", "CANCELADO", "FALTA"]),
+    formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).optional(),
+  }),
+  z.object({ acao: z.literal("sinal-devolvido") }),
 ]);
 
 class ErroTroca extends Error {}
@@ -29,7 +39,7 @@ export async function PATCH(
 
   const agendamento = await prisma.agendamento.findUnique({
     where: { id },
-    include: { servico: true },
+    include: { servico: true, barbeiro: { select: { comissaoPercentual: true } } },
   });
 
   if (!agendamento || agendamento.barbeariaId !== sessao.barbeariaId) {
@@ -45,7 +55,11 @@ export async function PATCH(
     return trocarServico(agendamento, dados.data.servicoId);
   }
 
-  const { status } = dados.data;
+  if ("acao" in dados.data) {
+    return marcarSinalDevolvido(agendamento, sessao.role);
+  }
+
+  const { status, formaPagamento } = dados.data;
 
   // Esperando o Pix: a barbearia pode confirmar sem sinal ou cancelar.
   if (agendamento.status === "AGUARDANDO_PAGAMENTO" && status !== "CONFIRMADO" && status !== "CANCELADO") {
@@ -57,42 +71,63 @@ export async function PATCH(
 
   // Qualquer decisão da barbearia encerra um Pix ainda pendente. Se ele for
   // pago mesmo assim, o webhook registra o pagamento sem mexer no status.
+  // Concluir com valor a receber exige saber como o cliente pagou.
+  if (status === "CONCLUIDO" && !formaPagamento) {
+    const restante = await restanteAReceber(prisma, id, Number(agendamento.servico.preco));
+    if (restante > 0) {
+      return NextResponse.json(
+        { erro: "Escolha a forma de pagamento.", codigo: "FORMA_PAGAMENTO" },
+        { status: 400 },
+      );
+    }
+  }
+
   const encerraSinalPendente = agendamento.sinalStatus === "PENDENTE";
   if (encerraSinalPendente) await cancelarPixPendente(agendamento);
 
-  const atualizado = await prisma.agendamento.update({
-    where: { id },
-    data: { status, ...(encerraSinalPendente ? { sinalStatus: null, sinalExpiraEm: null } : {}) },
+  const atualizado = await prisma.$transaction(async (tx) => {
+    const resultado = await tx.agendamento.update({
+      where: { id },
+      data: { status, ...(encerraSinalPendente ? { sinalStatus: null, sinalExpiraEm: null } : {}) },
+    });
+    // Concluir lança o restante no caixa e guarda a comissão; sair de
+    // concluído desfaz os dois. O sinal pago fica no caixa até ser devolvido.
+    if (status === "CONCLUIDO") await registrarConclusao(tx, agendamento, formaPagamento ?? null);
+    else if (agendamento.status === "CONCLUIDO") await desfazerConclusao(tx, id);
+    return resultado;
   });
 
-  if (status === "CONCLUIDO") {
-    // Lança automaticamente no caixa — idempotente: se já existir um
-    // lançamento pra esse agendamento, não duplica.
-    await prisma.caixaLancamento.upsert({
-      where: { agendamentoId: id },
-      update: {},
-      create: {
-        tipo: "ENTRADA",
-        valor: agendamento.servico.preco,
-        descricao: agendamento.servico.nome,
-        barbeariaId: agendamento.barbeariaId,
-        agendamentoId: id,
-      },
-    });
-  } else {
-    // Se voltou de CONCLUIDO pra outro status (correção de erro), desfaz
-    // o lançamento de caixa que tinha sido criado.
-    await prisma.caixaLancamento.deleteMany({ where: { agendamentoId: id } });
-  }
-
   return NextResponse.json({ agendamento: atualizado });
+}
+
+// A barbearia devolveu o sinal pelo Mercado Pago (o reembolso em si é feito
+// lá): registra aqui pra a entrada sair do caixa. Só em agendamento que não
+// aconteceu, e só o dono mexe em dinheiro.
+async function marcarSinalDevolvido(agendamento: Agendamento, papel: string) {
+  if (papel !== "DONO") {
+    return NextResponse.json({ erro: "Só o dono pode registrar a devolução do sinal." }, { status: 403 });
+  }
+  if (agendamento.sinalStatus !== "PAGO" || agendamento.sinalDevolvidoEm) {
+    return NextResponse.json({ erro: "Não há sinal pago a devolver neste agendamento." }, { status: 409 });
+  }
+  if (agendamento.status !== "CANCELADO" && agendamento.status !== "FALTA") {
+    return NextResponse.json(
+      { erro: "Cancele o agendamento antes de registrar a devolução do sinal." },
+      { status: 409 },
+    );
+  }
+  await prisma.$transaction((tx) => registrarSinalDevolvido(tx, agendamento.id));
+  return NextResponse.json({ ok: true });
 }
 
 // Corrige o serviço escolhido pelo cliente. O início fica igual e o término
 // acompanha a duração do novo serviço. Em agendamento concluído o valor já
 // lançado no caixa é corrigido junto, e o horário não é conferido porque o
 // atendimento já aconteceu.
-async function trocarServico(agendamento: Agendamento, servicoId: string) {
+async function trocarServico(
+  agendamento: Agendamento & { barbeiro: { comissaoPercentual: Prisma.Decimal | null } },
+  servicoId: string,
+) {
   if (agendamento.status !== "CONFIRMADO" && agendamento.status !== "CONCLUIDO") {
     return NextResponse.json(
       { erro: "Só dá para trocar o serviço de agendamentos confirmados ou concluídos." },
@@ -155,18 +190,18 @@ async function trocarServico(agendamento: Agendamento, servicoId: string) {
         data: { servicoId: servico.id, fim: novoFim },
       });
 
+      // Concluído: refaz o restante no caixa (mantendo a forma de pagamento)
+      // e a comissão, agora pelo serviço novo.
       if (agendamento.status === "CONCLUIDO") {
-        await tx.caixaLancamento.upsert({
-          where: { agendamentoId: agendamento.id },
-          update: { valor: servico.preco, descricao: servico.nome },
-          create: {
-            tipo: "ENTRADA",
-            valor: servico.preco,
-            descricao: servico.nome,
-            barbeariaId: agendamento.barbeariaId,
-            agendamentoId: agendamento.id,
-          },
+        const anterior = await tx.caixaLancamento.findUnique({
+          where: { agendamentoId_origem: { agendamentoId: agendamento.id, origem: "ATENDIMENTO" } },
+          select: { formaPagamento: true },
         });
+        await registrarConclusao(
+          tx,
+          { id: agendamento.id, barbeariaId: agendamento.barbeariaId, servico, barbeiro: agendamento.barbeiro },
+          anterior?.formaPagamento ?? null,
+        );
       }
 
       return resultado;

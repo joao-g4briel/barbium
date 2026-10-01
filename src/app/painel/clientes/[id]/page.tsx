@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarCheck, CalendarX2, CheckCircle2, History, MessageCircle, Phone } from "lucide-react";
+import { CalendarCheck, CalendarX2, CheckCircle2, History, MessageCircle, Phone, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
 import {
@@ -68,6 +69,10 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
                 Ligar
               </a>
             )}
+            <Link href={`/painel/agenda/novo?cliente=${cliente.id}`} className="btn btn-primary">
+              <Plus size={18} aria-hidden="true" />
+              Agendar
+            </Link>
           </>
         }
       />

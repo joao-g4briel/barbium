@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import { PLANOS, ROTULO_PLANO } from "@/lib/planos";
+import { PLANOS, ROTULO_PLANO, descreverLimite } from "@/lib/planos";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
@@ -170,7 +170,7 @@ export function FormularioNovaBarbearia() {
             >
               {PLANOS.map((p) => (
                 <option key={p} value={p}>
-                  {ROTULO_PLANO[p]}
+                  {ROTULO_PLANO[p]} · {descreverLimite(p)}
                 </option>
               ))}
             </select>

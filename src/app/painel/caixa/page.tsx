@@ -3,7 +3,9 @@ import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Clock, Plus, Receipt, Scale } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
-import { intervaloPeriodo, periodoValido, ROTULO_PERIODO, type PeriodoCaixa } from "@/lib/periodo-caixa";
+import { intervaloPeriodo, periodoValido, PERIODOS_CAIXA, ROTULO_PERIODO, type PeriodoCaixa } from "@/lib/periodo-caixa";
+import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO, ROTULO_ORIGEM } from "@/lib/forma-pagamento";
+import { NavFinanceiro } from "./nav-financeiro";
 import { formatarDataInstante, formatarHora, formatarMoeda } from "@/lib/formatar";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { AcessoRestrito } from "@/components/ui/acesso-restrito";
@@ -48,20 +50,36 @@ export default async function PaginaCaixa({
     // entrar no caixa (concluir um atendimento lança a entrada sozinho).
     prisma.agendamento.findMany({
       where: { barbeariaId: sessao.barbeariaId, status: "CONFIRMADO", inicio: { gte: inicio, lte: fim } },
-      select: { servico: { select: { preco: true } } },
+      select: {
+        servico: { select: { preco: true } },
+        caixaLancamentos: { where: { origem: "SINAL" }, select: { valor: true } },
+      },
     }),
   ]);
 
   const entradas = lancamentos.filter((l) => l.tipo === "ENTRADA").reduce((s, l) => s + Number(l.valor), 0);
   const saidas = lancamentos.filter((l) => l.tipo === "SAIDA").reduce((s, l) => s + Number(l.valor), 0);
   const saldo = entradas - saidas;
-  const aReceber = confirmados.reduce((s, a) => s + Number(a.servico.preco), 0);
+  // O sinal já pago está em "Recebido"; aqui entra só o restante.
+  const aReceber = confirmados.reduce(
+    (s, a) => s + Math.max(0, Number(a.servico.preco) - a.caixaLancamentos.reduce((t, l) => t + Number(l.valor), 0)),
+    0,
+  );
+
+  // Entradas do período por forma de pagamento (pra conferir gaveta e maquininha).
+  const porForma = [...FORMAS_PAGAMENTO, null].map((forma) => ({
+    forma,
+    rotulo: forma ? ROTULO_FORMA_PAGAMENTO[forma] : "Não informada",
+    valor: lancamentos
+      .filter((l) => l.tipo === "ENTRADA" && l.formaPagamento === forma)
+      .reduce((s, l) => s + Number(l.valor), 0),
+  })).filter((f) => f.forma !== null || f.valor > 0);
 
   const visiveis = lancamentos.filter((l) =>
     filtroTipo === "todos" ? true : filtroTipo === "entradas" ? l.tipo === "ENTRADA" : l.tipo === "SAIDA",
   );
 
-  const periodos: PeriodoCaixa[] = ["hoje", "semana", "mes"];
+  const periodos = PERIODOS_CAIXA;
   const hrefCom = (p: PeriodoCaixa, t: FiltroTipo) => {
     const busca = new URLSearchParams({ periodo: p });
     if (t !== "todos") busca.set("tipo", t);
@@ -82,6 +100,7 @@ export default async function PaginaCaixa({
       />
 
       <div className="pilha">
+        <NavFinanceiro atual="lancamentos" periodo={periodo} />
         <Abas
           rotulo="Período"
           itens={periodos.map((p) => ({ href: hrefCom(p, filtroTipo), rotulo: ROTULO_PERIODO[p], ativo: p === periodo }))}
@@ -116,6 +135,24 @@ export default async function PaginaCaixa({
           />
         </section>
 
+        {entradas > 0 && (
+          <section className="card" aria-labelledby="titulo-formas">
+            <div className="card-cabecalho">
+              <h2 id="titulo-formas" className="card-titulo">
+                Recebido por forma de pagamento
+              </h2>
+            </div>
+            <dl className="formas-resumo">
+              {porForma.map((f) => (
+                <div key={f.rotulo}>
+                  <dt>{f.rotulo}</dt>
+                  <dd className="num">{formatarMoeda(f.valor)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+
         <section className="card card-sem-padding" aria-labelledby="titulo-lancamentos">
           <div className="card-cabecalho">
             <h2 id="titulo-lancamentos" className="card-titulo">
@@ -137,7 +174,7 @@ export default async function PaginaCaixa({
             <EstadoVazio
               icone={<Receipt size={22} />}
               titulo="Nenhum lançamento neste período"
-              descricao="Atendimentos concluídos entram aqui automaticamente. Despesas e entradas avulsas você lança manualmente."
+              descricao="Sinais pagos e atendimentos concluídos entram aqui automaticamente. Despesas e entradas avulsas você lança manualmente."
               acao={
                 <Link href="/painel/caixa/novo" className="btn btn-secondary">
                   <Plus size={18} aria-hidden="true" />
@@ -153,6 +190,7 @@ export default async function PaginaCaixa({
                     <th scope="col">Descrição</th>
                     <th scope="col">Data</th>
                     <th scope="col">Origem</th>
+                    <th scope="col">Forma</th>
                     <th scope="col">Tipo</th>
                     <th scope="col" className="alinhar-direita">
                       Valor
@@ -176,7 +214,10 @@ export default async function PaginaCaixa({
                           </span>
                         </td>
                         <td data-rotulo="Origem" className="texto-secundario">
-                          {l.agendamentoId ? "Atendimento concluído" : "Lançamento manual"}
+                          {ROTULO_ORIGEM[l.origem]}
+                        </td>
+                        <td data-rotulo="Forma" className="texto-secundario">
+                          {l.formaPagamento ? ROTULO_FORMA_PAGAMENTO[l.formaPagamento] : "—"}
                         </td>
                         <td data-rotulo="Tipo">
                           {entrada ? (
@@ -194,8 +235,8 @@ export default async function PaginaCaixa({
                           </span>
                         </td>
                         <td className="alinhar-direita">
-                          {/* Lançamento de atendimento só sai reabrindo o agendamento. */}
-                          {!l.agendamentoId && <BotaoExcluirLancamento id={l.id} descricao={descricao} />}
+                          {/* Atendimento e sinal saem pela Agenda (reabrir / registrar devolução). */}
+                          {l.origem === "MANUAL" && <BotaoExcluirLancamento id={l.id} descricao={descricao} />}
                         </td>
                       </tr>
                     );

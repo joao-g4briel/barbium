@@ -13,7 +13,8 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { StatusAgendamento } from "@prisma/client";
+import type { FormaPagamento, StatusAgendamento } from "@prisma/client";
+import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
 import { AlertCircle, Check, ChevronRight, Clock, MessageCircle, User } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, ICONE_STATUS, StatusBadge } from "@/components/ui/badge";
@@ -46,7 +47,13 @@ function useAtualizarAgendamento() {
   const [atualizando, iniciarAtualizacao] = useTransition();
 
   const enviar = useCallback(
-    async (id: string, corpo: { status: StatusAgendamento } | { servicoId: string }): Promise<boolean> => {
+    async (
+      id: string,
+      corpo:
+        | { status: StatusAgendamento; formaPagamento?: FormaPagamento }
+        | { servicoId: string }
+        | { acao: "sinal-devolvido" },
+    ): Promise<boolean> => {
       setProcessandoId(id);
       setErro(null);
       try {
@@ -72,18 +79,29 @@ function useAtualizarAgendamento() {
     [router],
   );
 
-  const alterar = useCallback((id: string, status: StatusAgendamento) => enviar(id, { status }), [enviar]);
+  const alterar = useCallback(
+    (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) =>
+      enviar(id, formaPagamento ? { status, formaPagamento } : { status }),
+    [enviar],
+  );
   const trocarServico = useCallback((id: string, servicoId: string) => enviar(id, { servicoId }), [enviar]);
+  const devolverSinal = useCallback((id: string) => enviar(id, { acao: "sinal-devolvido" }), [enviar]);
   const limparErro = useCallback(() => setErro(null), []);
 
-  return { alterar, trocarServico, processandoId, atualizando, erro, limparErro };
+  return { alterar, trocarServico, devolverSinal, processandoId, atualizando, erro, limparErro };
 }
 
 function descreverSinal(ag: AgendamentoVM): string {
   if (!ag.sinal) return "";
+  if (ag.sinal.devolvido) return "devolvido";
   if (ag.sinal.status === "PAGO") return "pago";
   if (ag.sinal.status === "PENDENTE") return ag.status === "CANCELADO" ? "não pago no prazo" : "aguardando Pix";
   return "dispensado";
+}
+
+// O que falta receber na hora: preço menos o sinal que está no caixa.
+function restanteNaHora(ag: AgendamentoVM): number {
+  return Math.max(0, Math.round((ag.servico.preco - ag.sinalNoCaixa) * 100) / 100);
 }
 
 function estaAcontecendo(ag: AgendamentoVM, agoraMs: number): boolean {
@@ -105,11 +123,14 @@ export function AgendaInterativa({
   servicos,
   agora,
   mostrarProfissional,
+  souDono,
   grade,
   vazio,
   emCard,
 }: {
   grupos: GrupoAgendaVM[];
+  // Ações de dinheiro (ex.: registrar devolução de sinal) são só do dono.
+  souDono: boolean;
   // Serviços ativos da barbearia, oferecidos na troca de serviço.
   servicos: ServicoOpcaoVM[];
   agora: string;
@@ -122,14 +143,17 @@ export function AgendaInterativa({
 }) {
   const agoraMs = Date.parse(agora);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const { alterar, trocarServico, processandoId, atualizando, erro, limparErro } = useAtualizarAgendamento();
+  const [modoAbertura, setModoAbertura] = useState<"concluir" | null>(null);
+  const { alterar, trocarServico, devolverSinal, processandoId, atualizando, erro, limparErro } =
+    useAtualizarAgendamento();
 
   const todos = useMemo(() => grupos.flatMap((g) => g.itens), [grupos]);
   const selecionado = todos.find((ag) => ag.id === selecionadoId) ?? null;
 
   const abrir = useCallback(
-    (id: string) => {
+    (id: string, modo: "concluir" | null = null) => {
       limparErro();
+      setModoAbertura(modo);
       setSelecionadoId(id);
     },
     [limparErro],
@@ -150,8 +174,7 @@ export function AgendaInterativa({
                 agoraMs={agoraMs}
                 mostrarProfissional={mostrarProfissional}
                 aoAbrir={abrir}
-                aoConcluir={() => alterar(ag.id, "CONCLUIDO")}
-                concluindo={processandoId === ag.id}
+                aoConcluir={() => abrir(ag.id, "concluir")}
               />
             ))}
           </section>
@@ -181,11 +204,14 @@ export function AgendaInterativa({
 
       <PainelAgendamento
         ag={selecionado}
+        modoInicial={modoAbertura}
+        souDono={souDono}
         servicos={servicos}
         agoraMs={agoraMs}
         aoFechar={() => setSelecionadoId(null)}
         alterar={alterar}
         trocarServico={trocarServico}
+        devolverSinal={devolverSinal}
         processando={selecionado !== null && (processandoId === selecionado.id || atualizando)}
         atualizando={atualizando}
         erro={erro}
@@ -205,14 +231,12 @@ function LinhaAgenda({
   mostrarProfissional,
   aoAbrir,
   aoConcluir,
-  concluindo,
 }: {
   ag: AgendamentoVM;
   agoraMs: number;
   mostrarProfissional: boolean;
   aoAbrir: (id: string) => void;
   aoConcluir: () => void;
-  concluindo: boolean;
 }) {
   const agoraAcontecendo = estaAcontecendo(ag, agoraMs);
   const inicio = new Date(ag.inicio);
@@ -265,8 +289,6 @@ function LinhaAgenda({
                 pequeno
                 icone={<Check size={16} aria-hidden="true" />}
                 onClick={aoConcluir}
-                carregando={concluindo}
-                textoCarregando="Concluindo…"
               >
                 Concluir atendimento
               </Botao>
@@ -421,33 +443,49 @@ function GradeProfissionais({
 // Painel de detalhes + transições de status + troca de serviço
 // ---------------------------------------------------------------------------
 
-type Confirmacao = "cancelar" | "reabrir" | "trocar" | null;
+type Confirmacao = "cancelar" | "reabrir" | "trocar" | "concluir" | "devolver" | null;
 
 function PainelAgendamento({
   ag,
+  modoInicial,
+  souDono,
   servicos,
   agoraMs,
   aoFechar,
   alterar,
   trocarServico,
+  devolverSinal,
   processando,
   atualizando,
   erro,
   limparErro,
 }: {
   ag: AgendamentoVM | null;
+  modoInicial: "concluir" | null;
+  souDono: boolean;
   servicos: ServicoOpcaoVM[];
   agoraMs: number;
   aoFechar: () => void;
-  alterar: (id: string, status: StatusAgendamento) => Promise<boolean>;
+  alterar: (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) => Promise<boolean>;
   trocarServico: (id: string, servicoId: string) => Promise<boolean>;
+  devolverSinal: (id: string) => Promise<boolean>;
   processando: boolean;
   atualizando: boolean;
   erro: string | null;
   limparErro: () => void;
 }) {
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
+  const [forma, setForma] = useState<FormaPagamento | null>(null);
   const [novoServicoId, setNovoServicoId] = useState("");
+  // Ao abrir outro agendamento, começa no modo pedido (ex.: "Concluir
+  // atendimento" do cartão abre direto na forma de pagamento).
+  const agId = ag?.id ?? null;
+  const [abertoPara, setAbertoPara] = useState<string | null>(null);
+  if (agId !== abertoPara) {
+    setAbertoPara(agId);
+    setForma(null);
+    setConfirmacao(agId && modoInicial === "concluir" && ag && restanteNaHora(ag) > 0 ? "concluir" : null);
+  }
   // Nome do serviço já salvo, enquanto a agenda recarrega.
   const [trocaSalva, setTrocaSalva] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -471,11 +509,29 @@ function PainelAgendamento({
     aoFechar();
   }
 
-  async function executar(status: StatusAgendamento) {
+  async function executar(status: StatusAgendamento, formaPagamento?: FormaPagamento) {
     if (!ag) return;
     setAviso(null);
-    const ok = await alterar(ag.id, status);
+    const ok = await alterar(ag.id, status, formaPagamento);
     if (ok) fechar();
+  }
+
+  // Sem nada a receber na hora (sinal de 100%), conclui direto.
+  function iniciarConclusao() {
+    if (!ag) return;
+    if (restanteNaHora(ag) === 0) return executar("CONCLUIDO");
+    limparErro();
+    setForma(null);
+    setConfirmacao("concluir");
+  }
+
+  async function registrarDevolucao() {
+    if (!ag) return;
+    const ok = await devolverSinal(ag.id);
+    if (ok) {
+      setConfirmacao(null);
+      setAviso("Devolução registrada. O sinal saiu do caixa.");
+    }
   }
 
   function iniciarTroca() {
@@ -517,8 +573,48 @@ function PainelAgendamento({
   const mudouServico = escolhido.id !== ag.servico.id;
   const novoFim = new Date(inicio.getTime() + escolhido.duracaoMinutos * 60 * 1000);
 
+  const restante = restanteNaHora(ag);
+  const sinalADevolver =
+    souDono &&
+    (ag.status === "CANCELADO" || ag.status === "FALTA") &&
+    ag.sinal?.status === "PAGO" &&
+    !ag.sinal.devolvido;
+
   let rodape: ReactNode;
-  if (confirmacao === "trocar") {
+  if (confirmacao === "concluir") {
+    rodape = (
+      <>
+        <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
+          Voltar
+        </Botao>
+        <Botao
+          variante="primary"
+          icone={<Check size={18} aria-hidden="true" />}
+          onClick={() => forma && executar("CONCLUIDO", forma)}
+          disabled={!forma}
+          carregando={processando}
+          textoCarregando="Salvando…"
+        >
+          Concluir · {formatarMoeda(restante)}
+        </Botao>
+      </>
+    );
+  } else if (confirmacao === "devolver" && ag.sinal) {
+    rodape = (
+      <>
+        <p className="texto-pequeno" style={{ flexBasis: "100%" }}>
+          Você já devolveu {formatarMoeda(ag.sinal.valor)} ao cliente pelo Mercado Pago? A entrada do sinal sai do
+          caixa.
+        </p>
+        <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
+          Voltar
+        </Botao>
+        <Botao variante="primary" onClick={registrarDevolucao} carregando={processando} textoCarregando="Registrando…">
+          Registrar devolução
+        </Botao>
+      </>
+    );
+  } else if (confirmacao === "trocar") {
     rodape = (
       <>
         <Botao onClick={cancelarTroca} disabled={processando}>
@@ -542,7 +638,8 @@ function PainelAgendamento({
           Cancelar este agendamento? O horário volta a ficar livre para novos agendamentos.
           {ag.status === "AGUARDANDO_PAGAMENTO" && " O Pix do sinal deixa de valer."}
           {ag.sinal?.status === "PAGO" &&
-            ` O sinal de ${formatarMoeda(ag.sinal.valor)} não é devolvido automaticamente.`}
+            !ag.sinal.devolvido &&
+            ` O sinal de ${formatarMoeda(ag.sinal.valor)} continua no caixa até você registrar a devolução.`}
         </p>
         <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
           Voltar
@@ -561,7 +658,10 @@ function PainelAgendamento({
     rodape = (
       <>
         <p className="texto-pequeno" style={{ flexBasis: "100%" }}>
-          Reabrir remove do caixa o lançamento de {formatarMoeda(ag.servico.preco)} gerado na conclusão.
+          {ag.pagamento
+            ? `Reabrir remove do caixa o lançamento de ${formatarMoeda(ag.pagamento.valor)} feito na conclusão e a comissão.`
+            : "Reabrir desfaz a conclusão e a comissão."}
+          {ag.sinalNoCaixa > 0 && " O sinal continua no caixa."}
         </p>
         <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
           Voltar
@@ -603,7 +703,7 @@ function PainelAgendamento({
         <Botao
           variante="primary"
           icone={<Check size={18} aria-hidden="true" />}
-          onClick={() => executar("CONCLUIDO")}
+          onClick={iniciarConclusao}
           carregando={processando}
           textoCarregando="Salvando…"
         >
@@ -613,13 +713,20 @@ function PainelAgendamento({
     );
   } else {
     rodape = (
-      <Botao
-        onClick={() => (ag.status === "CONCLUIDO" ? setConfirmacao("reabrir") : executar("CONFIRMADO"))}
-        carregando={processando}
-        textoCarregando="Reabrindo…"
-      >
-        Reabrir agendamento
-      </Botao>
+      <>
+        {sinalADevolver && (
+          <Botao onClick={() => setConfirmacao("devolver")} disabled={processando}>
+            Registrar devolução do sinal
+          </Botao>
+        )}
+        <Botao
+          onClick={() => (ag.status === "CONCLUIDO" ? setConfirmacao("reabrir") : executar("CONFIRMADO"))}
+          carregando={processando}
+          textoCarregando="Reabrindo…"
+        >
+          Reabrir agendamento
+        </Botao>
+      </>
     );
   }
 
@@ -651,11 +758,34 @@ function PainelAgendamento({
             {formatarHora(new Date(ag.sinal.expiraEm))} e depois volta a ficar livre.
           </Alerta>
         )}
-        {ag.status === "CANCELADO" && ag.sinal?.status === "PAGO" && (
+        {(ag.status === "CANCELADO" || ag.status === "FALTA") && ag.sinal?.status === "PAGO" && !ag.sinal.devolvido && (
           <Alerta tom="atencao">
-            O cliente pagou um sinal de {formatarMoeda(ag.sinal.valor)}. Se for devolver, faça o reembolso pelo
-            Mercado Pago.
+            O cliente pagou um sinal de {formatarMoeda(ag.sinal.valor)}, que continua no caixa. Se for devolver, faça o
+            reembolso pelo Mercado Pago{souDono ? " e registre a devolução aqui" : ""}.
           </Alerta>
+        )}
+        {confirmacao === "concluir" && (
+          <fieldset className="formas-pagamento">
+            <legend className="formas-pagamento-titulo">
+              Como o cliente pagou {formatarMoeda(restante)}
+              {ag.sinalNoCaixa > 0 && <span className="texto-secundario"> (o sinal já está no caixa)</span>}?
+            </legend>
+            <div className="formas-pagamento-opcoes">
+              {FORMAS_PAGAMENTO.map((f, indice) => (
+                <label key={f} className="forma-opcao">
+                  <input
+                    type="radio"
+                    name={`forma-${ag.id}`}
+                    value={f}
+                    checked={forma === f}
+                    onChange={() => setForma(f)}
+                    autoFocus={indice === 0}
+                  />
+                  <span>{ROTULO_FORMA_PAGAMENTO[f]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         )}
         <dl className="fatos">
           <div>
@@ -704,7 +834,7 @@ function PainelAgendamento({
                         <p>
                           {escolhido.preco === ag.servico.preco
                             ? `O valor no caixa continua ${formatarMoeda(escolhido.preco)}.`
-                            : `O lançamento no caixa passa de ${formatarMoeda(ag.servico.preco)} para ${formatarMoeda(escolhido.preco)}.`}
+                            : `O lançamento no caixa passa de ${formatarMoeda(Math.max(0, ag.servico.preco - ag.sinalNoCaixa))} para ${formatarMoeda(Math.max(0, escolhido.preco - ag.sinalNoCaixa))}, e a comissão é recalculada.`}
                         </p>
                       )}
                     </>
@@ -756,10 +886,27 @@ function PainelAgendamento({
               </dd>
             </div>
           )}
-          {ag.sinal?.status === "PAGO" && ag.status !== "CANCELADO" && (
+          {ag.sinalNoCaixa > 0 && (ag.status === "CONFIRMADO" || ag.status === "AGUARDANDO_PAGAMENTO") && (
             <div>
-              <dt>Restante no atendimento</dt>
-              <dd>{formatarMoeda(Math.max(0, ag.servico.preco - ag.sinal.valor))}</dd>
+              <dt>A receber no atendimento</dt>
+              <dd>{formatarMoeda(restante)}</dd>
+            </div>
+          )}
+          {concluido && ag.pagamento && (
+            <div>
+              <dt>Pagamento</dt>
+              <dd>
+                {formatarMoeda(ag.pagamento.valor)} ·{" "}
+                {ag.pagamento.forma ? ROTULO_FORMA_PAGAMENTO[ag.pagamento.forma] : "forma não informada"}
+              </dd>
+            </div>
+          )}
+          {concluido && ag.comissao && (
+            <div>
+              <dt>Comissão</dt>
+              <dd>
+                {formatarMoeda(ag.comissao.valor)} · {ag.comissao.percentual.toLocaleString("pt-BR")}%
+              </dd>
             </div>
           )}
           <div>

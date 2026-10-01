@@ -3,7 +3,6 @@ import Link from "next/link";
 import { CalendarX2, ChevronLeft, ChevronRight } from "lucide-react";
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
-import { obterBarbearia } from "@/lib/barbearia-atual";
 import { liberarSinaisExpirados } from "@/lib/sinal";
 import { inicioDoDiaBrasil, horarioBrasil } from "@/lib/fuso-brasil";
 import { capitalizar, formatarDiaCalendario } from "@/lib/formatar";
@@ -101,8 +100,7 @@ export default async function PaginaAgenda({
 
   await liberarSinaisExpirados(sessao.barbeariaId);
 
-  const [barbearia, servicos, profissionais] = await Promise.all([
-    obterBarbearia(sessao.barbeariaId),
+  const [servicos, profissionais] = await Promise.all([
     obterServicosAtivos(sessao.barbeariaId),
     souDono
       ? prisma.usuario.findMany({
@@ -202,7 +200,7 @@ export default async function PaginaAgenda({
       <CabecalhoPagina
         titulo="Agenda"
         descricao={rotuloPeriodo}
-        acoes={<BotaoNovoAgendamento slug={barbearia?.slug} />}
+        acoes={<BotaoNovoAgendamento data={visualizacao === "dia" ? chaveDia(dataRef) : undefined} profissional={filtroProfissional} />}
       />
 
       <div className="agenda-topo">
@@ -296,6 +294,7 @@ export default async function PaginaAgenda({
           servicos={servicos}
           agora={new Date().toISOString()}
           mostrarProfissional={souDono && !filtroProfissional}
+          souDono={souDono}
           grade={
             mostrarGrade
               ? { inicioDia: horarioBrasil(dataRef, 0).toISOString(), profissionais }
@@ -306,8 +305,8 @@ export default async function PaginaAgenda({
               <EstadoVazio
                 icone={<CalendarX2 size={22} />}
                 titulo={visualizacao === "dia" ? "Nenhum agendamento neste dia" : "Nenhum agendamento neste período"}
-                descricao="Os horários marcados pelo link de agendamento aparecem aqui automaticamente."
-                acao={<BotaoNovoAgendamento slug={barbearia?.slug} />}
+                descricao="Agende por aqui ou receba pelo link de agendamento da barbearia — os dois aparecem nesta agenda."
+                acao={<BotaoNovoAgendamento data={visualizacao === "dia" ? chaveDia(dataRef) : undefined} profissional={filtroProfissional} />}
               />
             </div>
           }

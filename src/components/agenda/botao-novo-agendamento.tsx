@@ -1,14 +1,16 @@
+import Link from "next/link";
 import { Plus } from "lucide-react";
 
-// Não existe criação de agendamento pelo painel: o fluxo real é o link
-// público da barbearia, que aplica as mesmas regras de expediente, bloqueio
-// e conflito. O botão leva pra lá.
-export function BotaoNovoAgendamento({ slug }: { slug: string | undefined }) {
-  if (!slug) return null;
+// Abre o agendamento pelo painel, já no dia (e profissional) que estava na tela.
+export function BotaoNovoAgendamento({ data, profissional }: { data?: string; profissional?: string | null }) {
+  const busca = new URLSearchParams();
+  if (data) busca.set("data", data);
+  if (profissional) busca.set("profissional", profissional);
+  const query = busca.toString();
   return (
-    <a href={`/agendar/${slug}`} className="btn btn-primary">
+    <Link href={`/painel/agenda/novo${query ? `?${query}` : ""}`} className="btn btn-primary">
       <Plus size={18} aria-hidden="true" />
       Novo agendamento
-    </a>
+    </Link>
   );
 }

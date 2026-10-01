@@ -3,6 +3,14 @@ import bcrypt from "bcryptjs";
 
 export const COOKIE_NAME = "barbium_session";
 
+export const OPCOES_COOKIE_SESSAO = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 60 * 60 * 24 * 7, // 7 dias, em segundos (mesma validade do token)
+};
+
 const alg = "HS256";
 
 function getSecret() {
@@ -56,11 +64,17 @@ export async function verificarTokenSessao(
 
 // Gera uma senha temporária legível (ex.: para o dono de uma barbearia
 // recém-criada pelo super admin), sem caracteres ambíguos como 0/O, 1/l/I.
+// Usa o gerador criptográfico (Web Crypto, disponível no Node e no Edge) e
+// descarta bytes acima do maior múltiplo do alfabeto, pra não enviesar letras.
 export function gerarSenhaTemporaria(): string {
   const alfabeto = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const limite = 256 - (256 % alfabeto.length);
   let senha = "";
-  for (let i = 0; i < 10; i++) {
-    senha += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  while (senha.length < 10) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    for (const byte of bytes) {
+      if (byte < limite && senha.length < 10) senha += alfabeto[byte % alfabeto.length];
+    }
   }
   return senha;
 }

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import type { DiaSemana, ExpedienteDia } from "@prisma/client";
-import { UsersRound } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Plus, UsersRound } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
 import { ORDEM_DIAS_SEMANA, ROTULO_DIA_SEMANA } from "@/lib/dias-semana";
 import { ROTULO_PAPEL, formatarDuracao } from "@/lib/formatar";
 import { obterOcupacaoSemana } from "@/lib/dashboard-painel";
+import { obterBarbearia } from "@/lib/barbearia-atual";
+import { LIMITE_PROFISSIONAIS, ROTULO_PLANO, cabeMaisUm, mensagemLimite } from "@/lib/planos";
+import { Alerta } from "@/components/ui/alerta";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
@@ -37,23 +41,45 @@ export default async function PaginaEquipe() {
     );
   }
 
-  const [profissionais, ocupacao] = await Promise.all([
+  const [profissionais, ocupacao, barbearia] = await Promise.all([
     prisma.usuario.findMany({
       where: { barbeariaId: sessao.barbeariaId, role: { in: ["DONO", "BARBEIRO"] } },
       include: { expediente: true },
       orderBy: [{ ativo: "desc" }, { nome: "asc" }],
     }),
     obterOcupacaoSemana(sessao.barbeariaId),
+    obterBarbearia(sessao.barbeariaId),
   ]);
 
   const ativos = profissionais.filter((p) => p.ativo).length;
+  const plano = barbearia?.plano ?? "SOLO";
+  const limite = LIMITE_PROFISSIONAIS[plano];
+  const podeCadastrar = cabeMaisUm(plano, ativos);
+  const usoDoPlano =
+    limite === null
+      ? `${ativos} ${ativos === 1 ? "profissional ativo" : "profissionais ativos"} · plano ${ROTULO_PLANO[plano]}`
+      : `${ativos} de ${limite} ${limite === 1 ? "profissional" : "profissionais"} do plano ${ROTULO_PLANO[plano]}`;
 
   return (
     <>
       <CabecalhoPagina
         titulo="Equipe"
-        descricao={`${ativos} ${ativos === 1 ? "profissional ativo" : "profissionais ativos"} · ocupação da semana atual`}
+        descricao={`${usoDoPlano} · ocupação da semana atual`}
+        acoes={
+          podeCadastrar && (
+          <Link href="/painel/equipe/novo" className="btn btn-primary">
+            <Plus size={18} aria-hidden="true" />
+            Novo profissional
+          </Link>
+          )
+        }
       />
+
+      {!podeCadastrar && (
+        <div style={{ marginBottom: 16 }}>
+          <Alerta tom="info">{mensagemLimite(plano)}</Alerta>
+        </div>
+      )}
 
       <section className="card card-sem-padding" aria-label="Profissionais">
         {profissionais.length === 0 ? (
@@ -70,6 +96,9 @@ export default async function PaginaEquipe() {
                   </th>
                   <th scope="col" style={{ minWidth: 200 }}>
                     Ocupação da semana
+                  </th>
+                  <th scope="col">
+                    <span className="sr-only">Ações</span>
                   </th>
                 </tr>
               </thead>
@@ -128,6 +157,12 @@ export default async function PaginaEquipe() {
                         ) : (
                           <span className="texto-secundario texto-pequeno">Sem expediente para calcular</span>
                         )}
+                      </td>
+                      <td className="alinhar-direita">
+                        <Link href={`/painel/equipe/${p.id}`} className="btn btn-ghost btn-sm">
+                          <Pencil size={15} aria-hidden="true" />
+                          Editar<span className="sr-only"> {p.nome}</span>
+                        </Link>
                       </td>
                     </tr>
                   );

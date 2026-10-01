@@ -8,13 +8,29 @@ const criarClienteSchema = z.object({
   telefone: z.string().min(8, "Informe um telefone válido."),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   const sessao = await exigirUsuarioDaBarbearia().catch(() => null);
   if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 403 });
 
+  // Com ?q=, busca por nome ou telefone e devolve só os primeiros resultados
+  // (usado na escolha de cliente do novo agendamento).
+  const termo = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+  const digitos = termo.replace(/\D/g, "");
+
   const clientes = await prisma.cliente.findMany({
-    where: { barbeariaId: sessao.barbeariaId! },
+    where: {
+      barbeariaId: sessao.barbeariaId!,
+      ...(termo
+        ? {
+            OR: [
+              { nome: { contains: termo, mode: "insensitive" as const } },
+              ...(digitos.length >= 3 ? [{ telefone: { contains: digitos } }] : []),
+            ],
+          }
+        : {}),
+    },
     orderBy: { nome: "asc" },
+    ...(termo ? { take: 8, select: { id: true, nome: true, telefone: true } } : {}),
   });
 
   return NextResponse.json({ clientes });

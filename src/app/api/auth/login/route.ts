@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { verificarSenha, criarTokenSessao, COOKIE_NAME } from "@/lib/auth";
+import { verificarSenha, criarTokenSessao, COOKIE_NAME, OPCOES_COOKIE_SESSAO } from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -65,13 +65,7 @@ export async function POST(request: Request) {
     nome: usuario.nome,
   });
 
-  resposta.cookies.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 dias, em segundos
-  });
+  resposta.cookies.set(COOKIE_NAME, token, OPCOES_COOKIE_SESSAO);
 
   return resposta;
 }

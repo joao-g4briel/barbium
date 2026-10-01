@@ -7,6 +7,9 @@ import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
+import type { FormaPagamento } from "@prisma/client";
+import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
+import { FUSO_BRASIL } from "@/lib/fuso-brasil";
 
 type Tipo = "ENTRADA" | "SAIDA";
 
@@ -21,7 +24,9 @@ export function FormularioNovoLancamento() {
   const [tipo, setTipo] = useState<Tipo>("SAIDA");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  // Hoje no calendário de Brasília (en-CA formata como AAAA-MM-DD).
+  const [data, setData] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: FUSO_BRASIL }));
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | "">("");
   const [erros, setErros] = useState<Erros>({});
   const [salvando, setSalvando] = useState(false);
 
@@ -39,7 +44,7 @@ export function FormularioNovoLancamento() {
       const resposta = await fetch("/api/painel/caixa/lancamentos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo, valor: numero, descricao, data }),
+        body: JSON.stringify({ tipo, valor: numero, descricao, data, formaPagamento: formaPagamento || null }),
       });
       if (!resposta.ok) {
         const dados = await resposta.json().catch(() => null);
@@ -119,6 +124,23 @@ export function FormularioNovoLancamento() {
           <input id="data" type="date" className="input" value={data} onChange={(e) => setData(e.target.value)} required />
         </Campo>
       </div>
+
+      <Campo id="forma-pagamento" rotulo="Forma de pagamento" opcional>
+        <select
+          id="forma-pagamento"
+          className="input"
+          style={{ maxWidth: 280 }}
+          value={formaPagamento}
+          onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento | "")}
+        >
+          <option value="">Não informar</option>
+          {FORMAS_PAGAMENTO.map((f) => (
+            <option key={f} value={f}>
+              {ROTULO_FORMA_PAGAMENTO[f]}
+            </option>
+          ))}
+        </select>
+      </Campo>
 
       <div className="form-acoes">
         <Botao type="submit" variante="primary" carregando={salvando} textoCarregando="Registrando…">

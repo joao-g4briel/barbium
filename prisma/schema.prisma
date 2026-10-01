@@ -37,6 +37,21 @@ enum SinalStatus {
   PAGO
 }
 
+enum FormaPagamento {
+  PIX
+  DINHEIRO
+  DEBITO
+  CREDITO
+}
+
+// De onde veio o lançamento. Um agendamento pode ter até dois: o sinal (pago
+// antes, pelo Pix) e o atendimento (o restante, pago na conclusão).
+enum OrigemLancamento {
+  MANUAL
+  ATENDIMENTO
+  SINAL
+}
+
 enum TipoLancamento {
   ENTRADA
   SAIDA
@@ -122,13 +137,31 @@ model Usuario {
   barbearia          Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   comissaoPercentual Decimal?   @db.Decimal(5, 2)
   criadoEm           DateTime   @default(now())
+  // Sessões emitidas antes deste instante deixam de valer (troca/redefinição de senha).
+  senhaAlteradaEm    DateTime?
 
-  agendamentos Agendamento[]    @relation("BarbeiroAgendamentos")
-  expediente   ExpedienteDia[]
-  bloqueios    BloqueioAgenda[]
+  agendamentos      Agendamento[]           @relation("BarbeiroAgendamentos")
+  expediente        ExpedienteDia[]
+  bloqueios         BloqueioAgenda[]
+  tokensRedefinicao TokenRedefinicaoSenha[]
 
   @@index([barbeariaId])
   @@map("usuarios")
+}
+
+// Link de "esqueci minha senha". Só o hash SHA-256 do token fica no banco: quem
+// lê o banco não consegue montar um link válido. Vale uma vez, por pouco tempo.
+model TokenRedefinicaoSenha {
+  id        String    @id @default(cuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+
+  @@index([usuarioId, criadoEm])
+  @@map("tokens_redefinicao_senha")
 }
 
 // Expediente semanal do profissional: um registro por dia da semana.
@@ -228,27 +261,38 @@ model Agendamento {
   sinalPagamentoId String?
   sinalExpiraEm    DateTime?
   sinalPagoEm      DateTime?
+  // A barbearia devolveu o sinal pelo Mercado Pago (a entrada sai do caixa).
+  sinalDevolvidoEm DateTime?
 
-  caixaLancamento CaixaLancamento?
+  // Comissão do profissional, calculada e guardada na conclusão: mudar o
+  // percentual depois não altera atendimentos já fechados.
+  comissaoPercentual Decimal? @db.Decimal(5, 2)
+  comissaoValor      Decimal? @db.Decimal(10, 2)
+
+  caixaLancamentos CaixaLancamento[]
 
   @@index([barbeariaId, barbeiroId, inicio])
   @@index([status, sinalExpiraEm])
   @@map("agendamentos")
 }
 
-// Lançamento de caixa. Gerado automaticamente quando um agendamento é
-// concluído (tipo ENTRADA), ou criado avulso pelo dono (ex.: uma despesa).
+// Lançamento de caixa. Gerado automaticamente quando um sinal é pago (SINAL)
+// e quando um agendamento é concluído (ATENDIMENTO, o restante), ou criado
+// avulso pelo dono (MANUAL, ex.: uma despesa).
 model CaixaLancamento {
-  id            String         @id @default(cuid())
-  tipo          TipoLancamento
-  valor         Decimal        @db.Decimal(10, 2)
-  descricao     String?
-  barbeariaId   String
-  barbearia     Barbearia      @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  agendamentoId String?        @unique
-  agendamento   Agendamento?   @relation(fields: [agendamentoId], references: [id])
-  criadoEm      DateTime       @default(now())
+  id             String           @id @default(cuid())
+  tipo           TipoLancamento
+  valor          Decimal          @db.Decimal(10, 2)
+  descricao      String?
+  barbeariaId    String
+  barbearia      Barbearia        @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamentoId  String?
+  agendamento    Agendamento?     @relation(fields: [agendamentoId], references: [id])
+  origem         OrigemLancamento @default(MANUAL)
+  formaPagamento FormaPagamento?
+  criadoEm       DateTime         @default(now())
 
+  @@unique([agendamentoId, origem])
   @@index([barbeariaId, criadoEm])
   @@map("caixa_lancamentos")
 }

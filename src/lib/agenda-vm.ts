@@ -1,12 +1,24 @@
-import type { Agendamento, Cliente, Servico, Usuario } from "@prisma/client";
+import type { Agendamento, CaixaLancamento, Cliente, Servico, Usuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AgendamentoVM, ServicoOpcaoVM } from "@/components/agenda/tipos";
 
-export type AgendamentoCompleto = Agendamento & { cliente: Cliente; servico: Servico; barbeiro: Usuario };
+export type AgendamentoCompleto = Agendamento & {
+  cliente: Cliente;
+  servico: Servico;
+  barbeiro: Usuario;
+  caixaLancamentos: Pick<CaixaLancamento, "origem" | "valor" | "formaPagamento">[];
+};
 
-export const INCLUIR_AGENDAMENTO_COMPLETO = { cliente: true, servico: true, barbeiro: true } as const;
+export const INCLUIR_AGENDAMENTO_COMPLETO = {
+  cliente: true,
+  servico: true,
+  barbeiro: true,
+  caixaLancamentos: { select: { origem: true, valor: true, formaPagamento: true } },
+} as const;
 
 export function paraAgendamentoVM(agendamento: AgendamentoCompleto): AgendamentoVM {
+  const sinalNoCaixa = agendamento.caixaLancamentos.find((l) => l.origem === "SINAL");
+  const atendimento = agendamento.caixaLancamentos.find((l) => l.origem === "ATENDIMENTO");
   return {
     id: agendamento.id,
     inicio: agendamento.inicio.toISOString(),
@@ -26,7 +38,14 @@ export function paraAgendamentoVM(agendamento: AgendamentoCompleto): Agendamento
             valor: Number(agendamento.sinalValor),
             status: agendamento.sinalStatus,
             expiraEm: agendamento.sinalExpiraEm?.toISOString() ?? null,
+            devolvido: agendamento.sinalDevolvidoEm !== null,
           },
+    sinalNoCaixa: Number(sinalNoCaixa?.valor ?? 0),
+    pagamento: atendimento ? { valor: Number(atendimento.valor), forma: atendimento.formaPagamento } : null,
+    comissao:
+      agendamento.comissaoPercentual !== null && agendamento.comissaoValor !== null
+        ? { percentual: Number(agendamento.comissaoPercentual), valor: Number(agendamento.comissaoValor) }
+        : null,
   };
 }
 

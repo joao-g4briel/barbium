@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { ChevronRight, Clock, ExternalLink } from "lucide-react";
 import { obterSessao } from "@/lib/sessao";
 import { obterBarbearia } from "@/lib/barbearia-atual";
-import { ROTULO_PLANO } from "@/lib/planos";
+import { ROTULO_PLANO, descreverLimite } from "@/lib/planos";
 import { ROTULO_PAPEL, formatarTelefone } from "@/lib/formatar";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { CopiarTexto } from "@/components/ui/copiar-texto";
@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { chaveSegredosConfigurada } from "@/lib/segredos";
 import { SINAL_PERCENTUAL_MAX, SINAL_PERCENTUAL_MIN } from "@/lib/sinal";
 import { SecaoPagamento } from "./secao-pagamento";
+import { FormularioBarbearia, FormularioPerfil, FormularioSenha } from "./formularios-conta";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -22,8 +23,9 @@ export default async function PaginaConfiguracoes() {
   if (!sessao?.barbeariaId) return null;
 
   const souDono = sessao.role === "DONO";
-  const [barbearia, pagamento] = await Promise.all([
+  const [barbearia, usuario, pagamento] = await Promise.all([
     obterBarbearia(sessao.barbeariaId),
+    prisma.usuario.findUnique({ where: { id: sessao.sub }, select: { email: true } }),
     souDono
       ? prisma.configuracaoPagamento.findUnique({
           where: { barbeariaId: sessao.barbeariaId },
@@ -40,7 +42,7 @@ export default async function PaginaConfiguracoes() {
     <>
       <CabecalhoPagina
         titulo="Configurações"
-        descricao={souDono ? "Dados da barbearia, pagamento, seu perfil e sua sessão." : "Dados da barbearia, seu perfil e sua sessão."}
+        descricao={souDono ? "Dados da barbearia, pagamento, seu perfil e senha." : "Seu perfil, senha e dados da barbearia."}
       />
 
       <div className="grade-painel grade-painel-1-1">
@@ -51,10 +53,28 @@ export default async function PaginaConfiguracoes() {
                 <h2 id="titulo-barbearia" className="card-titulo">
                   Barbearia
                 </h2>
-                <p className="card-descricao">Definidos no cadastro da barbearia na plataforma.</p>
+                <p className="card-descricao">
+                  {souDono
+                    ? "Nome e telefone aparecem para os clientes. Link e plano são definidos pela plataforma."
+                    : "Só o dono da barbearia altera estes dados."}
+                </p>
               </div>
             </div>
-            {barbearia && (
+            {barbearia && souDono && (
+              <div className="pilha-sm">
+                <FormularioBarbearia
+                  nomeInicial={barbearia.nome}
+                  telefoneInicial={barbearia.telefone ? formatarTelefone(barbearia.telefone) : ""}
+                />
+                <dl className="fatos">
+                  <div>
+                    <dt>Plano</dt>
+                    <dd>{ROTULO_PLANO[barbearia.plano]} · {descreverLimite(barbearia.plano)}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+            {barbearia && !souDono && (
               <dl className="fatos">
                 <div>
                   <dt>Nome</dt>
@@ -66,7 +86,7 @@ export default async function PaginaConfiguracoes() {
                 </div>
                 <div>
                   <dt>Plano</dt>
-                  <dd>{ROTULO_PLANO[barbearia.plano]}</dd>
+                  <dd>{ROTULO_PLANO[barbearia.plano]} · {descreverLimite(barbearia.plano)}</dd>
                 </div>
               </dl>
             )}
@@ -132,7 +152,8 @@ export default async function PaginaConfiguracoes() {
                 <p className="texto-secundario texto-pequeno">{ROTULO_PAPEL[sessao.role]}</p>
               </div>
             </div>
-            <div className="lista" style={{ margin: "0 -20px -20px", borderTop: "1px solid var(--color-border)" }}>
+            {usuario && <FormularioPerfil nomeInicial={sessao.nome} emailInicial={usuario.email} />}
+            <div className="lista" style={{ margin: "20px -20px -20px", borderTop: "1px solid var(--color-border)" }}>
               <Link href="/painel/disponibilidade" className="lista-item">
                 <Clock size={20} className="texto-secundario" aria-hidden="true" />
                 <div className="lista-item-principal">
@@ -142,6 +163,15 @@ export default async function PaginaConfiguracoes() {
                 <ChevronRight size={18} className="lista-item-chevron" aria-hidden="true" />
               </Link>
             </div>
+          </section>
+
+          <section className="card" aria-labelledby="titulo-senha">
+            <div className="card-cabecalho">
+              <h2 id="titulo-senha" className="card-titulo">
+                Senha
+              </h2>
+            </div>
+            <FormularioSenha />
           </section>
 
           <section className="card" aria-labelledby="titulo-sessao">

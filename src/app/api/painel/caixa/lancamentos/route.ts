@@ -2,13 +2,23 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
+import { horarioBrasil, inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 
 const criarLancamentoSchema = z.object({
   tipo: z.enum(["ENTRADA", "SAIDA"]),
   valor: z.coerce.number().positive(),
   descricao: z.string().min(2, "Informe uma descrição."),
   data: z.string().optional(),
+  formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).nullable().optional(),
 });
+
+function instanteDoLancamento(dia: string | undefined): Date {
+  if (!dia || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) return new Date();
+  const [ano, mes, d] = dia.split("-").map(Number);
+  const diaCalendario = new Date(Date.UTC(ano, mes - 1, d));
+  const hoje = inicioDoDiaBrasil(new Date());
+  return diaCalendario.getTime() === hoje.getTime() ? new Date() : horarioBrasil(diaCalendario, 12 * 60);
+}
 
 export async function POST(request: Request) {
   const sessao = await exigirUsuarioDaBarbearia().catch(() => null);
@@ -30,7 +40,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const criadoEm = dados.data.data ? new Date(dados.data.data) : new Date();
+  // A data escolhida é um dia de calendário em Brasília. Hoje: agora mesmo.
+  // Outro dia: meio-dia em Brasília (ler "AAAA-MM-DD" como meia-noite UTC
+  // jogava o lançamento pro dia anterior, às 21h).
+  const criadoEm = instanteDoLancamento(dados.data.data);
 
   const lancamento = await prisma.caixaLancamento.create({
     data: {
@@ -38,6 +51,8 @@ export async function POST(request: Request) {
       valor: dados.data.valor,
       descricao: dados.data.descricao,
       barbeariaId: sessao.barbeariaId!,
+      origem: "MANUAL",
+      formaPagamento: dados.data.formaPagamento ?? null,
       criadoEm,
     },
   });

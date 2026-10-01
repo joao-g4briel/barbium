@@ -692,6 +692,39 @@ time,
   display: grid;
   gap: var(--space-4);
 }
+
+/* Resultados da busca de cliente no novo agendamento */
+.resultados-cliente {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.resultados-cliente li + li {
+  border-top: 1px solid var(--color-border);
+}
+.resultado-cliente {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  text-align: left;
+  transition: background-color var(--dur-1) ease-out;
+}
+.resultado-cliente:hover {
+  background: var(--color-card-hover);
+}
+.resultado-cliente:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
 @media (min-width: 640px) {
   .form-grade-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -706,6 +739,7 @@ time,
 
 .campo {
   display: grid;
+  align-content: start;
   gap: var(--space-2);
   min-width: 0;
 }
@@ -1448,6 +1482,83 @@ a.lista-item:hover {
   }
 }
 
+/* Forma de pagamento ao concluir um atendimento */
+.formas-pagamento {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-success-surface);
+}
+.formas-pagamento-titulo {
+  padding: 0;
+  font-weight: 700;
+}
+.formas-pagamento-opcoes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.forma-opcao {
+  position: relative;
+}
+.forma-opcao input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.forma-opcao span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--dur-1) ease-out, background-color var(--dur-1) ease-out;
+}
+.forma-opcao span:hover {
+  border-color: var(--color-primary-border);
+}
+.forma-opcao input:checked + span {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+}
+.forma-opcao input:focus-visible + span {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Recebido por forma de pagamento (Financeiro) */
+.formas-resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.formas-resumo > div {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.formas-resumo dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.formas-resumo dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
 /* Lista de fatos dentro de painéis (rótulo → valor) */
 .fatos {
   display: grid;
@@ -2114,6 +2225,20 @@ a.lista-item:hover {
   max-width: 400px;
   display: grid;
   gap: var(--space-8);
+}
+.auth-link {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  margin-top: calc(var(--space-4) * -1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.auth-link:hover {
+  color: var(--color-text);
 }
 .auth-cabecalho {
   display: grid;

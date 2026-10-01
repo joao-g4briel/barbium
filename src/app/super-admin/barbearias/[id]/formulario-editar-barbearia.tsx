@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { PLANOS, ROTULO_PLANO } from "@/lib/planos";
+import { PLANOS, ROTULO_PLANO, descreverLimite } from "@/lib/planos";
 import type { Plano } from "@prisma/client";
 import { Campo } from "@/components/ui/campo";
 import { Botao } from "@/components/ui/botao";
@@ -73,8 +73,9 @@ export function FormularioEditarBarbearia({ barbeariaId, nome, planoAtual, ativo
 
       {erro && !confirmarSuspensao && <Alerta tom="perigo">{erro}</Alerta>}
 
-      <Campo id="plano" rotulo="Plano">
+      <Campo id="plano" rotulo="Plano" dica="O limite conta os profissionais ativos, dono incluído.">
         <select
+          aria-describedby="plano-dica"
           id="plano"
           className="input"
           value={plano}
@@ -85,7 +86,7 @@ export function FormularioEditarBarbearia({ barbeariaId, nome, planoAtual, ativo
         >
           {PLANOS.map((p) => (
             <option key={p} value={p}>
-              {ROTULO_PLANO[p]}
+              {ROTULO_PLANO[p]} · {descreverLimite(p)}
             </option>
           ))}
         </select>
