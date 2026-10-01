@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { CalendarCheck, CheckCircle2, ChevronRight, Clock, Scissors, User } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { CalendarCheck, CheckCircle2, ChevronRight, Clock, Hourglass, Scissors, User } from "lucide-react";
+import { CopiarTexto } from "@/components/ui/copiar-texto";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import {
   capitalizar,
@@ -33,6 +34,28 @@ interface Props {
   slug: string;
   servicos: Servico[];
   profissionais: Profissional[];
+  // Presente quando a barbearia cobra sinal antecipado por Pix.
+  sinal: { percentual: number } | null;
+}
+
+interface PagamentoPix {
+  agendamentoId: string;
+  valor: number;
+  expiraEm: string;
+  qrCode: string;
+  qrCodeBase64: string | null;
+}
+
+const INTERVALO_CONSULTA_MS = 5000;
+
+// Mesmo arredondamento do servidor (centavos), só pra mostrar antes de enviar.
+function valorSinal(preco: number, percentual: number): number {
+  return Math.round((Math.round(preco * 100) * percentual) / 100) / 100;
+}
+
+function formatarContagem(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 // Dias de calendário em Brasília (meia-noite UTC que representa o dia) —
@@ -92,7 +115,7 @@ function Escolha({
   );
 }
 
-export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) {
+export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: Props) {
   const [servico, setServico] = useState<Servico | null>(null);
   const [profissional, setProfissional] = useState<Profissional | null>(null);
   const [dia, setDia] = useState<Date | null>(null);
@@ -106,6 +129,44 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
   const [confirmando, setConfirmando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
+  const [pagamento, setPagamento] = useState<PagamentoPix | null>(null);
+  const [sinalPago, setSinalPago] = useState(false);
+  const [pixExpirado, setPixExpirado] = useState(false);
+  const [agora, setAgora] = useState(() => Date.now());
+
+  // Enquanto o Pix não é pago: relógio da contagem e consulta periódica do
+  // status (o servidor confere no Mercado Pago e confirma o agendamento).
+  useEffect(() => {
+    if (!pagamento || confirmado || pixExpirado) return;
+    const relogio = setInterval(() => setAgora(Date.now()), 1000);
+    let ativo = true;
+
+    async function consultar() {
+      try {
+        const resposta = await fetch(`/api/publico/${slug}/agendamentos/${pagamento!.agendamentoId}`, {
+          cache: "no-store",
+        });
+        if (!resposta.ok || !ativo) return;
+        const dados = await resposta.json();
+        if (!ativo) return;
+        if (dados.status === "CONFIRMADO") {
+          setSinalPago(dados.sinalStatus === "PAGO");
+          setConfirmado(true);
+        } else if (dados.status === "CANCELADO") {
+          setPixExpirado(true);
+        }
+      } catch {
+        // Sem conexão agora: tenta de novo na próxima rodada.
+      }
+    }
+
+    const consulta = setInterval(consultar, INTERVALO_CONSULTA_MS);
+    return () => {
+      ativo = false;
+      clearInterval(relogio);
+      clearInterval(consulta);
+    };
+  }, [pagamento, confirmado, pixExpirado, slug]);
 
   const dias = proximosDias(7);
   const passoAtual = !servico ? 0 : !profissional ? 1 : !horario ? 2 : 3;
@@ -135,6 +196,9 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
     setErrosCampos({});
     setConfirmado(false);
     setConfirmando(false);
+    setPagamento(null);
+    setSinalPago(false);
+    setPixExpirado(false);
   }
 
   async function aoEscolherDia(diaEscolhido: Date) {
@@ -200,6 +264,11 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
         return;
       }
 
+      if (dados?.pagamento) {
+        setAgora(Date.now());
+        setPagamento({ agendamentoId: dados.agendamento.id, ...dados.pagamento });
+        return;
+      }
       setConfirmado(true);
     } catch {
       setErro("Falha de conexão. Seus dados continuam aqui — tente novamente.");
@@ -231,8 +300,77 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
             <dt>Horário</dt>
             <dd>{formatarHora(horario)}</dd>
           </div>
+          {pagamento && sinalPago && (
+            <>
+              <div>
+                <dt>Sinal pago</dt>
+                <dd>{formatarMoeda(pagamento.valor)}</dd>
+              </div>
+              <div>
+                <dt>Restante no atendimento</dt>
+                <dd>{formatarMoeda(Math.max(0, servico.preco - pagamento.valor))}</dd>
+              </div>
+            </>
+          )}
         </dl>
         <Botao onClick={recomecar}>Fazer outro agendamento</Botao>
+      </section>
+    );
+  }
+
+  if (pixExpirado) {
+    return (
+      <section className="card confirmacao" aria-live="polite">
+        <span className="confirmacao-icone" data-tom="atencao" aria-hidden="true">
+          <Hourglass size={26} />
+        </span>
+        <h2 className="etapa-titulo">O prazo para pagar acabou</h2>
+        <p className="texto-secundario">
+          O horário foi liberado. Se você chegou a pagar o Pix, fale com a barbearia antes de agendar de novo.
+        </p>
+        <Botao variante="primary" onClick={recomecar}>
+          Agendar de novo
+        </Botao>
+      </section>
+    );
+  }
+
+  if (pagamento && servico && horario) {
+    const restanteMs = Date.parse(pagamento.expiraEm) - agora;
+    return (
+      <section className="card confirmacao" aria-labelledby="titulo-pix">
+        <h2 id="titulo-pix" className="etapa-titulo">
+          Pague o sinal para confirmar
+        </h2>
+        <p className="texto-secundario">
+          {servico.nome} · {capitalizar(formatarDataInstante(horario, { weekday: "short", day: "2-digit", month: "2-digit" }))}{" "}
+          às {formatarHora(horario)}
+        </p>
+        <p className="num" style={{ fontSize: "var(--text-2xl)", fontWeight: 800 }}>
+          {formatarMoeda(pagamento.valor)}
+        </p>
+        {pagamento.qrCodeBase64 && (
+          // QR gerado pelo Mercado Pago, já em base64 — não passa por otimização de imagem.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="pix-qr"
+            src={`data:image/png;base64,${pagamento.qrCodeBase64}`}
+            alt="QR code do Pix do sinal"
+          />
+        )}
+        <p className="texto-pequeno texto-secundario">
+          Abra o app do seu banco, escolha pagar com Pix e leia o QR code ou use o código abaixo.
+        </p>
+        <p className="pix-codigo num">{pagamento.qrCode}</p>
+        <CopiarTexto texto={pagamento.qrCode} rotulo="Copiar código Pix" mensagemCopiado="Código Pix copiado." />
+        <p className="pix-espera">
+          <span className="spinner" aria-hidden="true" />
+          <span role="status">{restanteMs > 0 ? "Aguardando pagamento" : "Conferindo o pagamento…"}</span>
+          {restanteMs > 0 && <span className="num">· horário reservado por {formatarContagem(restanteMs)}</span>}
+        </p>
+        <p className="texto-pequeno texto-secundario">
+          O restante, {formatarMoeda(Math.max(0, servico.preco - pagamento.valor))}, é pago no atendimento.
+        </p>
       </section>
     );
   }
@@ -395,8 +533,21 @@ export function AssistenteAgendamento({ slug, servicos, profissionais }: Props) 
                 required
               />
             </Campo>
-            <Botao type="submit" variante="primary" bloco carregando={confirmando} textoCarregando="Confirmando…">
-              Confirmar agendamento
+            {sinal && (
+              <Alerta tom="info">
+                Para garantir o horário, pague agora um sinal de{" "}
+                <strong>{formatarMoeda(valorSinal(servico.preco, sinal.percentual))}</strong> ({sinal.percentual}%) por
+                Pix. O restante é pago no atendimento.
+              </Alerta>
+            )}
+            <Botao
+              type="submit"
+              variante="primary"
+              bloco
+              carregando={confirmando}
+              textoCarregando={sinal ? "Gerando Pix…" : "Confirmando…"}
+            >
+              {sinal ? "Continuar para o Pix" : "Confirmar agendamento"}
             </Botao>
           </form>
         </section>

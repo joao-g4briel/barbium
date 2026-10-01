@@ -5,6 +5,7 @@ export const ROTULO_STATUS: Record<StatusAgendamento, string> = {
   CONCLUIDO: "Concluído",
   CANCELADO: "Cancelado",
   FALTA: "Falta",
+  AGUARDANDO_PAGAMENTO: "Aguardando sinal",
 };
 
 export type TomBadge = "neutro" | "sucesso" | "info" | "atencao" | "perigo";
@@ -16,4 +17,5 @@ export const TOM_STATUS: Record<StatusAgendamento, TomBadge> = {
   CONCLUIDO: "sucesso",
   CANCELADO: "neutro",
   FALTA: "atencao",
+  AGUARDANDO_PAGAMENTO: "atencao",
 };

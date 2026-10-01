@@ -1476,6 +1476,30 @@ a.lista-item:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.fatos-valor-acao {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.fatos > .fatos-edicao {
+  display: grid;
+  justify-content: normal;
+  align-items: normal;
+  gap: var(--space-2);
+}
+.fatos-edicao dd {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: 400;
+  text-align: left;
+}
+@media (max-width: 639px) {
+  .fatos-acao {
+    min-height: 44px;
+  }
+}
 
 /* ==========================================================================
    Barra de ferramentas e filtros
@@ -1889,6 +1913,10 @@ a.lista-item:hover {
   border-color: var(--color-warning-border);
   background: var(--color-warning-surface);
 }
+.grade-bloco[data-status="AGUARDANDO_PAGAMENTO"] {
+  border-style: dashed;
+  border-color: var(--color-warning-border);
+}
 .grade-bloco[data-status="CANCELADO"] {
   border-color: var(--color-neutral-border);
   background: var(--color-surface);
@@ -1922,7 +1950,8 @@ a.lista-item:hover {
 .grade-bloco[data-agora="true"] .grade-bloco-status {
   color: var(--color-primary);
 }
-.grade-bloco[data-status="FALTA"] .grade-bloco-status {
+.grade-bloco[data-status="FALTA"] .grade-bloco-status,
+.grade-bloco[data-status="AGUARDANDO_PAGAMENTO"] .grade-bloco-status {
   color: var(--color-warning);
 }
 .grade-bloco[data-status="CANCELADO"] .grade-bloco-status {
@@ -2308,6 +2337,67 @@ a.lista-item:hover {
   border-radius: 50%;
   background: var(--color-primary-soft);
   color: var(--color-primary);
+}
+.confirmacao-icone[data-tom="atencao"] {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+/* Pagamento do sinal por Pix */
+.pix-qr {
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+.pix-codigo {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  font-size: var(--text-sm);
+  text-align: left;
+  overflow-wrap: anywhere;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.pix-espera {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Configurações de pagamento */
+.conta-conectada {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.conta-conectada > svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+.input-sufixo {
+  position: relative;
+  max-width: 160px;
+}
+.input-sufixo .input {
+  padding-right: 40px;
+}
+.input-sufixo > span {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
 }
 
 /* ==========================================================================

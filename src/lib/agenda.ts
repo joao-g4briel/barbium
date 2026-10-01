@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { horarioBrasil } from "./fuso-brasil";
+import { liberarSinaisExpirados } from "./sinal";
 import type { DiaSemana } from "@prisma/client";
 
 const DIAS_SEMANA_POR_INDICE: DiaSemana[] = [
@@ -56,6 +57,8 @@ export async function horariosLivres({
   const inicioDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaInicio));
   const fimDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaFim));
   if (fimDoDia <= inicioDoDia) return [];
+
+  await liberarSinaisExpirados(barbeariaId);
 
   const [agendamentosDoDia, bloqueiosRelevantes] = await Promise.all([
     prisma.agendamento.findMany({

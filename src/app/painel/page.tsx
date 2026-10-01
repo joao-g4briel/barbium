@@ -14,6 +14,7 @@ import {
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
 import { obterBarbearia } from "@/lib/barbearia-atual";
+import { liberarSinaisExpirados } from "@/lib/sinal";
 import { inicioDoDiaBrasil, horarioBrasil } from "@/lib/fuso-brasil";
 import {
   capitalizar,
@@ -22,7 +23,7 @@ import {
   formatarMoeda,
   formatarTempoAte,
 } from "@/lib/formatar";
-import { INCLUIR_AGENDAMENTO_COMPLETO, paraAgendamentoVM } from "@/lib/agenda-vm";
+import { INCLUIR_AGENDAMENTO_COMPLETO, obterServicosAtivos, paraAgendamentoVM } from "@/lib/agenda-vm";
 import { obterAssinaturasAVencer } from "@/lib/dashboard-painel";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { Indicador } from "@/components/ui/indicador";
@@ -60,8 +61,11 @@ export default async function VisaoGeral({
   const inicioHoje = horarioBrasil(hoje, 0);
   const fimHoje = new Date(horarioBrasil(hoje, 24 * 60).getTime() - 1);
 
-  const [barbearia, agendamentos, profissionais, entradasHoje, ultimosLancamentos, assinaturas] = await Promise.all([
+  await liberarSinaisExpirados(barbeariaId);
+
+  const [barbearia, servicos, agendamentos, profissionais, entradasHoje, ultimosLancamentos, assinaturas] = await Promise.all([
     obterBarbearia(barbeariaId),
+    obterServicosAtivos(barbeariaId),
     prisma.agendamento.findMany({
       where: {
         barbeariaId,
@@ -175,6 +179,7 @@ export default async function VisaoGeral({
               <AgendaInterativa
                 emCard
                 grupos={[{ chave: "hoje", rotulo: "", itens: agendamentos.map(paraAgendamentoVM) }]}
+                servicos={servicos}
                 agora={agora.toISOString()}
                 mostrarProfissional={souDono}
                 grade={mostrarGrade ? { inicioDia: inicioHoje.toISOString(), profissionais } : null}

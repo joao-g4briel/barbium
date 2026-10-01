@@ -10,6 +10,10 @@ import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { CopiarTexto } from "@/components/ui/copiar-texto";
 import { Avatar } from "@/components/ui/avatar";
 import { BotaoSair } from "@/components/botao-sair";
+import { prisma } from "@/lib/prisma";
+import { chaveSegredosConfigurada } from "@/lib/segredos";
+import { SINAL_PERCENTUAL_MAX, SINAL_PERCENTUAL_MIN } from "@/lib/sinal";
+import { SecaoPagamento } from "./secao-pagamento";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -17,7 +21,16 @@ export default async function PaginaConfiguracoes() {
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
 
-  const barbearia = await obterBarbearia(sessao.barbeariaId);
+  const souDono = sessao.role === "DONO";
+  const [barbearia, pagamento] = await Promise.all([
+    obterBarbearia(sessao.barbeariaId),
+    souDono
+      ? prisma.configuracaoPagamento.findUnique({
+          where: { barbeariaId: sessao.barbeariaId },
+          select: { sinalAtivo: true, sinalPercentual: true, mpContaDescricao: true, mpAccessTokenCifrado: true },
+        })
+      : Promise.resolve(null),
+  ]);
   const cabecalhos = await headers();
   const host = cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host") ?? "";
   const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -25,7 +38,10 @@ export default async function PaginaConfiguracoes() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Configurações" descricao="Dados da barbearia, seu perfil e sua sessão." />
+      <CabecalhoPagina
+        titulo="Configurações"
+        descricao={souDono ? "Dados da barbearia, pagamento, seu perfil e sua sessão." : "Dados da barbearia, seu perfil e sua sessão."}
+      />
 
       <div className="grade-painel grade-painel-1-1">
         <div className="pilha">
@@ -87,6 +103,18 @@ export default async function PaginaConfiguracoes() {
                 </a>
               </div>
             </section>
+          )}
+
+          {souDono && (
+            <SecaoPagamento
+              conectado={Boolean(pagamento?.mpAccessTokenCifrado)}
+              contaDescricao={pagamento?.mpContaDescricao ?? null}
+              sinalAtivo={pagamento?.sinalAtivo ?? false}
+              sinalPercentual={pagamento?.sinalPercentual ?? 50}
+              chaveConfigurada={chaveSegredosConfigurada()}
+              percentualMin={SINAL_PERCENTUAL_MIN}
+              percentualMax={SINAL_PERCENTUAL_MAX}
+            />
           )}
         </div>
 

@@ -29,6 +29,12 @@ enum StatusAgendamento {
   CONCLUIDO
   CANCELADO
   FALTA
+  AGUARDANDO_PAGAMENTO // horário reservado até o Pix do sinal ser pago (ou expirar)
+}
+
+enum SinalStatus {
+  PENDENTE
+  PAGO
 }
 
 enum TipoLancamento {
@@ -54,33 +60,50 @@ enum DiaSemana {
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
-  id        String   @id @default(cuid())
-  nome      String
-  slug      String   @unique
-  telefone  String?
-  plano     Plano    @default(SOLO)
-  ativo     Boolean  @default(true)
-  criadoEm  DateTime @default(now())
+  id           String   @id @default(cuid())
+  nome         String
+  slug         String   @unique
+  telefone     String?
+  plano        Plano    @default(SOLO)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  usuarios         Usuario[]
-  unidades         Unidade[]
-  clientes         Cliente[]
-  servicos         Servico[]
-  agendamentos     Agendamento[]
-  caixaLancamentos CaixaLancamento[]
+  usuarios              Usuario[]
+  unidades              Unidade[]
+  clientes              Cliente[]
+  servicos              Servico[]
+  agendamentos          Agendamento[]
+  caixaLancamentos      CaixaLancamento[]
+  configuracaoPagamento ConfiguracaoPagamento?
 
   @@map("barbearias")
 }
 
+// Cobrança de sinal via Mercado Pago (Pix). Tabela à parte pra que o token de
+// acesso nunca venha junto nas consultas comuns da barbearia. O token é
+// guardado cifrado (AES-256-GCM, chave em SEGREDOS_CHAVE), nunca em texto puro.
+model ConfiguracaoPagamento {
+  id                   String    @id @default(cuid())
+  barbeariaId          String    @unique
+  barbearia            Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  sinalAtivo           Boolean   @default(false)
+  sinalPercentual      Int       @default(50)
+  mpAccessTokenCifrado String?
+  mpContaDescricao     String?
+  atualizadoEm         DateTime  @updatedAt
+
+  @@map("configuracoes_pagamento")
+}
+
 // Só é usada de fato pelo plano Rede (múltiplas unidades por barbearia).
 model Unidade {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   nome        String
   endereco    String?
   barbeariaId String
   barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  criadoEm    DateTime @default(now())
+  criadoEm    DateTime  @default(now())
 
   @@index([barbeariaId])
   @@map("unidades")
@@ -89,18 +112,18 @@ model Unidade {
 // Usuário com login: SUPER_ADMIN (barbeariaId nulo, plataforma inteira) ou
 // DONO/BARBEIRO (sempre vinculado a uma barbearia).
 model Usuario {
-  id             String   @id @default(cuid())
-  nome           String
-  email          String   @unique
-  senhaHash      String
-  role           Role
-  ativo          Boolean  @default(true)
-  barbeariaId    String?
-  barbearia      Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  comissaoPercentual Decimal? @db.Decimal(5, 2)
-  criadoEm       DateTime @default(now())
+  id                 String     @id @default(cuid())
+  nome               String
+  email              String     @unique
+  senhaHash          String
+  role               Role
+  ativo              Boolean    @default(true)
+  barbeariaId        String?
+  barbearia          Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  comissaoPercentual Decimal?   @db.Decimal(5, 2)
+  criadoEm           DateTime   @default(now())
 
-  agendamentos Agendamento[] @relation("BarbeiroAgendamentos")
+  agendamentos Agendamento[]    @relation("BarbeiroAgendamentos")
   expediente   ExpedienteDia[]
   bloqueios    BloqueioAgenda[]
 
@@ -146,19 +169,19 @@ model BloqueioAgenda {
 // Cliente final da barbearia. Não tem login — é identificado por telefone
 // no fluxo público de agendamento.
 model Cliente {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   nome        String
   telefone    String
   barbeariaId String
   barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  criadoEm    DateTime @default(now())
+  criadoEm    DateTime  @default(now())
 
   // Assinatura simples: sem tabela própria, sem histórico — o vencimento é
   // a fonte da verdade, o status (em dia / vencida) é calculado comparando
   // com a data atual, não fica guardado. null em assinaturaVencimento
   // significa "nunca assinou ou cancelou".
   assinaturaTipo       PeriodicidadeAssinatura?
-  assinaturaValor      Decimal?  @db.Decimal(10, 2)
+  assinaturaValor      Decimal?                 @db.Decimal(10, 2)
   assinaturaVencimento DateTime?
 
   agendamentos Agendamento[]
@@ -169,12 +192,12 @@ model Cliente {
 }
 
 model Servico {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   nome               String
   duracaoMinutos     Int
-  preco              Decimal  @db.Decimal(10, 2)
-  comissaoPercentual Decimal? @db.Decimal(5, 2)
-  ativo              Boolean  @default(true)
+  preco              Decimal   @db.Decimal(10, 2)
+  comissaoPercentual Decimal?  @db.Decimal(5, 2)
+  ativo              Boolean   @default(true)
   barbeariaId        String
   barbearia          Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 
@@ -190,18 +213,26 @@ model Agendamento {
   fim         DateTime
   status      StatusAgendamento @default(CONFIRMADO)
   barbeariaId String
-  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbearia   Barbearia         @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   clienteId   String
-  cliente     Cliente  @relation(fields: [clienteId], references: [id])
+  cliente     Cliente           @relation(fields: [clienteId], references: [id])
   servicoId   String
-  servico     Servico  @relation(fields: [servicoId], references: [id])
+  servico     Servico           @relation(fields: [servicoId], references: [id])
   barbeiroId  String
-  barbeiro    Usuario  @relation("BarbeiroAgendamentos", fields: [barbeiroId], references: [id])
-  criadoEm    DateTime @default(now())
+  barbeiro    Usuario           @relation("BarbeiroAgendamentos", fields: [barbeiroId], references: [id])
+  criadoEm    DateTime          @default(now())
+
+  // Sinal antecipado (só preenchido quando a barbearia cobra sinal).
+  sinalValor       Decimal?     @db.Decimal(10, 2)
+  sinalStatus      SinalStatus?
+  sinalPagamentoId String?
+  sinalExpiraEm    DateTime?
+  sinalPagoEm      DateTime?
 
   caixaLancamento CaixaLancamento?
 
   @@index([barbeariaId, barbeiroId, inicio])
+  @@index([status, sinalExpiraEm])
   @@map("agendamentos")
 }
 
@@ -213,10 +244,10 @@ model CaixaLancamento {
   valor         Decimal        @db.Decimal(10, 2)
   descricao     String?
   barbeariaId   String
-  barbearia     Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  agendamentoId String?   @unique
-  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id])
-  criadoEm      DateTime  @default(now())
+  barbearia     Barbearia      @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamentoId String?        @unique
+  agendamento   Agendamento?   @relation(fields: [agendamentoId], references: [id])
+  criadoEm      DateTime       @default(now())
 
   @@index([barbeariaId, criadoEm])
   @@map("caixa_lancamentos")

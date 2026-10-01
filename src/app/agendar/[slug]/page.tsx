@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Scissors, UserX } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
+import { obterSinalPublico } from "@/lib/sinal";
 import { SimboloBarbium } from "@/components/ui/marca";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { AssistenteAgendamento } from "./assistente-agendamento";
@@ -32,6 +33,8 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
   ]);
 
   if (!barbearia || !barbearia.ativo) notFound();
+
+  const sinal = await obterSinalPublico(barbearia.id);
 
   // O "Novo agendamento" do painel traz a equipe pra cá; esse atalho leva de volta.
   const ehDaEquipe = sessao?.barbeariaId === barbearia.id;
@@ -78,6 +81,7 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
               preco: Number(s.preco),
             }))}
             profissionais={barbearia.usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
+            sinal={sinal}
           />
         )}
       </main>

@@ -3,6 +3,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { criarPagamentoPix } from "@/lib/mercadopago";
+import {
+  SINAL_RESERVA_MINUTOS,
+  calcularSinal,
+  emailPagadorSinal,
+  obterSinalPublico,
+  obterTokenMercadoPago,
+} from "@/lib/sinal";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -79,8 +87,15 @@ export async function POST(
     );
   }
 
+  // Com sinal ativo, o agendamento nasce aguardando o Pix e só vira
+  // confirmado quando o Mercado Pago aprovar o pagamento.
+  const sinal = await obterSinalPublico(barbearia.id);
+  const sinalValor = sinal ? calcularSinal(Number(servico.preco), sinal.percentual) : null;
+  const sinalExpiraEm = sinal ? new Date(Date.now() + SINAL_RESERVA_MINUTOS * 60 * 1000) : null;
+
+  let agendamento;
   try {
-    const agendamento = await prisma.$transaction(async (tx) => {
+    agendamento = await prisma.$transaction(async (tx) => {
       // Confere de novo, dentro da transação, se ninguém pegou esse
       // horário entre o momento em que a lista foi carregada e agora —
       // é a proteção contra dois clientes confirmarem o mesmo horário.
@@ -114,16 +129,15 @@ export async function POST(
         data: {
           inicio,
           fim,
-          status: "CONFIRMADO",
+          status: sinal ? "AGUARDANDO_PAGAMENTO" : "CONFIRMADO",
           barbeariaId: barbearia.id,
           clienteId: cliente.id,
           servicoId: servico.id,
           barbeiroId: profissional.id,
+          ...(sinal ? { sinalValor, sinalStatus: "PENDENTE" as const, sinalExpiraEm } : {}),
         },
       });
     });
-
-    return NextResponse.json({ agendamento });
   } catch (erro) {
     if (erro instanceof Error && erro.message === "HORARIO_INDISPONIVEL") {
       return NextResponse.json(
@@ -132,5 +146,53 @@ export async function POST(
       );
     }
     throw erro;
+  }
+
+  if (!sinal || sinalValor === null || sinalExpiraEm === null) {
+    return NextResponse.json({ agendamento });
+  }
+
+  try {
+    const token = await obterTokenMercadoPago(barbearia.id);
+    if (!token) throw new Error("Sem token do Mercado Pago.");
+    // O Mercado Pago só entrega webhook em URL pública https; em ambiente
+    // local a confirmação vem pela consulta que a página de pagamento faz.
+    const origem = new URL(request.url).origin;
+    const pagamento = await criarPagamentoPix(token, {
+      valor: sinalValor,
+      descricao: `Sinal · ${servico.nome} · ${barbearia.nome}`,
+      referencia: agendamento.id,
+      emailPagador: emailPagadorSinal(agendamento.id),
+      expiraEm: sinalExpiraEm,
+      urlNotificacao: origem.startsWith("https://") ? `${origem}/api/mercadopago/webhook/${barbearia.id}` : null,
+    });
+    const dadosPix = pagamento.point_of_interaction?.transaction_data;
+    if (!dadosPix?.qr_code) throw new Error("Pix sem código.");
+
+    await prisma.agendamento.update({
+      where: { id: agendamento.id },
+      data: { sinalPagamentoId: String(pagamento.id) },
+    });
+
+    return NextResponse.json({
+      agendamento: { id: agendamento.id, status: agendamento.status },
+      pagamento: {
+        valor: sinalValor,
+        expiraEm: sinalExpiraEm.toISOString(),
+        qrCode: dadosPix.qr_code,
+        qrCodeBase64: dadosPix.qr_code_base64 ?? null,
+      },
+    });
+  } catch (erro) {
+    // Sem Pix não há como garantir o horário: libera na hora.
+    console.error("Falha ao gerar Pix do sinal:", erro instanceof Error ? erro.message : erro);
+    await prisma.agendamento.update({
+      where: { id: agendamento.id },
+      data: { status: "CANCELADO", sinalStatus: null, sinalExpiraEm: null },
+    });
+    return NextResponse.json(
+      { erro: "Não foi possível gerar o Pix do sinal agora. Tente de novo em instantes." },
+      { status: 502 },
+    );
   }
 }

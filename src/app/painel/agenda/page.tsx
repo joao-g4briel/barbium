@@ -4,9 +4,10 @@ import { CalendarX2, ChevronLeft, ChevronRight } from "lucide-react";
 import { obterSessao } from "@/lib/sessao";
 import { prisma } from "@/lib/prisma";
 import { obterBarbearia } from "@/lib/barbearia-atual";
+import { liberarSinaisExpirados } from "@/lib/sinal";
 import { inicioDoDiaBrasil, horarioBrasil } from "@/lib/fuso-brasil";
 import { capitalizar, formatarDiaCalendario } from "@/lib/formatar";
-import { INCLUIR_AGENDAMENTO_COMPLETO, paraAgendamentoVM } from "@/lib/agenda-vm";
+import { INCLUIR_AGENDAMENTO_COMPLETO, obterServicosAtivos, paraAgendamentoVM } from "@/lib/agenda-vm";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { Abas } from "@/components/ui/abas";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
@@ -98,8 +99,11 @@ export default async function PaginaAgenda({
   const inicio = horarioBrasil(diaInicio, 0);
   const fim = new Date(horarioBrasil(diaFim, 24 * 60).getTime() - 1);
 
-  const [barbearia, profissionais] = await Promise.all([
+  await liberarSinaisExpirados(sessao.barbeariaId);
+
+  const [barbearia, servicos, profissionais] = await Promise.all([
     obterBarbearia(sessao.barbeariaId),
+    obterServicosAtivos(sessao.barbeariaId),
     souDono
       ? prisma.usuario.findMany({
           where: { barbeariaId: sessao.barbeariaId, ativo: true, role: { in: ["DONO", "BARBEIRO"] } },
@@ -289,6 +293,7 @@ export default async function PaginaAgenda({
 
       <AgendaInterativa
           grupos={grupos}
+          servicos={servicos}
           agora={new Date().toISOString()}
           mostrarProfissional={souDono && !filtroProfissional}
           grade={

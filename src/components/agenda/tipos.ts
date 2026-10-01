@@ -8,8 +8,17 @@ export interface AgendamentoVM {
   fim: string;
   status: StatusAgendamento;
   cliente: { id: string; nome: string; telefone: string };
-  servico: { nome: string; duracaoMinutos: number; preco: number };
+  servico: ServicoOpcaoVM;
   profissional: { id: string; nome: string };
+  // null quando o agendamento não teve cobrança de sinal.
+  sinal: { valor: number; status: "PENDENTE" | "PAGO" | null; expiraEm: string | null } | null;
+}
+
+export interface ServicoOpcaoVM {
+  id: string;
+  nome: string;
+  duracaoMinutos: number;
+  preco: number;
 }
 
 export interface GrupoAgendaVM {

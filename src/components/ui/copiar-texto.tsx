@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-export function CopiarTexto({ texto, rotulo = "Copiar" }: { texto: string; rotulo?: string }) {
+export function CopiarTexto({
+  texto,
+  rotulo = "Copiar",
+  mensagemCopiado = "Link copiado.",
+}: {
+  texto: string;
+  rotulo?: string;
+  mensagemCopiado?: string;
+}) {
   const [estado, setEstado] = useState<"ocioso" | "copiado" | "erro">("ocioso");
 
   async function copiar() {
@@ -23,7 +31,7 @@ export function CopiarTexto({ texto, rotulo = "Copiar" }: { texto: string; rotul
         {estado === "copiado" ? "Copiado" : rotulo}
       </button>
       <span className="sr-only" role="status">
-        {estado === "copiado" ? "Link copiado." : estado === "erro" ? "Não foi possível copiar. Selecione e copie o link." : ""}
+        {estado === "copiado" ? mensagemCopiado : estado === "erro" ? "Não foi possível copiar. Selecione e copie manualmente." : ""}
       </span>
     </>
   );

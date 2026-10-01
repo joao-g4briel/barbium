@@ -1,10 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { StatusAgendamento } from "@prisma/client";
-import { Check, ChevronRight, Clock, MessageCircle, User } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, Clock, MessageCircle, User } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, ICONE_STATUS, StatusBadge } from "@/components/ui/badge";
 import { Botao } from "@/components/ui/botao";
@@ -20,34 +30,37 @@ import {
   linkWhatsApp,
 } from "@/lib/formatar";
 import { ROTULO_STATUS } from "@/lib/status-agendamento";
-import type { AgendamentoVM, GradeVM, GrupoAgendaVM } from "./tipos";
+import type { AgendamentoVM, GradeVM, GrupoAgendaVM, ServicoOpcaoVM } from "./tipos";
 
 // ---------------------------------------------------------------------------
-// Mudança de status — mesma rota PATCH de sempre; a API aplica as regras
-// (barbeiro só altera os próprios, concluir lança no caixa, reabrir desfaz).
+// Mudança de status e troca de serviço — mesma rota PATCH; a API aplica as
+// regras (barbeiro só altera os próprios, concluir lança no caixa, reabrir
+// desfaz, troca confere conflito de horário e corrige o caixa).
 // ---------------------------------------------------------------------------
 
-function useAlterarStatus() {
+function useAtualizarAgendamento() {
   const router = useRouter();
   const [processandoId, setProcessandoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Fica true até a agenda recarregar com os dados novos do servidor.
+  const [atualizando, iniciarAtualizacao] = useTransition();
 
-  const alterar = useCallback(
-    async (id: string, status: StatusAgendamento): Promise<boolean> => {
+  const enviar = useCallback(
+    async (id: string, corpo: { status: StatusAgendamento } | { servicoId: string }): Promise<boolean> => {
       setProcessandoId(id);
       setErro(null);
       try {
         const resposta = await fetch(`/api/painel/agendamentos/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify(corpo),
         });
         if (!resposta.ok) {
           const dados = await resposta.json().catch(() => null);
           setErro(dados?.erro ?? "Não foi possível atualizar o agendamento.");
           return false;
         }
-        router.refresh();
+        iniciarAtualizacao(() => router.refresh());
         return true;
       } catch {
         setErro("Falha de conexão. Tente novamente.");
@@ -59,7 +72,18 @@ function useAlterarStatus() {
     [router],
   );
 
-  return { alterar, processandoId, erro, limparErro: () => setErro(null) };
+  const alterar = useCallback((id: string, status: StatusAgendamento) => enviar(id, { status }), [enviar]);
+  const trocarServico = useCallback((id: string, servicoId: string) => enviar(id, { servicoId }), [enviar]);
+  const limparErro = useCallback(() => setErro(null), []);
+
+  return { alterar, trocarServico, processandoId, atualizando, erro, limparErro };
+}
+
+function descreverSinal(ag: AgendamentoVM): string {
+  if (!ag.sinal) return "";
+  if (ag.sinal.status === "PAGO") return "pago";
+  if (ag.sinal.status === "PENDENTE") return ag.status === "CANCELADO" ? "não pago no prazo" : "aguardando Pix";
+  return "dispensado";
 }
 
 function estaAcontecendo(ag: AgendamentoVM, agoraMs: number): boolean {
@@ -78,6 +102,7 @@ function podeConcluirRapido(ag: AgendamentoVM, agoraMs: number): boolean {
 
 export function AgendaInterativa({
   grupos,
+  servicos,
   agora,
   mostrarProfissional,
   grade,
@@ -85,6 +110,8 @@ export function AgendaInterativa({
   emCard,
 }: {
   grupos: GrupoAgendaVM[];
+  // Serviços ativos da barbearia, oferecidos na troca de serviço.
+  servicos: ServicoOpcaoVM[];
   agora: string;
   mostrarProfissional: boolean;
   grade?: GradeVM | null;
@@ -95,7 +122,7 @@ export function AgendaInterativa({
 }) {
   const agoraMs = Date.parse(agora);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const { alterar, processandoId, erro, limparErro } = useAlterarStatus();
+  const { alterar, trocarServico, processandoId, atualizando, erro, limparErro } = useAtualizarAgendamento();
 
   const todos = useMemo(() => grupos.flatMap((g) => g.itens), [grupos]);
   const selecionado = todos.find((ag) => ag.id === selecionadoId) ?? null;
@@ -154,11 +181,15 @@ export function AgendaInterativa({
 
       <PainelAgendamento
         ag={selecionado}
+        servicos={servicos}
         agoraMs={agoraMs}
         aoFechar={() => setSelecionadoId(null)}
         alterar={alterar}
-        processando={selecionado !== null && processandoId === selecionado.id}
+        trocarServico={trocarServico}
+        processando={selecionado !== null && (processandoId === selecionado.id || atualizando)}
+        atualizando={atualizando}
         erro={erro}
+        limparErro={limparErro}
       />
     </>
   );
@@ -387,37 +418,86 @@ function GradeProfissionais({
 }
 
 // ---------------------------------------------------------------------------
-// Painel de detalhes + transições de status
+// Painel de detalhes + transições de status + troca de serviço
 // ---------------------------------------------------------------------------
 
-type Confirmacao = "cancelar" | "reabrir" | null;
+type Confirmacao = "cancelar" | "reabrir" | "trocar" | null;
 
 function PainelAgendamento({
   ag,
+  servicos,
   agoraMs,
   aoFechar,
   alterar,
+  trocarServico,
   processando,
+  atualizando,
   erro,
+  limparErro,
 }: {
   ag: AgendamentoVM | null;
+  servicos: ServicoOpcaoVM[];
   agoraMs: number;
   aoFechar: () => void;
   alterar: (id: string, status: StatusAgendamento) => Promise<boolean>;
+  trocarServico: (id: string, servicoId: string) => Promise<boolean>;
   processando: boolean;
+  atualizando: boolean;
   erro: string | null;
+  limparErro: () => void;
 }) {
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
+  const [novoServicoId, setNovoServicoId] = useState("");
+  // Nome do serviço já salvo, enquanto a agenda recarrega.
+  const [trocaSalva, setTrocaSalva] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const botaoTrocarRef = useRef<HTMLButtonElement>(null);
+  const idSelect = useId();
+
+  // Só sai do modo de troca quando os dados novos chegaram, pra confirmação
+  // não aparecer ao lado do serviço e do horário antigos.
+  useEffect(() => {
+    if (trocaSalva === null || atualizando) return;
+    setConfirmacao(null);
+    setAviso(`Serviço trocado para ${trocaSalva}.`);
+    setTrocaSalva(null);
+    requestAnimationFrame(() => botaoTrocarRef.current?.focus());
+  }, [trocaSalva, atualizando]);
 
   function fechar() {
     setConfirmacao(null);
+    setAviso(null);
+    setTrocaSalva(null);
     aoFechar();
   }
 
   async function executar(status: StatusAgendamento) {
     if (!ag) return;
+    setAviso(null);
     const ok = await alterar(ag.id, status);
     if (ok) fechar();
+  }
+
+  function iniciarTroca() {
+    if (!ag) return;
+    limparErro();
+    setAviso(null);
+    setNovoServicoId(ag.servico.id);
+    setConfirmacao("trocar");
+  }
+
+  function cancelarTroca() {
+    limparErro();
+    setConfirmacao(null);
+    requestAnimationFrame(() => botaoTrocarRef.current?.focus());
+  }
+
+  async function salvarTroca() {
+    if (!ag || novoServicoId === ag.servico.id) return;
+    const escolhido = servicos.find((s) => s.id === novoServicoId);
+    if (!escolhido) return;
+    const ok = await trocarServico(ag.id, escolhido.id);
+    if (ok) setTrocaSalva(escolhido.nome);
   }
 
   if (!ag) return <Dialogo aberto={false} aoFechar={fechar} titulo="" />;
@@ -426,13 +506,43 @@ function PainelAgendamento({
   const fim = new Date(ag.fim);
   const whatsapp = linkWhatsApp(ag.cliente.telefone);
   const agoraAcontecendo = estaAcontecendo(ag, agoraMs);
+  const concluido = ag.status === "CONCLUIDO";
+
+  const podeTrocar =
+    (ag.status === "CONFIRMADO" || concluido) && servicos.some((s) => s.id !== ag.servico.id);
+  // O serviço atual pode ter sido desativado depois do agendamento; continua
+  // na lista só pra marcar de onde se está saindo.
+  const opcoesServico = servicos.some((s) => s.id === ag.servico.id) ? servicos : [ag.servico, ...servicos];
+  const escolhido = opcoesServico.find((s) => s.id === novoServicoId) ?? ag.servico;
+  const mudouServico = escolhido.id !== ag.servico.id;
+  const novoFim = new Date(inicio.getTime() + escolhido.duracaoMinutos * 60 * 1000);
 
   let rodape: ReactNode;
-  if (confirmacao === "cancelar") {
+  if (confirmacao === "trocar") {
+    rodape = (
+      <>
+        <Botao onClick={cancelarTroca} disabled={processando}>
+          Voltar
+        </Botao>
+        <Botao
+          variante="primary"
+          onClick={salvarTroca}
+          disabled={!mudouServico}
+          carregando={processando}
+          textoCarregando="Salvando…"
+        >
+          Salvar troca
+        </Botao>
+      </>
+    );
+  } else if (confirmacao === "cancelar") {
     rodape = (
       <>
         <p className="texto-pequeno" style={{ flexBasis: "100%" }}>
           Cancelar este agendamento? O horário volta a ficar livre para novos agendamentos.
+          {ag.status === "AGUARDANDO_PAGAMENTO" && " O Pix do sinal deixa de valer."}
+          {ag.sinal?.status === "PAGO" &&
+            ` O sinal de ${formatarMoeda(ag.sinal.valor)} não é devolvido automaticamente.`}
         </p>
         <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
           Voltar
@@ -463,6 +573,21 @@ function PainelAgendamento({
           textoCarregando="Reabrindo…"
         >
           Reabrir agendamento
+        </Botao>
+      </>
+    );
+  } else if (ag.status === "AGUARDANDO_PAGAMENTO") {
+    rodape = (
+      <>
+        <Botao variante="danger-outline" onClick={() => setConfirmacao("cancelar")} disabled={processando}>
+          Cancelar
+        </Botao>
+        <Botao
+          onClick={() => executar("CONFIRMADO")}
+          carregando={processando}
+          textoCarregando="Confirmando…"
+        >
+          Confirmar sem sinal
         </Botao>
       </>
     );
@@ -518,7 +643,20 @@ function PainelAgendamento({
       rodape={rodape}
     >
       <div className="pilha-sm">
-        {erro && <Alerta tom="perigo">{erro}</Alerta>}
+        {erro && confirmacao !== "trocar" && <Alerta tom="perigo">{erro}</Alerta>}
+        {aviso && <Alerta tom="sucesso">{aviso}</Alerta>}
+        {ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.expiraEm && (
+          <Alerta tom="atencao">
+            O cliente ainda não pagou o Pix do sinal. O horário fica reservado até{" "}
+            {formatarHora(new Date(ag.sinal.expiraEm))} e depois volta a ficar livre.
+          </Alerta>
+        )}
+        {ag.status === "CANCELADO" && ag.sinal?.status === "PAGO" && (
+          <Alerta tom="atencao">
+            O cliente pagou um sinal de {formatarMoeda(ag.sinal.valor)}. Se for devolver, faça o reembolso pelo
+            Mercado Pago.
+          </Alerta>
+        )}
         <dl className="fatos">
           <div>
             <dt>Data</dt>
@@ -530,10 +668,78 @@ function PainelAgendamento({
               {formatarHora(inicio)} – {formatarHora(fim)}
             </dd>
           </div>
-          <div>
-            <dt>Serviço</dt>
-            <dd>{ag.servico.nome}</dd>
-          </div>
+          {confirmacao === "trocar" ? (
+            <div className="fatos-edicao">
+              <dt>
+                <label htmlFor={idSelect}>Serviço</label>
+              </dt>
+              <dd>
+                <select
+                  id={idSelect}
+                  className="input"
+                  value={novoServicoId}
+                  onChange={(e) => {
+                    setNovoServicoId(e.target.value);
+                    limparErro();
+                  }}
+                  disabled={processando}
+                  aria-describedby={`${idSelect}-previa${erro ? ` ${idSelect}-erro` : ""}`}
+                  aria-invalid={erro ? true : undefined}
+                  autoFocus
+                >
+                  {opcoesServico.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome} · {formatarDuracao(s.duracaoMinutos)} · {formatarMoeda(s.preco)}
+                      {s.id === ag.servico.id ? " (atual)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <div id={`${idSelect}-previa`} className="campo-dica">
+                  {mudouServico ? (
+                    <>
+                      <p>
+                        Novo horário: {formatarHora(inicio)} – {formatarHora(novoFim)} · {formatarMoeda(escolhido.preco)}
+                      </p>
+                      {concluido && (
+                        <p>
+                          {escolhido.preco === ag.servico.preco
+                            ? `O valor no caixa continua ${formatarMoeda(escolhido.preco)}.`
+                            : `O lançamento no caixa passa de ${formatarMoeda(ag.servico.preco)} para ${formatarMoeda(escolhido.preco)}.`}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p>{concluido ? "Escolha o serviço que o cliente fez." : "Escolha o serviço que o cliente vai fazer."}</p>
+                  )}
+                </div>
+                {erro && (
+                  <p id={`${idSelect}-erro`} className="campo-erro" role="alert">
+                    <AlertCircle size={14} aria-hidden="true" />
+                    {erro}
+                  </p>
+                )}
+              </dd>
+            </div>
+          ) : (
+            <div>
+              <dt>Serviço</dt>
+              <dd className="fatos-valor-acao">
+                <span>{ag.servico.nome}</span>
+                {podeTrocar && confirmacao === null && (
+                  <button
+                    ref={botaoTrocarRef}
+                    type="button"
+                    className="btn btn-secondary btn-sm fatos-acao"
+                    onClick={iniciarTroca}
+                    disabled={processando}
+                    aria-label={`Trocar serviço (atual: ${ag.servico.nome})`}
+                  >
+                    Trocar
+                  </button>
+                )}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>Duração</dt>
             <dd>{formatarDuracao(ag.servico.duracaoMinutos)}</dd>
@@ -542,6 +748,20 @@ function PainelAgendamento({
             <dt>Valor</dt>
             <dd>{formatarMoeda(ag.servico.preco)}</dd>
           </div>
+          {ag.sinal && (
+            <div>
+              <dt>Sinal</dt>
+              <dd>
+                {formatarMoeda(ag.sinal.valor)} · {descreverSinal(ag)}
+              </dd>
+            </div>
+          )}
+          {ag.sinal?.status === "PAGO" && ag.status !== "CANCELADO" && (
+            <div>
+              <dt>Restante no atendimento</dt>
+              <dd>{formatarMoeda(Math.max(0, ag.servico.preco - ag.sinal.valor))}</dd>
+            </div>
+          )}
           <div>
             <dt>Profissional</dt>
             <dd>{ag.profissional.nome}</dd>
