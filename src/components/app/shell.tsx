@@ -22,10 +22,12 @@ export function Shell({ variante, contexto, usuario, inicio, perfilHref, grupos,
 
   return (
     <div className="app">
+      <a href="#conteudo" className="pular-conteudo">Pular para o conteúdo</a>
       <aside className="sidebar">
         <Link href={inicio} className="sidebar-marca" aria-label="Barbium — início">
           <Marca variante="sidebar" />
         </Link>
+        <p className="sidebar-assinatura">Gestão afiada. Rotina leve.</p>
 
         <div className="contexto-conta">
           <span className="contexto-conta-icone" aria-hidden="true">
@@ -51,14 +53,20 @@ export function Shell({ variante, contexto, usuario, inicio, perfilHref, grupos,
         </div>
       </aside>
 
-      <div>
+      <div className="app-conteudo">
         <header className="topbar">
           <div className="topbar-contexto">
             <Link href={inicio} aria-label="Barbium — início">
               <Marca variante="topbar" tamanho={22} />
             </Link>
-            <span className="topbar-barbearia">{contexto.nome}</span>
+            <span className="topbar-divisor" aria-hidden="true" />
+            <div className="topbar-espaco">
+              <span className="topbar-legenda">{variante === "plataforma" ? "Administração" : "Seu espaço de trabalho"}</span>
+              <span className="topbar-barbearia">{contexto.nome}</span>
+            </div>
           </div>
+          <div className="topbar-perfil">
+            <span className="topbar-plano">{contexto.detalhe}</span>
           {perfilHref ? (
             <Link href={perfilHref} aria-label={`Configurações e perfil de ${usuario.nome}`}>
               <Avatar nome={usuario.nome} tamanho={36} />
@@ -66,6 +74,7 @@ export function Shell({ variante, contexto, usuario, inicio, perfilHref, grupos,
           ) : (
             <Avatar nome={usuario.nome} tamanho={36} />
           )}
+          </div>
         </header>
 
         <main className="main" id="conteudo">

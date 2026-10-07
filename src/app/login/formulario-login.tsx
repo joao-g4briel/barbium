@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Campo } from "@/components/ui/campo";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
@@ -53,6 +53,7 @@ export function FormularioLogin({ proximaRota }: { proximaRota: string | null })
           id="email"
           type="email"
           className="input"
+          placeholder="seu@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
@@ -68,6 +69,7 @@ export function FormularioLogin({ proximaRota }: { proximaRota: string | null })
             id="senha"
             type={mostrarSenha ? "text" : "password"}
             className="input"
+            placeholder="Digite sua senha"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             autoComplete="current-password"
@@ -86,7 +88,7 @@ export function FormularioLogin({ proximaRota }: { proximaRota: string | null })
       </Campo>
 
       <Botao type="submit" variante="primary" bloco carregando={carregando} textoCarregando="Entrando…">
-        Entrar
+        Entrar no painel <ArrowRight size={18} aria-hidden="true" />
       </Botao>
     </form>
   );
