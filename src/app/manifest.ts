@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Agenda, clientes e caixa da sua barbearia em um só lugar.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0d1110",
-    theme_color: "#0d1110",
+    background_color: "#f5f7f8",
+    theme_color: "#f5f7f8",
     lang: "pt-BR",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
