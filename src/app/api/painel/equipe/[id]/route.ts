@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { ehViolacaoDeUnicidade } from "@/lib/erros-banco";
 import { contarProfissionaisAtivos, dadosProfissionalSchema, exigirDono, mensagemValidacao } from "@/lib/equipe";
 import { cabeMaisUm, mensagemLimite } from "@/lib/planos";
 
@@ -38,15 +39,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (emailEmUso) return NextResponse.json({ erro: "Já existe um usuário com esse e-mail." }, { status: 409 });
   }
 
-  await prisma.usuario.update({
-    where: { id },
-    data: {
-      nome: dados.data.nome,
-      email: dados.data.email,
-      comissaoPercentual: dados.data.comissaoPercentual,
-      ativo: dados.data.ativo,
-    },
-  });
+  try {
+    await prisma.usuario.update({
+      where: { id },
+      data: {
+        nome: dados.data.nome,
+        email: dados.data.email,
+        comissaoPercentual: dados.data.comissaoPercentual,
+        ativo: dados.data.ativo,
+      },
+    });
+  } catch (erro) {
+    if (ehViolacaoDeUnicidade(erro)) return NextResponse.json({ erro: "Já existe um usuário com esse e-mail." }, { status: 409 });
+    throw erro;
+  }
 
   return NextResponse.json({ ok: true });
 }

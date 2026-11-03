@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { formatarHora } from "@/lib/formatar";
 import { cancelarPixPendente } from "@/lib/sinal";
+import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import {
   desfazerConclusao,
   registrarConclusao,
@@ -82,22 +83,52 @@ export async function PATCH(
     }
   }
 
+  // Reabrir um cancelado devolve o horário a ele. Se alguém já marcou ali
+  // depois do cancelamento, os dois ficariam um em cima do outro.
+  if (agendamento.status === "CANCELADO" && status !== "CANCELADO") {
+    const conflito = await prisma.agendamento.findFirst({
+      where: {
+        barbeariaId: agendamento.barbeariaId,
+        barbeiroId: agendamento.barbeiroId,
+        id: { not: agendamento.id },
+        status: { not: "CANCELADO" },
+        inicio: { lt: agendamento.fim },
+        fim: { gt: agendamento.inicio },
+      },
+      include: { cliente: { select: { nome: true } } },
+    });
+    if (conflito) {
+      return NextResponse.json(
+        { erro: `Esse horário já foi ocupado por ${conflito.cliente.nome}, às ${formatarHora(conflito.inicio)}.` },
+        { status: 409 },
+      );
+    }
+  }
+
   const encerraSinalPendente = agendamento.sinalStatus === "PENDENTE";
   if (encerraSinalPendente) await cancelarPixPendente(agendamento);
 
-  const atualizado = await prisma.$transaction(async (tx) => {
-    const resultado = await tx.agendamento.update({
-      where: { id },
-      data: { status, ...(encerraSinalPendente ? { sinalStatus: null, sinalExpiraEm: null } : {}) },
+  try {
+    const atualizado = await prisma.$transaction(async (tx) => {
+      const resultado = await tx.agendamento.update({
+        where: { id },
+        data: { status, ...(encerraSinalPendente ? { sinalStatus: null, sinalExpiraEm: null } : {}) },
+      });
+      // Concluir lança o restante no caixa e guarda a comissão; sair de
+      // concluído desfaz os dois. O sinal pago fica no caixa até ser devolvido.
+      if (status === "CONCLUIDO") await registrarConclusao(tx, agendamento, formaPagamento ?? null);
+      else if (agendamento.status === "CONCLUIDO") await desfazerConclusao(tx, id);
+      return resultado;
     });
-    // Concluir lança o restante no caixa e guarda a comissão; sair de
-    // concluído desfaz os dois. O sinal pago fica no caixa até ser devolvido.
-    if (status === "CONCLUIDO") await registrarConclusao(tx, agendamento, formaPagamento ?? null);
-    else if (agendamento.status === "CONCLUIDO") await desfazerConclusao(tx, id);
-    return resultado;
-  });
 
-  return NextResponse.json({ agendamento: atualizado });
+    return NextResponse.json({ agendamento: atualizado });
+  } catch (erro) {
+    // Alguém ocupou o horário entre a conferência acima e a gravação.
+    if (ehConflitoDeHorario(erro)) {
+      return NextResponse.json({ erro: "Esse horário acabou de ser ocupado por outro agendamento." }, { status: 409 });
+    }
+    throw erro;
+  }
 }
 
 // A barbearia devolveu o sinal pelo Mercado Pago (o reembolso em si é feito
@@ -211,6 +242,12 @@ async function trocarServico(
   } catch (erro) {
     if (erro instanceof ErroTroca) {
       return NextResponse.json({ erro: erro.message }, { status: 409 });
+    }
+    if (ehConflitoDeHorario(erro)) {
+      return NextResponse.json(
+        { erro: "O novo serviço invade outro agendamento que acabou de ser marcado." },
+        { status: 409 },
+      );
     }
     throw erro;
   }

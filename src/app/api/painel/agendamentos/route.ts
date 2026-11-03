@@ -5,6 +5,8 @@ import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { horariosLivres, opcoesHorarioPainel } from "@/lib/agenda";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { validarServicoEProfissional } from "@/lib/agendamento-painel";
+import { ehConflitoDeHorario } from "@/lib/conflito-horario";
+import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -86,10 +88,10 @@ export async function POST(request: Request) {
         clienteId = clienteEscolhido.id;
       } else {
         // Telefone já cadastrado: usa o cliente existente sem trocar o nome.
-        const cliente = await tx.cliente.upsert({
-          where: { barbeariaId_telefone: { barbeariaId, telefone: telefoneNovo! } },
-          update: {},
-          create: { nome: clienteEscolhido.nome, telefone: telefoneNovo!, barbeariaId },
+        const cliente = await obterOuCriarCliente(tx, {
+          barbeariaId,
+          telefone: telefoneNovo!,
+          nome: clienteEscolhido.nome,
         });
         clienteId = cliente.id;
       }
@@ -110,7 +112,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ agendamento: { id: agendamento.id, inicio: agendamento.inicio, cliente: agendamento.cliente.nome } });
   } catch (erro) {
-    if (erro instanceof HorarioIndisponivel) {
+    if (erro instanceof HorarioIndisponivel || ehConflitoDeHorario(erro)) {
       return NextResponse.json({ erro: "Esse horário acabou de ser preenchido. Escolha outro." }, { status: 409 });
     }
     throw erro;

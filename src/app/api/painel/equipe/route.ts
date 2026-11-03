@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ehViolacaoDeUnicidade } from "@/lib/erros-banco";
 import { gerarSenhaTemporaria, hashSenha } from "@/lib/auth";
 import {
   contarProfissionaisAtivos,
@@ -31,21 +32,27 @@ export async function POST(request: Request) {
   });
   const plano = barbearia?.plano ?? "SOLO";
 
-  const profissional = await prisma.$transaction(async (tx) => {
-    if (!cabeMaisUm(plano, await contarProfissionaisAtivos(tx, sessao.barbeariaId!))) return null;
-    const usuario = await tx.usuario.create({
-      data: {
-        nome: dados.data.nome,
-        email: dados.data.email,
-        senhaHash,
-        role: "BARBEIRO",
-        barbeariaId: sessao.barbeariaId!,
-        comissaoPercentual: dados.data.comissaoPercentual,
-      },
+  let profissional;
+  try {
+    profissional = await prisma.$transaction(async (tx) => {
+      if (!cabeMaisUm(plano, await contarProfissionaisAtivos(tx, sessao.barbeariaId!))) return null;
+      const usuario = await tx.usuario.create({
+        data: {
+          nome: dados.data.nome,
+          email: dados.data.email,
+          senhaHash,
+          role: "BARBEIRO",
+          barbeariaId: sessao.barbeariaId!,
+          comissaoPercentual: dados.data.comissaoPercentual,
+        },
+      });
+      await criarExpedientePadrao(tx, usuario.id);
+      return usuario;
     });
-    await criarExpedientePadrao(tx, usuario.id);
-    return usuario;
-  });
+  } catch (erro) {
+    if (ehViolacaoDeUnicidade(erro)) return NextResponse.json({ erro: "Já existe um usuário com esse e-mail." }, { status: 409 });
+    throw erro;
+  }
 
   if (!profissional) {
     return NextResponse.json({ erro: mensagemLimite(plano), codigo: "LIMITE_PLANO" }, { status: 409 });

@@ -296,3 +296,15 @@ model CaixaLancamento {
   @@index([barbeariaId, criadoEm])
   @@map("caixa_lancamentos")
 }
+
+// Contador de tentativas por chave (ex.: "login:email:fulano@x.com",
+// "agendar:ip:1.2.3.4"), numa janela de tempo fixa. Freia força bruta no login
+// e enxurrada de agendamentos falsos no link público, sem serviço externo.
+model LimiteTentativa {
+  chave    String   @id
+  contagem Int
+  expiraEm DateTime
+
+  @@index([expiraEm])
+  @@map("limites_tentativas")
+}

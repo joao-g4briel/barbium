@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verificarSenha, criarTokenSessao, COOKIE_NAME, OPCOES_COOKIE_SESSAO } from "@/lib/auth";
+import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao, zerarTentativas } from "@/lib/limite-tentativas";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -20,6 +21,20 @@ export async function POST(request: Request) {
   }
 
   const { email, senha } = dados.data;
+
+  // Freia força bruta: poucas tentativas por e-mail vindas do mesmo lugar, um
+  // teto por e-mail (ataque espalhado em vários IPs) e um teto por IP (um
+  // lugar testando vários e-mails). Login certo zera o contador desse par.
+  const ip = ipDaRequisicao(request);
+  const chaveEmailIp = `login:${email.toLowerCase()}:${ip}`;
+  const permitido = await dentroDosLimites([
+    { chave: chaveEmailIp, maximo: 5, janelaSegundos: 15 * 60 },
+    { chave: `login:email:${email.toLowerCase()}`, maximo: 20, janelaSegundos: 60 * 60 },
+    { chave: `login:ip:${ip}`, maximo: 30, janelaSegundos: 15 * 60 },
+  ]);
+  if (!permitido) {
+    return NextResponse.json({ erro: MENSAGEM_LIMITE }, { status: 429 });
+  }
 
   const usuario = await prisma.usuario.findUnique({ where: { email } });
 
@@ -52,6 +67,8 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
+
+  await zerarTentativas(chaveEmailIp);
 
   const token = await criarTokenSessao({
     sub: usuario.id,

@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { emailConfigurado } from "@/lib/email";
+import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
 import { processarPedidoDeRedefinicao, urlDoApp } from "@/lib/recuperacao-senha";
 
 const corpoSchema = z.object({ email: z.string().trim().email() });
@@ -24,6 +25,14 @@ export async function POST(request: Request) {
   }
 
   const email = dados.data.email;
+
+  // Sem isso, dá pra usar o formulário pra encher a caixa de alguém de e-mail
+  // (e gastar a cota do Resend). O limite vale exista ou não a conta.
+  const permitido = await dentroDosLimites([
+    { chave: `recuperar:email:${email.toLowerCase()}`, maximo: 3, janelaSegundos: 60 * 60 },
+    { chave: `recuperar:ip:${ipDaRequisicao(request)}`, maximo: 10, janelaSegundos: 60 * 60 },
+  ]);
+  if (!permitido) return NextResponse.json({ erro: MENSAGEM_LIMITE }, { status: 429 });
   after(async () => {
     try {
       await processarPedidoDeRedefinicao(email, urlBase);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { ehViolacaoDeUnicidade } from "@/lib/erros-banco";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 
 const editarClienteSchema = z.object({
@@ -54,10 +55,16 @@ export async function PATCH(
     }
   }
 
-  const cliente = await prisma.cliente.update({
-    where: { id },
-    data: { nome: dados.data.nome, telefone: telefoneNormalizado },
-  });
+  let cliente;
+  try {
+    cliente = await prisma.cliente.update({
+      where: { id },
+      data: { nome: dados.data.nome, telefone: telefoneNormalizado },
+    });
+  } catch (erro) {
+    if (ehViolacaoDeUnicidade(erro)) return NextResponse.json({ erro: "Já existe outro cliente com esse telefone." }, { status: 409 });
+    throw erro;
+  }
 
   return NextResponse.json({ cliente });
 }

@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { criarPagamentoPix } from "@/lib/mercadopago";
+import { ehConflitoDeHorario } from "@/lib/conflito-horario";
+import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
+import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
 import {
   SINAL_RESERVA_MINUTOS,
   calcularSinal,
@@ -68,6 +71,14 @@ export async function POST(
     return NextResponse.json({ erro: "Informe um telefone válido." }, { status: 400 });
   }
 
+  // Link público sem login: sem freio, dá pra encher a agenda de reservas
+  // falsas (e, com sinal, segurar horários até o Pix expirar).
+  const permitido = await dentroDosLimites([
+    { chave: `agendar:ip:${ipDaRequisicao(request)}`, maximo: 10, janelaSegundos: 60 * 60 },
+    { chave: `agendar:tel:${barbearia.id}:${telefoneNormalizado}`, maximo: 5, janelaSegundos: 24 * 60 * 60 },
+  ]);
+  if (!permitido) return NextResponse.json({ erro: MENSAGEM_LIMITE }, { status: 429 });
+
   // Confere se esse horário respeita o expediente do profissional (dia,
   // horário, almoço) e não cai em cima de um bloqueio — reaproveita a
   // mesma função que gera a lista de horários oferecidos, pra não ter
@@ -97,8 +108,9 @@ export async function POST(
   try {
     agendamento = await prisma.$transaction(async (tx) => {
       // Confere de novo, dentro da transação, se ninguém pegou esse
-      // horário entre o momento em que a lista foi carregada e agora —
-      // é a proteção contra dois clientes confirmarem o mesmo horário.
+      // horário entre o momento em que a lista foi carregada e agora. Dois
+      // pedidos exatamente juntos ainda passam por aqui; esses o banco recusa
+      // (ver ehConflitoDeHorario).
       const conflito = await tx.agendamento.findFirst({
         where: {
           barbeariaId: barbearia.id,
@@ -113,16 +125,12 @@ export async function POST(
         throw new Error("HORARIO_INDISPONIVEL");
       }
 
-      const cliente = await tx.cliente.upsert({
-        where: {
-          barbeariaId_telefone: { barbeariaId: barbearia.id, telefone: telefoneNormalizado },
-        },
-        update: { nome: dados.data.nome },
-        create: {
-          nome: dados.data.nome,
-          telefone: telefoneNormalizado,
-          barbeariaId: barbearia.id,
-        },
+      // Telefone já cadastrado: mantém o nome que a barbearia conhece. Senão
+      // qualquer um renomeia um cliente só digitando o telefone dele.
+      const cliente = await obterOuCriarCliente(tx, {
+        barbeariaId: barbearia.id,
+        telefone: telefoneNormalizado,
+        nome: dados.data.nome,
       });
 
       return tx.agendamento.create({
@@ -139,7 +147,7 @@ export async function POST(
       });
     });
   } catch (erro) {
-    if (erro instanceof Error && erro.message === "HORARIO_INDISPONIVEL") {
+    if ((erro instanceof Error && erro.message === "HORARIO_INDISPONIVEL") || ehConflitoDeHorario(erro)) {
       return NextResponse.json(
         { erro: "Esse horário acabou de ser preenchido. Escolha outro." },
         { status: 409 },
