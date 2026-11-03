@@ -6,6 +6,7 @@ import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { criarPagamentoPix } from "@/lib/mercadopago";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
+import { notificarAgendamento } from "@/lib/notificacoes";
 import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
 import {
   SINAL_RESERVA_MINUTOS,
@@ -157,6 +158,7 @@ export async function POST(
   }
 
   if (!sinal || sinalValor === null || sinalExpiraEm === null) {
+    notificarAgendamento("agendamento.confirmado", agendamento.id);
     return NextResponse.json({ agendamento });
   }
 

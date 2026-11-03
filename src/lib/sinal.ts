@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { decifrar } from "./segredos";
 import { buscarPagamento, cancelarPagamento, type PagamentoMP } from "./mercadopago";
 import { registrarSinalPago, restanteAReceber } from "./caixa-agendamento";
+import { notificarAgendamento } from "./notificacoes";
 
 // Tempo que o horário fica reservado esperando o Pix. 30 minutos é o mínimo
 // que o Mercado Pago aceita como validade de um Pix.
@@ -56,6 +57,19 @@ export async function aplicarPagamento(barbeariaId: string, pagamento: Pagamento
   if (pagamento.status !== "approved" || !pagamento.external_reference) return "ignorado";
   const agendamentoId = pagamento.external_reference;
 
+  const resultado = await aplicarPagamentoNoBanco(barbeariaId, agendamentoId, pagamento);
+  // Só a aplicação que mudou o estado avisa: a mesma notificação do Mercado
+  // Pago chegando de novo volta "ignorado" e não manda nada.
+  if (resultado === "confirmado") notificarAgendamento("agendamento.confirmado", agendamentoId);
+  if (resultado === "pago-sem-horario") notificarAgendamento("sinal.pago_sem_horario", agendamentoId);
+  return resultado;
+}
+
+function aplicarPagamentoNoBanco(
+  barbeariaId: string,
+  agendamentoId: string,
+  pagamento: PagamentoMP,
+): Promise<ResultadoPagamento> {
   return prisma.$transaction(async (tx) => {
     const ag = await tx.agendamento.findUnique({
       where: { id: agendamentoId },

@@ -64,13 +64,18 @@ export function formatarTelefone(telefone: string): string {
   return telefone;
 }
 
-// Link wa.me só faz sentido com DDD (10 ou 11 dígitos); sem isso, não
-// oferece a ação em vez de abrir uma conversa com o número errado.
-export function linkWhatsApp(telefone: string): string | null {
+// Número no formato do WhatsApp (55 + DDD + número). Só faz sentido com DDD
+// (10 ou 11 dígitos); sem isso, devolve null em vez de mandar pro número errado.
+export function numeroWhatsApp(telefone: string): string | null {
   const d = apenasDigitos(telefone);
-  if (d.length === 10 || d.length === 11) return `https://wa.me/55${d}`;
-  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) return `https://wa.me/${d}`;
+  if (d.length === 10 || d.length === 11) return `55${d}`;
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) return d;
   return null;
+}
+
+export function linkWhatsApp(telefone: string): string | null {
+  const numero = numeroWhatsApp(telefone);
+  return numero ? `https://wa.me/${numero}` : null;
 }
 
 export function iniciais(nome: string): string {

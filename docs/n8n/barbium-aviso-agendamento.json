@@ -1,0 +1,70 @@
+{
+  "name": "Barbium - aviso de agendamento no WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "barbium-agendamento",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "6f1c1d2e-0001-4a10-9a51-barbium00001",
+      "name": "Webhook Barbium",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "barbium-agendamento"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.barbearia.whatsapp }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "6f1c1d2e-0002-4a10-9a51-barbium00002",
+      "name": "Barbearia tem WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://SUA-EVOLUTION-API/message/sendText/SUA-INSTANCIA",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "SUA-APIKEY-DA-EVOLUTION"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.body.barbearia.whatsapp, text: $json.body.mensagem }) }}",
+        "options": {}
+      },
+      "id": "6f1c1d2e-0003-4a10-9a51-barbium00003",
+      "name": "Enviar WhatsApp (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, -80]
+    }
+  ],
+  "connections": {
+    "Webhook Barbium": {
+      "main": [[{ "node": "Barbearia tem WhatsApp?", "type": "main", "index": 0 }]]
+    },
+    "Barbearia tem WhatsApp?": {
+      "main": [[{ "node": "Enviar WhatsApp (Evolution)", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": {}
+}

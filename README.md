@@ -70,6 +70,30 @@ impede dois agendamentos ativos do mesmo profissional no mesmo horário. Ela
 não aparece no `schema.prisma` (o Prisma não representa esse tipo de
 constraint), mas o código depende dela — ver `src/lib/conflito-horario.ts`.
 
+## Notificações no WhatsApp (n8n + Evolution API)
+
+A cada agendamento confirmado pelo link público (sem sinal, ou quando o Pix
+do sinal é pago), o app faz um `POST` em `N8N_WEBHOOK_URL` com os dados do
+agendamento e uma `mensagem` pronta, e o n8n envia pelo WhatsApp. Também
+avisa quando um Pix é pago depois do prazo com o horário já ocupado
+(`evento: "sinal.pago_sem_horario"`), porque aí o sinal precisa ser devolvido.
+
+O número que recebe é o **telefone da barbearia** (Configurações), com DDD.
+Sem a variável configurada, nada é enviado; se o n8n estiver fora do ar, o
+agendamento funciona normal e a falha só vai pro log.
+
+Para configurar:
+
+1. No n8n, importe [docs/n8n/barbium-aviso-agendamento.json](docs/n8n/barbium-aviso-agendamento.json).
+2. No nó **Webhook Barbium**, crie uma credencial *Header Auth* com nome
+   `x-barbium-token` e um valor secreto qualquer.
+3. No nó **Enviar WhatsApp**, troque a URL da Evolution, o nome da instância e
+   a `apikey`. (Exemplo para a Evolution v2; na v1 o corpo é
+   `{ number, textMessage: { text } }`.)
+4. Ative o fluxo e copie a **Production URL** do webhook.
+5. No app, configure `N8N_WEBHOOK_URL` (essa URL) e `N8N_WEBHOOK_TOKEN` (o
+   mesmo valor secreto do passo 2).
+
 ## Deploy na Vercel
 
 1. Importe o repositório na Vercel e adicione a integração **Neon** na aba
