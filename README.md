@@ -9,95 +9,89 @@ da barbearia e a página pública de agendamento.
 
 ## O que já está funcionando
 
-- **Login** único para todos os papéis (`/login`), com sessão em JWT num
-  cookie `httpOnly`.
-- **Super admin** (`/super-admin`): visão geral, listar barbearias, criar
-  barbearia + dono numa operação só, trocar plano e ativar/suspender acesso.
-- **Painel da barbearia** (`/painel`): agenda do dia já lendo do banco.
-  Clientes, Serviços, Equipe e Caixa estão como tela "em construção" —
-  a estrutura de dados já existe no schema, falta só a interface.
-- **Agendamento público** (`/agendar/[slug]`): lista os serviços da
-  barbearia. O formulário de escolher horário e confirmar ainda não foi
-  construído.
+- **Login** único para todos os papéis (`/login`), sessão em JWT num cookie
+  `httpOnly`, conferida no banco a cada requisição. Recuperação de senha por
+  e-mail (Resend). Limite de tentativas contra força bruta.
+- **Super admin** (`/super-admin`): barbearias, plano, ativar/suspender.
+- **Painel da barbearia** (`/painel`): visão geral, agenda (dia/semana),
+  novo agendamento pelo balcão, clientes com assinatura, serviços, equipe com
+  limite por plano, expediente e bloqueios, caixa com comissões.
+- **Agendamento público** (`/agendar/[slug]`): escolher serviço, profissional
+  e horário, com sinal opcional por Pix (Mercado Pago).
+- **Caixa automático**: sinal entra quando o Pix é aprovado; o restante e a
+  comissão entram ao concluir o atendimento.
 
-## O que falta pra virar um MVP completo
-
-1. Fluxo de agendamento público de ponta a ponta (escolher barbeiro,
-   horário livre, confirmar com nome/telefone).
-2. CRUD de Clientes, Serviços e Equipe no painel da barbearia.
-3. Lançamento automático no Caixa quando um agendamento é concluído, e
-   apuração de comissão por barbeiro.
-4. Lembrete de agendamento por WhatsApp (`wa.me` manual, pra começar).
+Regras de negócio detalhadas em [PRODUCT.md](PRODUCT.md).
 
 ## Rodando localmente
 
-1. Crie um projeto em [neon.tech](https://neon.tech) (ou conecte o Neon
-   direto pela integração da Vercel, que faz esse passo por você).
-2. Copie `.env.example` pra `.env` e preencha `DATABASE_URL`, `DIRECT_URL`,
-   `JWT_SECRET` e os dados do `SUPER_ADMIN_*`.
-3. Instale as dependências e gere o cliente Prisma:
+1. Crie um projeto em [neon.tech](https://neon.tech). Para desenvolver, use
+   um **branch** do Neon, nunca o banco de produção.
+2. Copie `.env.example` pra `.env` e preencha as variáveis.
+3. Instale as dependências (já gera o cliente Prisma):
 
    ```bash
    npm install
-   npm run prisma:generate
    ```
 
-4. Aplique o schema no banco (cria as tabelas):
-
-   ```bash
-   npm run prisma:migrate
-   ```
-
-5. Crie o primeiro usuário super admin:
-
-   ```bash
-   npm run prisma:seed
-   ```
-
-6. Suba o app:
-
-   ```bash
-   npm run dev
-   ```
-
-7. Acesse `http://localhost:3000/login` com o e-mail/senha do
-   `SUPER_ADMIN_*` que você definiu no `.env`.
-
-## Deploy na Vercel
-
-1. Suba este projeto pra um repositório Git (GitHub, por exemplo) e importe
-   na Vercel.
-2. Na aba **Storage** do projeto na Vercel, adicione a integração **Neon**
-   — ela já injeta `DATABASE_URL` e `DIRECT_URL` automaticamente.
-3. Adicione a variável `JWT_SECRET` nas Environment Variables do projeto.
-4. No primeiro deploy, rode a migration e o seed contra o banco de produção
-   (pela Vercel CLI, ou localmente apontando o `.env` pra connection string
-   de produção):
+4. Aplique as migrations e crie o super admin:
 
    ```bash
    npm run prisma:deploy
    npm run prisma:seed
    ```
 
-5. Pronto — `/login` já funciona com o super admin criado no seed.
+5. Suba o app: `npm run dev` e acesse `http://localhost:3000/login`.
+
+## Verificações
+
+```bash
+npm run typecheck   # TypeScript
+npm run lint        # ESLint
+npm test            # Vitest (regras de fuso, agenda, comissão, sinal, caixa)
+```
+
+## Banco de dados e migrations
+
+As migrations ficam em `prisma/migrations/` e são a fonte da verdade da
+estrutura do banco. Para mudar o schema:
+
+```bash
+npm run prisma:migrate -- --name descricao-curta   # gera e aplica em dev
+npm run prisma:deploy                               # aplica em produção
+```
+
+Não altere o banco à mão. Os scripts em `prisma/sql/` são o histórico das
+mudanças que foram aplicadas assim antes das migrations serem organizadas; a
+estrutura deles já está em `20261001000000_estrutura_aplicada_manualmente`.
+
+A migration `20261103000000_trava_horario_e_limites` cria uma constraint que
+impede dois agendamentos ativos do mesmo profissional no mesmo horário. Ela
+não aparece no `schema.prisma` (o Prisma não representa esse tipo de
+constraint), mas o código depende dela — ver `src/lib/conflito-horario.ts`.
+
+## Deploy na Vercel
+
+1. Importe o repositório na Vercel e adicione a integração **Neon** na aba
+   **Storage** (injeta `DATABASE_URL` e `DIRECT_URL`).
+2. Configure as demais variáveis do `.env.example` em Environment Variables.
+3. Antes de publicar código que depende de migration nova, rode
+   `npm run prisma:deploy` contra o banco de produção.
 
 ## Estrutura
 
 ```
 prisma/
-  schema.prisma     — todas as entidades (Barbearia, Usuario, Cliente, …)
+  schema.prisma      — todas as entidades
+  migrations/        — histórico da estrutura do banco
   seed.ts            — cria o primeiro SUPER_ADMIN
 src/
-  lib/
-    prisma.ts         — cliente Prisma com o adapter serverless do Neon
-    auth.ts            — hash de senha e JWT de sessão
-    sessao.ts          — leitura da sessão em Server Components/rotas
-    planos.ts          — rótulos dos planos (Solo/Barbearia/Rede)
-  middleware.ts        — protege /super-admin/** e /painel/** por papel
+  lib/               — regras de negócio (agenda, sinal, caixa, fuso, sessão…)
+  middleware.ts      — protege /super-admin/** e /painel/** por papel
   app/
-    login/              — tela de login única
-    super-admin/         — painel de controle da plataforma
-    painel/               — painel da barbearia (dono/barbeiro)
-    agendar/[slug]/        — página pública de agendamento
-    api/                    — rotas server-side (auth, super-admin)
+    login/, recuperar-senha/, redefinir-senha/
+    super-admin/     — painel da plataforma
+    painel/          — painel da barbearia (dono/barbeiro)
+    agendar/[slug]/  — página pública de agendamento
+    api/             — rotas server-side
 ```
