@@ -78,9 +78,10 @@ agendamento e uma `mensagem` pronta, e o n8n envia pelo WhatsApp. Também
 avisa quando um Pix é pago depois do prazo com o horário já ocupado
 (`evento: "sinal.pago_sem_horario"`), porque aí o sinal precisa ser devolvido.
 
-O número que recebe é o **telefone da barbearia** (Configurações), com DDD.
-Sem a variável configurada, nada é enviado; se o n8n estiver fora do ar, o
-agendamento funciona normal e a falha só vai pro log.
+O número que recebe é o **WhatsApp para avisos** (Configurações) ou, se ele
+estiver vazio, o telefone da barbearia. Sem nenhum dos dois com DDD, o
+evento nem é enviado. Sem a variável configurada, nada é enviado; se o n8n
+estiver fora do ar, o agendamento funciona normal e a falha só vai pro log.
 
 Para configurar:
 

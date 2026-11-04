@@ -7,6 +7,6 @@ import { prisma } from "./prisma";
 export const obterBarbearia = cache(async (barbeariaId: string) => {
   return prisma.barbearia.findUnique({
     where: { id: barbeariaId },
-    select: { id: true, nome: true, slug: true, telefone: true, plano: true, ativo: true },
+    select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true, plano: true, ativo: true },
   });
 });

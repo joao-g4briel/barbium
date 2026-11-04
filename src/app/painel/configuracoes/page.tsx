@@ -65,6 +65,7 @@ export default async function PaginaConfiguracoes() {
                 <FormularioBarbearia
                   nomeInicial={barbearia.nome}
                   telefoneInicial={barbearia.telefone ? formatarTelefone(barbearia.telefone) : ""}
+                  telefoneAvisosInicial={barbearia.telefoneAvisos ? formatarTelefone(barbearia.telefoneAvisos) : ""}
                 />
                 <dl className="fatos">
                   <div>

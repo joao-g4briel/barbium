@@ -75,14 +75,18 @@ enum DiaSemana {
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
-  id           String   @id @default(cuid())
-  nome         String
-  slug         String   @unique
-  telefone     String?
-  plano        Plano    @default(SOLO)
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id             String   @id @default(cuid())
+  nome           String
+  slug           String   @unique
+  telefone       String?
+  // WhatsApp que recebe os avisos automáticos (novo agendamento etc.). Vazio:
+  // vai pro telefone da barbearia. Separado porque o telefone da barbearia é
+  // o de contato com clientes; o aviso costuma ir pro celular do dono.
+  telefoneAvisos String?
+  plano          Plano    @default(SOLO)
+  ativo          Boolean  @default(true)
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
 
   usuarios              Usuario[]
   unidades              Unidade[]

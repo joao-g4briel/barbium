@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Alerta } from "@/components/ui/alerta";
-import { apenasDigitos } from "@/lib/formatar";
+import { apenasDigitos, numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
 
 type Erros = Record<string, string | undefined>;
@@ -25,10 +25,19 @@ async function enviar(url: string, metodo: "PATCH" | "POST", corpo: unknown) {
   }
 }
 
-export function FormularioBarbearia({ nomeInicial, telefoneInicial }: { nomeInicial: string; telefoneInicial: string }) {
+export function FormularioBarbearia({
+  nomeInicial,
+  telefoneInicial,
+  telefoneAvisosInicial,
+}: {
+  nomeInicial: string;
+  telefoneInicial: string;
+  telefoneAvisosInicial: string;
+}) {
   const router = useRouter();
   const [nome, setNome] = useState(nomeInicial);
   const [telefone, setTelefone] = useState(telefoneInicial);
+  const [telefoneAvisos, setTelefoneAvisos] = useState(telefoneAvisosInicial);
   const [erros, setErros] = useState<Erros>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -40,11 +49,16 @@ export function FormularioBarbearia({ nomeInicial, telefoneInicial }: { nomeInic
     if (nome.trim().length < 2) validacao.nome = "Informe o nome da barbearia.";
     const digitos = apenasDigitos(telefone);
     if (digitos && digitos.length < 8) validacao.telefone = "Informe um telefone válido, com DDD.";
+    if (telefoneAvisos.trim() && !numeroWhatsApp(telefoneAvisos)) validacao.telefoneAvisos = "Informe o WhatsApp com DDD.";
     setErros(validacao);
     if (Object.values(validacao).some(Boolean)) return;
 
     setSalvando(true);
-    const r = await enviar("/api/painel/barbearia", "PATCH", { nome, telefone: telefone.trim() || null });
+    const r = await enviar("/api/painel/barbearia", "PATCH", {
+      nome,
+      telefone: telefone.trim() || null,
+      telefoneAvisos: telefoneAvisos.trim() || null,
+    });
     setSalvando(false);
     if (!r.ok) return setErros({ geral: r.erro ?? "Não foi possível salvar." });
     setAviso("Dados da barbearia salvos.");
@@ -71,6 +85,23 @@ export function FormularioBarbearia({ nomeInicial, telefoneInicial }: { nomeInic
           inputMode="tel"
           value={telefone}
           onChange={(e) => setTelefone(e.target.value)}
+          placeholder="(11) 91234-5678"
+        />
+      </Campo>
+      <Campo
+        id="barbearia-telefone-avisos"
+        rotulo="WhatsApp para avisos"
+        opcional
+        dica="Recebe uma mensagem a cada agendamento novo. Vazio: usa o telefone acima."
+        erro={erros.telefoneAvisos}
+      >
+        <input
+          {...ariaCampo("barbearia-telefone-avisos", { dica: true, erro: erros.telefoneAvisos })}
+          className="input num"
+          type="tel"
+          inputMode="tel"
+          value={telefoneAvisos}
+          onChange={(e) => setTelefoneAvisos(e.target.value)}
           placeholder="(11) 91234-5678"
         />
       </Campo>

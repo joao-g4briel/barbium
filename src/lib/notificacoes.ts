@@ -40,10 +40,16 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string): Promise
       cliente: { select: { nome: true, telefone: true } },
       servico: { select: { nome: true, preco: true } },
       barbeiro: { select: { nome: true } },
-      barbearia: { select: { id: true, nome: true, slug: true, telefone: true } },
+      barbearia: { select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true } },
     },
   });
   if (!ag) return;
+
+  // Destino do aviso: o WhatsApp dos avisos ou, sem ele, o telefone da
+  // barbearia. Sem nenhum dos dois com DDD não há pra quem mandar, então nem
+  // chama o webhook (o fluxo do n8n não precisa filtrar esse caso).
+  const destino = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");
+  if (!destino) return;
 
   const quando = `${capitalizar(formatarDataInstante(ag.inicio, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(ag.inicio)}`;
   const sinalPago = ag.sinalStatus === "PAGO" && ag.sinalValor !== null ? Number(ag.sinalValor) : null;
@@ -54,9 +60,7 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string): Promise
       id: ag.barbearia.id,
       nome: ag.barbearia.nome,
       slug: ag.barbearia.slug,
-      // Destino do aviso. null quando a barbearia não cadastrou telefone com
-      // DDD em Configurações: o fluxo deve ignorar o evento.
-      whatsapp: ag.barbearia.telefone ? numeroWhatsApp(ag.barbearia.telefone) : null,
+      whatsapp: destino,
     },
     agendamento: {
       id: ag.id,
