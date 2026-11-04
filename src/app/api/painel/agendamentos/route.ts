@@ -7,6 +7,7 @@ import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { validarServicoEProfissional } from "@/lib/agendamento-painel";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
+import { notificarAgendamento } from "@/lib/notificacoes";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -110,6 +111,8 @@ export async function POST(request: Request) {
       });
     });
 
+    // Foi a equipe que marcou: só o cliente recebe a confirmação no WhatsApp.
+    notificarAgendamento("agendamento.confirmado", agendamento.id, { avisarBarbearia: false });
     return NextResponse.json({ agendamento: { id: agendamento.id, inicio: agendamento.inicio, cliente: agendamento.cliente.nome } });
   } catch (erro) {
     if (erro instanceof HorarioIndisponivel || ehConflitoDeHorario(erro)) {

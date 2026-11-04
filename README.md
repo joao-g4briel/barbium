@@ -72,16 +72,21 @@ constraint), mas o código depende dela — ver `src/lib/conflito-horario.ts`.
 
 ## Notificações no WhatsApp (n8n + Evolution API)
 
-A cada agendamento confirmado pelo link público (sem sinal, ou quando o Pix
-do sinal é pago), o app faz um `POST` em `N8N_WEBHOOK_URL` com os dados do
-agendamento e uma `mensagem` pronta, e o n8n envia pelo WhatsApp. Também
-avisa quando um Pix é pago depois do prazo com o horário já ocupado
-(`evento: "sinal.pago_sem_horario"`), porque aí o sinal precisa ser devolvido.
+O app faz um `POST` em `N8N_WEBHOOK_URL` **por destinatário**, com o número
+em `para`, o texto pronto em `mensagem` e quem recebe em `destinatario`
+(`barbearia` ou `cliente`). O n8n só repassa `para` e `mensagem` pra Evolution.
 
-O número que recebe é o **WhatsApp para avisos** (Configurações) ou, se ele
-estiver vazio, o telefone da barbearia. Sem nenhum dos dois com DDD, o
-evento nem é enviado. Sem a variável configurada, nada é enviado; se o n8n
-estiver fora do ar, o agendamento funciona normal e a falha só vai pro log.
+| Quando | Barbearia recebe | Cliente recebe |
+|---|---|---|
+| Agendamento pelo link (sem sinal, ou com o Pix pago) | "Novo agendamento" | "Seu horário está marcado" |
+| Agendamento feito pela equipe no painel | — | "Seu horário está marcado" |
+| Pix pago depois do prazo, horário já ocupado | aviso pra devolver ou remarcar | — |
+
+A barbearia recebe no **WhatsApp para avisos** (Configurações) ou, se ele
+estiver vazio, no telefone da barbearia. O cliente recebe no telefone que
+informou. Número sem DDD não recebe (o envio nem é feito). Sem a variável
+configurada, nada é enviado; se o n8n estiver fora do ar, o agendamento
+funciona normal e a falha só vai pro log.
 
 Para configurar:
 

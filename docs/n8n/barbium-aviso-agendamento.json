@@ -34,7 +34,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $json.body.barbearia.whatsapp, text: $json.body.mensagem }) }}",
+        "jsonBody": "={{ JSON.stringify({ number: $json.body.para, text: $json.body.mensagem }) }}",
         "options": {}
       },
       "id": "6f1c1d2e-0003-4a10-9a51-barbium00003",
