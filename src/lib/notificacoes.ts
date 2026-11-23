@@ -3,6 +3,7 @@ import { after } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { inicioDoDiaBrasil } from "./fuso-brasil";
+import { linkDoCliente, linkParaAgendar } from "./link-cliente";
 import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formatarTelefone, numeroWhatsApp } from "./formatar";
 
 // Avisos automáticos por WhatsApp: pro dono (agendamento novo) e pro cliente
@@ -18,7 +19,19 @@ export type EventoNotificacao =
   | "agendamento.confirmado" // agendamento novo (sem sinal, ou com o Pix pago)
   | "agendamento.remarcado" // a barbearia mudou o dia, o horário ou o profissional
   | "agendamento.lembrete" // lembrete pro cliente antes do horário (ver lib/lembretes)
+  | "agendamento.cancelado_pelo_cliente" // o cliente cancelou pelo link da mensagem
+  | "agendamento.remarcado_pelo_cliente" // o cliente mudou o horário pelo link da mensagem
   | "sinal.pago_sem_horario"; // Pix pago depois do prazo, com o horário já ocupado: precisa devolver
+
+// Eventos em que o cliente também recebe mensagem (o lembrete sai por lib/lembretes).
+type EventoCliente = Extract<
+  EventoNotificacao,
+  | "agendamento.confirmado"
+  | "agendamento.remarcado"
+  | "agendamento.lembrete"
+  | "agendamento.cancelado_pelo_cliente"
+  | "agendamento.remarcado_pelo_cliente"
+>;
 
 type Destinatario = "barbearia" | "cliente";
 
@@ -30,16 +43,17 @@ export function notificacoesConfiguradas(): boolean {
 
 // Agenda os avisos pra depois da resposta. Chamar de dentro de uma rota.
 // avisarBarbearia: false quando foi a própria equipe que marcou (painel) — aí
-// só o cliente recebe a confirmação.
+// só o cliente recebe a confirmação. anterior: o horário de antes, quando o
+// cliente remarca (a barbearia precisa saber de onde ele saiu).
 export function notificarAgendamento(
   evento: EventoNotificacao,
   agendamentoId: string,
-  { avisarBarbearia = true }: { avisarBarbearia?: boolean } = {},
+  { avisarBarbearia = true, anterior }: { avisarBarbearia?: boolean; anterior?: Date } = {},
 ): void {
   if (!notificacoesConfiguradas()) return;
   after(async () => {
     try {
-      await enviar(evento, agendamentoId, avisarBarbearia);
+      await enviar(evento, agendamentoId, avisarBarbearia, anterior);
     } catch (erro) {
       console.error(`Notificação ${evento}:`, erro instanceof Error ? erro.message : erro);
     }
@@ -62,9 +76,16 @@ export function whatsappDoCliente(ag: AgendamentoNotificacao): string | null {
   return ag.cliente.aceitaMensagens ? numeroWhatsApp(ag.cliente.telefone) : null;
 }
 
-export function dadosDaMensagem(ag: AgendamentoNotificacao): DadosMensagem {
+function porExtenso(instante: Date): string {
+  return `${capitalizar(formatarDataInstante(instante, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(instante)}`;
+}
+
+export function dadosDaMensagem(ag: AgendamentoNotificacao, anterior?: Date): DadosMensagem {
   return {
-    quando: `${capitalizar(formatarDataInstante(ag.inicio, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(ag.inicio)}`,
+    quando: porExtenso(ag.inicio),
+    quandoAnterior: anterior ? porExtenso(anterior) : null,
+    linkCliente: linkDoCliente(ag.id),
+    linkAgendar: linkParaAgendar(ag.barbearia.slug),
     cliente: ag.cliente.nome,
     telefone: formatarTelefone(ag.cliente.telefone),
     servico: ag.servico.nome,
@@ -94,22 +115,27 @@ export function corpoDoWebhook(evento: EventoNotificacao, ag: AgendamentoNotific
   };
 }
 
-async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBarbearia: boolean): Promise<void> {
+async function enviar(
+  evento: EventoNotificacao,
+  agendamentoId: string,
+  avisarBarbearia: boolean,
+  anterior?: Date,
+): Promise<void> {
   const ag = await prisma.agendamento.findUnique({ where: { id: agendamentoId }, include: INCLUIR_NOTIFICACAO });
   if (!ag) return;
 
   // Barbearia: o WhatsApp dos avisos ou, sem ele, o telefone da barbearia.
   const whatsappBarbearia = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");
   const whatsappCliente = whatsappDoCliente(ag);
-  const dados = dadosDaMensagem(ag);
+  const dados = dadosDaMensagem(ag, anterior);
 
   const envios: { destinatario: Destinatario; para: string; mensagem: string }[] = [];
   if (avisarBarbearia && whatsappBarbearia) {
     envios.push({ destinatario: "barbearia", para: whatsappBarbearia, mensagem: montarMensagem(evento, dados) });
   }
-  // O cliente fica sabendo do horário marcado e do horário mudado. O Pix
+  // O cliente fica sabendo do horário marcado, mudado ou cancelado. O Pix
   // pago sem horário é a barbearia que resolve com ele.
-  if ((evento === "agendamento.confirmado" || evento === "agendamento.remarcado") && whatsappCliente) {
+  if (evento !== "sinal.pago_sem_horario" && evento !== "agendamento.lembrete" && whatsappCliente) {
     envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados, evento) });
   }
 
@@ -149,6 +175,8 @@ export async function postarWebhook(corpo: unknown): Promise<void> {
 
 export interface DadosMensagem {
   quando: string;
+  // Horário de antes, quando o cliente remarca.
+  quandoAnterior?: string | null;
   cliente: string;
   telefone: string;
   servico: string;
@@ -156,6 +184,10 @@ export interface DadosMensagem {
   sinalPago: number | null;
   barbearia: string;
   telefoneBarbearia: string | null;
+  // Página do cliente pra ver, mudar ou cancelar (null sem APP_URL).
+  linkCliente?: string | null;
+  // Página de agendamento da barbearia, pra marcar de novo.
+  linkAgendar?: string | null;
 }
 
 // Mensagem pro dono.
@@ -168,15 +200,30 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
       "Combine um novo horário ou devolva o sinal pelo Mercado Pago.",
     ].join("\n");
   }
+  const titulo = {
+    "agendamento.confirmado": "✂️ *Novo agendamento*",
+    "agendamento.remarcado": "🔁 *Agendamento remarcado*",
+    "agendamento.lembrete": "⏰ *Lembrete enviado*",
+    "agendamento.cancelado_pelo_cliente": "❌ *Cliente cancelou pelo link*",
+    "agendamento.remarcado_pelo_cliente": "🔁 *Cliente remarcou pelo link*",
+  }[evento];
+  const cancelado = evento === "agendamento.cancelado_pelo_cliente";
   return [
-    evento === "agendamento.remarcado" ? "🔁 *Agendamento remarcado*" : "✂️ *Novo agendamento*",
+    titulo,
     "",
     `*Cliente:* ${d.cliente}`,
     `*Telefone:* ${d.telefone}`,
     `*Serviço:* ${d.servico}`,
     `*Profissional:* ${d.profissional}`,
-    `*Quando:* ${d.quando}`,
-    ...(d.sinalPago !== null ? [`*Sinal pago:* ${formatarMoeda(d.sinalPago)}`] : []),
+    ...(d.quandoAnterior ? [`*Antes:* ${d.quandoAnterior}`, `*Agora:* ${d.quando}`] : [`*Quando:* ${d.quando}`]),
+    ...(d.sinalPago !== null
+      ? [
+          cancelado
+            ? `*Sinal pago:* ${formatarMoeda(d.sinalPago)} (continua no caixa; se devolver, registre no painel)`
+            : `*Sinal pago:* ${formatarMoeda(d.sinalPago)}`,
+        ]
+      : []),
+    ...(cancelado ? ["", "O horário já está livre na agenda."] : []),
   ].join("\n");
 }
 
@@ -191,30 +238,49 @@ export function quandoRelativo(inicio: Date, agora: Date, quandoPorExtenso: stri
   return quandoPorExtenso;
 }
 
-// Mensagem pro cliente: confirma o horário (novo, mudado ou lembrete) e diz
-// com quem falar pra mudar.
-export function montarMensagemCliente(
-  d: DadosMensagem,
-  evento: "agendamento.confirmado" | "agendamento.remarcado" | "agendamento.lembrete" = "agendamento.confirmado",
-): string {
+// Mensagem pro cliente: confirma o horário (novo, mudado, lembrete ou
+// cancelado) e mostra o caminho pra mudar ou cancelar.
+export function montarMensagemCliente(d: DadosMensagem, evento: EventoCliente = "agendamento.confirmado"): string {
   const primeiroNome = d.cliente.trim().split(/\s+/)[0];
-  const abertura = {
-    "agendamento.confirmado": [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* está marcado.`],
-    "agendamento.remarcado": [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* mudou.`],
-    "agendamento.lembrete": [`Olá, ${primeiroNome}! ⏰`, `Passando pra lembrar do seu horário na *${d.barbearia}*.`],
-  }[evento];
+  const rodape = ["", "_Não quer receber estas mensagens? É só avisar a barbearia._"];
+
+  if (evento === "agendamento.cancelado_pelo_cliente") {
+    return [
+      `Olá, ${primeiroNome}.`,
+      `Seu horário na *${d.barbearia}* foi cancelado, como você pediu.`,
+      "",
+      `*Era:* ${d.servico} com ${d.profissional}, ${d.quando}`,
+      ...(d.sinalPago !== null
+        ? ["", `Você pagou um sinal de ${formatarMoeda(d.sinalPago)}. Sobre a devolução, fale com a barbearia.`]
+        : []),
+      ...(d.linkAgendar ? ["", `Quer marcar outro horário? ${d.linkAgendar}`] : []),
+      ...rodape,
+    ].join("\n");
+  }
+
+  const remarcado = evento === "agendamento.remarcado" || evento === "agendamento.remarcado_pelo_cliente";
+  const abertura =
+    evento === "agendamento.lembrete"
+      ? [`Olá, ${primeiroNome}! ⏰`, `Passando pra lembrar do seu horário na *${d.barbearia}*.`]
+      : remarcado
+        ? [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* mudou.`]
+        : [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* está marcado.`];
+
+  const comoMudar = d.linkCliente
+    ? `Precisa remarcar ou cancelar? ${d.linkCliente}`
+    : d.telefoneBarbearia
+      ? `Precisa remarcar ou cancelar? Fale com a barbearia: ${d.telefoneBarbearia}`
+      : "Precisa remarcar ou cancelar? Fale com a barbearia.";
+
   return [
     ...abertura,
     "",
     `*Serviço:* ${d.servico}`,
     `*Profissional:* ${d.profissional}`,
-    `*${evento === "agendamento.remarcado" ? "Novo horário" : "Quando"}:* ${d.quando}`,
+    `*${remarcado ? "Novo horário" : "Quando"}:* ${d.quando}`,
     ...(d.sinalPago !== null ? [`*Sinal pago:* ${formatarMoeda(d.sinalPago)}`] : []),
     "",
-    d.telefoneBarbearia
-      ? `Precisa remarcar ou cancelar? Fale com a barbearia: ${d.telefoneBarbearia}`
-      : "Precisa remarcar ou cancelar? Fale com a barbearia.",
-    "",
-    "_Não quer receber estas mensagens? É só avisar a barbearia._",
+    comoMudar,
+    ...rodape,
   ].join("\n");
 }

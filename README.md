@@ -97,6 +97,16 @@ em `para`, o texto pronto em `mensagem` e quem recebe em `destinatario`
 | Agendamento feito pela equipe no painel | — | "Seu horário está marcado" |
 | Equipe muda o dia, o horário ou o profissional ("Mudar", na agenda) | — | "Seu horário mudou" |
 | X horas antes do horário (X escolhido em Configurações) | — | Lembrete |
+| Cliente cancela pelo link | "Cliente cancelou pelo link" | "Seu horário foi cancelado" |
+| Cliente muda o horário pelo link | "Cliente remarcou pelo link" (antes e agora) | "Seu horário mudou" |
+
+As mensagens do cliente trazem o link da página dele
+(`/meu-horario/<código>`), onde ele vê o horário e, até 2 horas antes, muda
+(mesmo profissional e serviço, só horários livres) ou cancela. O código é
+assinado com o `JWT_SECRET`: trocar o segredo invalida os links já enviados.
+O endereço do link vem de `APP_URL` ou, sem ela, do domínio de produção que a
+Vercel informa; sem nenhum dos dois, a mensagem volta a dizer "fale com a
+barbearia".
 | Pix pago depois do prazo, horário já ocupado | aviso pra devolver ou remarcar | — |
 
 A barbearia recebe no **WhatsApp para avisos** (Configurações) ou, se ele

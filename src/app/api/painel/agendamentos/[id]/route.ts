@@ -6,11 +6,10 @@ import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { formatarHora, numeroWhatsApp } from "@/lib/formatar";
 import { cancelarPixPendente } from "@/lib/sinal";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
-import { horariosLivres, opcoesHorarioPainel } from "@/lib/agenda";
-import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
-import { duracaoEmMinutos, validarProfissional } from "@/lib/agendamento-painel";
+import { opcoesHorarioPainel } from "@/lib/agenda";
+import { validarProfissional } from "@/lib/agendamento-painel";
+import { mudarHorario } from "@/lib/mudar-horario";
 import { notificacoesConfiguradas, notificarAgendamento } from "@/lib/notificacoes";
-import { dentroDaJanelaDeLembrete } from "@/lib/lembrete-opcoes";
 import type { SessaoPayload } from "@/lib/auth";
 import {
   desfazerConclusao,
@@ -34,7 +33,6 @@ const corpoSchema = z.union([
 ]);
 
 class ErroTroca extends Error {}
-class HorarioOcupado extends Error {}
 
 export async function PATCH(
   request: Request,
@@ -147,94 +145,30 @@ export async function PATCH(
 }
 
 // Muda o dia, o horário e, se o dono quiser, o profissional de um agendamento
-// confirmado. Mesmas regras de um agendamento novo pelo painel (expediente,
-// almoço, folgas, conflito), mas o lugar que ele ocupa hoje conta como livre.
-// O agendamento mantém a duração, o sinal pago e o cliente; o cliente recebe
-// o novo horário no WhatsApp.
+// confirmado (regras em lib/mudar-horario). O cliente recebe o novo horário
+// no WhatsApp; a barbearia não, porque foi ela que mudou.
 async function reagendar(
   agendamento: Agendamento,
   sessao: SessaoPayload,
   inicio: Date,
   profissionalId: string,
 ) {
-  if (agendamento.status !== "CONFIRMADO") {
-    return NextResponse.json(
-      { erro: "Só dá para mudar o horário de agendamentos confirmados." },
-      { status: 409 },
-    );
-  }
-
   const validado = await validarProfissional(sessao, profissionalId);
   if ("erro" in validado) return NextResponse.json({ erro: validado.erro }, { status: validado.status });
-  const { profissional } = validado;
 
-  if (inicio.getTime() === agendamento.inicio.getTime() && profissional.id === agendamento.barbeiroId) {
-    return NextResponse.json({ erro: "Esse já é o horário do agendamento." }, { status: 400 });
-  }
+  const resultado = await mudarHorario(agendamento, inicio, validado.profissional.id, opcoesHorarioPainel());
+  if (!resultado.ok) return NextResponse.json({ erro: resultado.erro }, { status: resultado.status });
 
-  const duracaoMinutos = duracaoEmMinutos(agendamento);
-  const fim = new Date(inicio.getTime() + duracaoMinutos * 60 * 1000);
-
-  const disponiveis = await horariosLivres({
-    barbeariaId: agendamento.barbeariaId,
-    profissionalId: profissional.id,
-    data: inicioDoDiaBrasil(inicio),
-    duracaoMinutos,
-    ignorarAgendamentoId: agendamento.id,
-    ...opcoesHorarioPainel(),
+  notificarAgendamento("agendamento.remarcado", agendamento.id, { avisarBarbearia: false });
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: agendamento.clienteId },
+    select: { telefone: true, aceitaMensagens: true },
   });
-  if (!disponiveis.some((h) => h.getTime() === inicio.getTime())) {
-    return NextResponse.json({ erro: "Esse horário não está mais disponível. Escolha outro." }, { status: 409 });
-  }
+  const clienteAvisado =
+    notificacoesConfiguradas() && !!cliente?.aceitaMensagens && numeroWhatsApp(cliente.telefone) !== null;
 
-  // Horário novo, lembrete novo. Se o novo horário já está dentro da janela
-  // do lembrete, o "seu horário mudou" faz esse papel e o lembrete é dispensado.
-  const barbearia = await prisma.barbearia.findUnique({
-    where: { id: agendamento.barbeariaId },
-    select: { lembreteHorasAntes: true },
-  });
-  const agora = new Date();
-  const lembreteEnviadoEm = dentroDaJanelaDeLembrete(inicio, barbearia?.lembreteHorasAntes ?? null, agora)
-    ? agora
-    : null;
-
-  try {
-    const atualizado = await prisma.$transaction(async (tx) => {
-      const conflito = await tx.agendamento.findFirst({
-        where: {
-          barbeariaId: agendamento.barbeariaId,
-          barbeiroId: profissional.id,
-          id: { not: agendamento.id },
-          status: { not: "CANCELADO" },
-          inicio: { lt: fim },
-          fim: { gt: inicio },
-        },
-      });
-      if (conflito) throw new HorarioOcupado();
-
-      return tx.agendamento.update({
-        where: { id: agendamento.id },
-        data: { inicio, fim, barbeiroId: profissional.id, lembreteEnviadoEm },
-        include: { cliente: { select: { telefone: true, aceitaMensagens: true } } },
-      });
-    });
-
-    notificarAgendamento("agendamento.remarcado", agendamento.id, { avisarBarbearia: false });
-    const clienteAvisado =
-      notificacoesConfiguradas() &&
-      atualizado.cliente.aceitaMensagens &&
-      numeroWhatsApp(atualizado.cliente.telefone) !== null;
-
-    return NextResponse.json({
-      agendamento: { id: atualizado.id, inicio: atualizado.inicio, fim: atualizado.fim, profissionalId: profissional.id },
-      clienteAvisado,
-    });
-  } catch (erro) {
-    if (erro instanceof HorarioOcupado || ehConflitoDeHorario(erro)) {
-      return NextResponse.json({ erro: "Esse horário acabou de ser preenchido. Escolha outro." }, { status: 409 });
-    }
-    throw erro;
-  }
+  const { id, inicio: novoInicio, fim, barbeiroId } = resultado.agendamento;
+  return NextResponse.json({ agendamento: { id, inicio: novoInicio, fim, profissionalId: barbeiroId }, clienteAvisado });
 }
 
 // A barbearia devolveu o sinal pelo Mercado Pago (o reembolso em si é feito

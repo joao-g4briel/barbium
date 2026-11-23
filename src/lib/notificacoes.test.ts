@@ -35,6 +35,25 @@ describe("mensagem de notificação", () => {
     expect(texto).toContain("já foi ocupado");
     expect(texto).toContain("devolva o sinal");
   });
+
+  it("cliente cancelou pelo link: a barbearia sabe que o horário ficou livre e do sinal", () => {
+    const texto = montarMensagem("agendamento.cancelado_pelo_cliente", { ...dados, sinalPago: 20 });
+    expect(texto).toContain("Cliente cancelou pelo link");
+    expect(texto).toContain("João Silva");
+    expect(texto).toContain("O horário já está livre");
+    expect(texto).toContain("continua no caixa");
+  });
+
+  it("cliente remarcou pelo link: mostra de onde saiu e pra onde foi", () => {
+    const texto = montarMensagem("agendamento.remarcado_pelo_cliente", {
+      ...dados,
+      quandoAnterior: "Terça-feira, 03/11 às 10:00",
+    });
+    expect(texto).toContain("Cliente remarcou pelo link");
+    expect(texto).toContain("*Antes:* Terça-feira, 03/11 às 10:00");
+    expect(texto).toContain("*Agora:* Quarta-feira, 04/11 às 09:30");
+    expect(texto).not.toContain("*Quando:*");
+  });
 });
 
 describe("mensagem para o cliente", () => {
@@ -46,9 +65,30 @@ describe("mensagem para o cliente", () => {
     expect(texto).toContain("Corte");
   });
 
-  it("diz com quem falar pra remarcar", () => {
+  it("sem link, diz com quem falar pra remarcar", () => {
     expect(montarMensagemCliente(dados)).toContain("Fale com a barbearia: (81) 98947-9982");
     expect(montarMensagemCliente({ ...dados, telefoneBarbearia: null })).toContain("Fale com a barbearia.\n");
+  });
+
+  it("com link, manda o cliente mudar ou cancelar por ele", () => {
+    const link = "https://barbium.vercel.app/meu-horario/abc.def";
+    for (const evento of ["agendamento.confirmado", "agendamento.remarcado", "agendamento.lembrete"] as const) {
+      const texto = montarMensagemCliente({ ...dados, linkCliente: link }, evento);
+      expect(texto).toContain(`Precisa remarcar ou cancelar? ${link}`);
+      expect(texto).not.toContain("Fale com a barbearia:");
+    }
+  });
+
+  it("cancelado pelo cliente: confirma e oferece marcar outro", () => {
+    const texto = montarMensagemCliente(
+      { ...dados, sinalPago: 20, linkAgendar: "https://barbium.vercel.app/agendar/rio" },
+      "agendamento.cancelado_pelo_cliente",
+    );
+    expect(texto).toContain("foi cancelado, como você pediu");
+    expect(texto).toContain("Corte com Rio, Quarta-feira, 04/11 às 09:30");
+    expect(texto).toMatch(/sinal de R\$\s20,00/);
+    expect(texto).toContain("Quer marcar outro horário? https://barbium.vercel.app/agendar/rio");
+    expect(texto).not.toContain("Precisa remarcar");
   });
 
   it("explica como parar de receber", () => {
