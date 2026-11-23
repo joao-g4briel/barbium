@@ -9,12 +9,32 @@ const editarClienteSchema = z.object({
   telefone: z.string().min(8),
 });
 
+// O cliente pediu pra parar (ou voltar) a receber as mensagens automáticas.
+// Qualquer pessoa da equipe registra: é um pedido do cliente, não uma edição
+// de cadastro.
+const preferenciaSchema = z.object({ aceitaMensagens: z.boolean() });
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const sessao = await exigirUsuarioDaBarbearia().catch(() => null);
   if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 403 });
+
+  const { id } = await params;
+
+  const clienteExistente = await prisma.cliente.findUnique({ where: { id } });
+  if (!clienteExistente || clienteExistente.barbeariaId !== sessao.barbeariaId || clienteExistente.removidoEm) {
+    return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
+  }
+
+  const corpo = await request.json().catch(() => null);
+
+  const preferencia = preferenciaSchema.safeParse(corpo);
+  if (preferencia.success) {
+    await prisma.cliente.update({ where: { id }, data: { aceitaMensagens: preferencia.data.aceitaMensagens } });
+    return NextResponse.json({ ok: true });
+  }
 
   if (sessao.role !== "DONO") {
     return NextResponse.json(
@@ -23,14 +43,6 @@ export async function PATCH(
     );
   }
 
-  const { id } = await params;
-
-  const clienteExistente = await prisma.cliente.findUnique({ where: { id } });
-  if (!clienteExistente || clienteExistente.barbeariaId !== sessao.barbeariaId) {
-    return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
-  }
-
-  const corpo = await request.json().catch(() => null);
   const dados = editarClienteSchema.safeParse(corpo);
   if (!dados.success) {
     return NextResponse.json({ erro: "Dados inválidos." }, { status: 400 });
@@ -89,24 +101,41 @@ export async function DELETE(
     return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
   }
 
-  // Apaga em cascata: primeiro os lançamentos de caixa ligados aos
-  // agendamentos desse cliente, depois os agendamentos, depois o cliente.
-  // É uma exclusão de verdade — o confirm() do botão já avisa isso antes
-  // de chegar aqui.
-  await prisma.$transaction(async (tx) => {
-    const agendamentosDoCliente = await tx.agendamento.findMany({
-      where: { clienteId: id },
+  // Atendimento que movimentou dinheiro (concluído, ou com sinal no caixa) é
+  // histórico da barbearia: apagar mudaria o faturamento de meses fechados e
+  // comissões já pagas. Esses ficam, e o cliente é anonimizado (nome e
+  // telefone apagados). O resto (futuros, cancelados e faltas sem dinheiro)
+  // é apagado. Sem nenhum atendimento desses, o cliente é apagado de vez.
+  const resultado = await prisma.$transaction(async (tx) => {
+    const comHistorico = await tx.agendamento.findMany({
+      where: { clienteId: id, OR: [{ status: "CONCLUIDO" }, { caixaLancamentos: { some: {} } }] },
       select: { id: true },
     });
-    const agendamentoIds = agendamentosDoCliente.map((a) => a.id);
+    await tx.agendamento.deleteMany({
+      where: { clienteId: id, id: { notIn: comHistorico.map((a) => a.id) } },
+    });
 
-    if (agendamentoIds.length > 0) {
-      await tx.caixaLancamento.deleteMany({ where: { agendamentoId: { in: agendamentoIds } } });
-      await tx.agendamento.deleteMany({ where: { clienteId: id } });
+    if (comHistorico.length === 0) {
+      await tx.cliente.delete({ where: { id } });
+      return "excluido" as const;
     }
 
-    await tx.cliente.delete({ where: { id } });
+    await tx.cliente.update({
+      where: { id },
+      data: {
+        nome: "Cliente removido",
+        // Telefone é único por barbearia: um valor que nunca colide e deixa o
+        // número livre pra um cadastro novo, se a pessoa voltar.
+        telefone: `removido:${id}`,
+        assinaturaTipo: null,
+        assinaturaValor: null,
+        assinaturaVencimento: null,
+        aceitaMensagens: false,
+        removidoEm: new Date(),
+      },
+    });
+    return "anonimizado" as const;
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, resultado });
 }

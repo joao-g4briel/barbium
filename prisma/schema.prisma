@@ -221,6 +221,13 @@ model Cliente {
   assinaturaValor      Decimal?                 @db.Decimal(10, 2)
   assinaturaVencimento DateTime?
 
+  // O cliente pode pedir pra não receber as mensagens automáticas de WhatsApp.
+  aceitaMensagens Boolean   @default(true)
+  // Excluído pela barbearia com atendimentos pagos no histórico: nome e
+  // telefone são apagados (anonimização) e o registro fica só pra caixa e
+  // comissões continuarem batendo. Some das listas e da busca.
+  removidoEm      DateTime?
+
   agendamentos Agendamento[]
 
   @@unique([barbeariaId, telefone])

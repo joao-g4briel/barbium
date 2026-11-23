@@ -21,6 +21,7 @@ export async function GET(request: Request) {
   const clientes = await prisma.cliente.findMany({
     where: {
       barbeariaId: sessao.barbeariaId!,
+      removidoEm: null,
       ...(termo
         ? {
             OR: [

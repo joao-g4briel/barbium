@@ -18,6 +18,7 @@ import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioEditarCliente } from "./formulario-editar-cliente";
 import { SecaoAssinatura } from "./secao-assinatura";
 import { BotaoExcluirCliente } from "./botao-excluir-cliente";
+import { PreferenciaMensagens } from "./preferencia-mensagens";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -46,7 +47,9 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
   ]);
 
   const souDono = sessao.role === "DONO";
-  const whatsapp = linkWhatsApp(cliente.telefone);
+  // Anonimizado: só o histórico de atendimentos continua (ver DELETE do cliente).
+  const removido = cliente.removidoEm !== null;
+  const whatsapp = removido ? null : linkWhatsApp(cliente.telefone);
   const telefoneDigitos = apenasDigitos(cliente.telefone);
 
   return (
@@ -54,8 +57,15 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
       <CabecalhoPagina
         voltar={{ href: "/painel/clientes", rotulo: "Clientes" }}
         titulo={cliente.nome}
-        descricao={<span className="num">{formatarTelefone(cliente.telefone)}</span>}
+        descricao={
+          removido ? (
+            `Dados pessoais removidos em ${formatarDataInstante(cliente.removidoEm!)}. O histórico fica para o caixa e as comissões.`
+          ) : (
+            <span className="num">{formatarTelefone(cliente.telefone)}</span>
+          )
+        }
         acoes={
+          removido ? undefined : (
           <>
             {whatsapp && (
               <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
@@ -74,6 +84,7 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
               Agendar
             </Link>
           </>
+          )
         }
       />
 
@@ -126,6 +137,7 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
             )}
           </section>
 
+          {!removido && (
           <div className="pilha">
             {souDono ? (
               <section className="card" aria-labelledby="titulo-dados">
@@ -160,6 +172,15 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
               </section>
             )}
 
+            <section className="card" aria-labelledby="titulo-mensagens">
+              <div className="card-cabecalho">
+                <h2 id="titulo-mensagens" className="card-titulo">
+                  Mensagens automáticas
+                </h2>
+              </div>
+              <PreferenciaMensagens clienteId={cliente.id} aceitaInicial={cliente.aceitaMensagens} />
+            </section>
+
             {souDono && (
               <SecaoAssinatura
                 clienteId={cliente.id}
@@ -177,12 +198,13 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
                   </h2>
                 </div>
                 <p className="texto-secundario texto-pequeno" style={{ marginBottom: 16 }}>
-                  Remove o cliente e todo o histórico de agendamentos dele.
+                  Apaga o nome e o telefone. Atendimentos pagos continuam no caixa e nas comissões.
                 </p>
-                <BotaoExcluirCliente clienteId={cliente.id} nome={cliente.nome} totalAgendamentos={totalAgendamentos} />
+                <BotaoExcluirCliente clienteId={cliente.id} nome={cliente.nome} totalConcluidos={totalConcluidos} />
               </section>
             )}
           </div>
+          )}
         </div>
       </div>
     </>

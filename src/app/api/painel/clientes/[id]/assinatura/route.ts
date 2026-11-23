@@ -15,7 +15,7 @@ const ativarSchema = z.object({
 
 async function carregarCliente(id: string, barbeariaId: string) {
   const cliente = await prisma.cliente.findUnique({ where: { id } });
-  if (!cliente || cliente.barbeariaId !== barbeariaId) return null;
+  if (!cliente || cliente.barbeariaId !== barbeariaId || cliente.removidoEm) return null;
   return cliente;
 }
 

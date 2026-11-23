@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   let telefoneNovo: string | null = null;
   if ("id" in clienteEscolhido) {
     const cliente = await prisma.cliente.findUnique({ where: { id: clienteEscolhido.id } });
-    if (!cliente || cliente.barbeariaId !== barbeariaId) {
+    if (!cliente || cliente.barbeariaId !== barbeariaId || cliente.removidoEm) {
       return NextResponse.json({ erro: "Cliente não encontrado." }, { status: 404 });
     }
   } else {

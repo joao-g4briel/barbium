@@ -9,11 +9,11 @@ import { DialogoConfirmacao } from "@/components/ui/dialogo-confirmacao";
 export function BotaoExcluirCliente({
   clienteId,
   nome,
-  totalAgendamentos,
+  totalConcluidos,
 }: {
   clienteId: string;
   nome: string;
-  totalAgendamentos: number;
+  totalConcluidos: number;
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -48,9 +48,9 @@ export function BotaoExcluirCliente({
         aberto={aberto}
         titulo={`Excluir ${nome}?`}
         descricao={
-          totalAgendamentos > 0
-            ? `Esse cliente tem ${totalAgendamentos} ${totalAgendamentos === 1 ? "agendamento" : "agendamentos"} no histórico. Excluir apaga o cliente, esses agendamentos e os lançamentos de caixa ligados a eles. Essa ação não pode ser desfeita.`
-            : "Essa ação não pode ser desfeita."
+          totalConcluidos > 0
+            ? `O nome e o telefone são apagados. ${totalConcluidos === 1 ? "O atendimento concluído continua" : `Os ${totalConcluidos} atendimentos concluídos continuam`} no caixa e nas comissões, como "Cliente removido". Agendamentos futuros sem pagamento são apagados. Essa ação não pode ser desfeita.`
+            : "O cliente e os agendamentos dele são apagados. Essa ação não pode ser desfeita."
         }
         rotuloConfirmar="Excluir definitivamente"
         textoCarregando="Excluindo…"

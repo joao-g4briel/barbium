@@ -25,6 +25,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
     prisma.cliente.findMany({
       where: {
         barbeariaId: sessao.barbeariaId,
+        removidoEm: null,
         ...(termo
           ? {
               OR: [
@@ -37,7 +38,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
       orderBy: { nome: "asc" },
       include: { _count: { select: { agendamentos: true } } },
     }),
-    prisma.cliente.count({ where: { barbeariaId: sessao.barbeariaId } }),
+    prisma.cliente.count({ where: { barbeariaId: sessao.barbeariaId, removidoEm: null } }),
   ]);
 
   const souDono = sessao.role === "DONO";

@@ -46,7 +46,7 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
   const ag = await prisma.agendamento.findUnique({
     where: { id: agendamentoId },
     include: {
-      cliente: { select: { nome: true, telefone: true } },
+      cliente: { select: { nome: true, telefone: true, aceitaMensagens: true } },
       servico: { select: { nome: true, preco: true } },
       barbeiro: { select: { nome: true } },
       barbearia: { select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true } },
@@ -58,7 +58,8 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
   // envio nem acontece (o fluxo do n8n não precisa filtrar esse caso).
   // Barbearia: o WhatsApp dos avisos ou, sem ele, o telefone da barbearia.
   const whatsappBarbearia = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");
-  const whatsappCliente = numeroWhatsApp(ag.cliente.telefone);
+  // Cliente que pediu pra não receber (ou foi removido) fica sem mensagem.
+  const whatsappCliente = ag.cliente.aceitaMensagens ? numeroWhatsApp(ag.cliente.telefone) : null;
 
   const dados: DadosMensagem = {
     quando: `${capitalizar(formatarDataInstante(ag.inicio, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(ag.inicio)}`,
@@ -115,7 +116,7 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
   if (falhas.length) throw new Error(falhas.join("; "));
 }
 
-async function postarWebhook(corpo: unknown): Promise<void> {
+export async function postarWebhook(corpo: unknown): Promise<void> {
   const resposta = await fetch(process.env.N8N_WEBHOOK_URL!, {
     method: "POST",
     headers: {
@@ -176,5 +177,7 @@ export function montarMensagemCliente(d: DadosMensagem): string {
     d.telefoneBarbearia
       ? `Precisa remarcar ou cancelar? Fale com a barbearia: ${d.telefoneBarbearia}`
       : "Precisa remarcar ou cancelar? Fale com a barbearia.",
+    "",
+    "_Não quer receber estas mensagens? É só avisar a barbearia._",
   ].join("\n");
 }

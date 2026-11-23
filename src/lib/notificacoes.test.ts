@@ -48,7 +48,11 @@ describe("mensagem para o cliente", () => {
 
   it("diz com quem falar pra remarcar", () => {
     expect(montarMensagemCliente(dados)).toContain("Fale com a barbearia: (81) 98947-9982");
-    expect(montarMensagemCliente({ ...dados, telefoneBarbearia: null })).toMatch(/Fale com a barbearia\.$/);
+    expect(montarMensagemCliente({ ...dados, telefoneBarbearia: null })).toContain("Fale com a barbearia.\n");
+  });
+
+  it("explica como parar de receber", () => {
+    expect(montarMensagemCliente(dados)).toMatch(/Não quer receber estas mensagens\? É só avisar a barbearia\._$/);
   });
 
   it("não mostra o telefone do próprio cliente", () => {

@@ -51,6 +51,13 @@ npm run lint        # ESLint
 npm test            # Vitest (regras de fuso, agenda, comissão, sinal, caixa)
 ```
 
+O `npm run build` (usado pela Vercel) roda os testes antes de compilar: teste
+quebrado bloqueia o deploy.
+
+Erros não tratados no servidor viram mensagem no WhatsApp de
+`PLATAFORMA_WHATSAPP`, pelo mesmo webhook do n8n (`src/instrumentation.ts`).
+O mesmo erro na mesma rota avisa no máximo uma vez a cada 30 minutos.
+
 ## Banco de dados e migrations
 
 As migrations ficam em `prisma/migrations/` e são a fonte da verdade da
@@ -69,6 +76,14 @@ A migration `20261103000000_trava_horario_e_limites` cria uma constraint que
 impede dois agendamentos ativos do mesmo profissional no mesmo horário. Ela
 não aparece no `schema.prisma` (o Prisma não representa esse tipo de
 constraint), mas o código depende dela — ver `src/lib/conflito-horario.ts`.
+
+A migration `20261123000000_cliente_mensagens_e_remocao` é **vazia de
+propósito**: foi registrada na produção por engano, sem nenhum SQL. Não
+apague nem edite (a produção guarda o checksum dela); a estrutura de verdade
+está na `20261123000100_cliente_aceita_mensagens_e_remocao`.
+
+Antes de rodar qualquer comando do Prisma, confira a linha `Datasource` na
+saída: o CLI lê só o `.env`, que aponta para a produção.
 
 ## Notificações no WhatsApp (n8n + Evolution API)
 

@@ -39,7 +39,7 @@ export default async function NovoAgendamento({
     }),
     params.cliente
       ? prisma.cliente.findFirst({
-          where: { id: params.cliente, barbeariaId: sessao.barbeariaId },
+          where: { id: params.cliente, barbeariaId: sessao.barbeariaId, removidoEm: null },
           select: { id: true, nome: true, telefone: true },
         })
       : Promise.resolve(null),
