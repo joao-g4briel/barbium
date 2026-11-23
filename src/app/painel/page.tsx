@@ -185,6 +185,7 @@ export default async function VisaoGeral({
                 agora={agora.toISOString()}
                 mostrarProfissional={souDono}
                 souDono={souDono}
+                profissionais={profissionais}
                 grade={mostrarGrade ? { inicioDia: inicioHoje.toISOString(), profissionais } : null}
                 vazio={
                   <EstadoVazio

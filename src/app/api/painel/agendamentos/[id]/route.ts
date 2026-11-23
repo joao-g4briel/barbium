@@ -3,9 +3,14 @@ import { z } from "zod";
 import type { Agendamento, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
-import { formatarHora } from "@/lib/formatar";
+import { formatarHora, numeroWhatsApp } from "@/lib/formatar";
 import { cancelarPixPendente } from "@/lib/sinal";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
+import { horariosLivres, opcoesHorarioPainel } from "@/lib/agenda";
+import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { duracaoEmMinutos, validarProfissional } from "@/lib/agendamento-painel";
+import { notificacoesConfiguradas, notificarAgendamento } from "@/lib/notificacoes";
+import type { SessaoPayload } from "@/lib/auth";
 import {
   desfazerConclusao,
   registrarConclusao,
@@ -20,9 +25,15 @@ const corpoSchema = z.union([
     formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).optional(),
   }),
   z.object({ acao: z.literal("sinal-devolvido") }),
+  z.object({
+    acao: z.literal("reagendar"),
+    inicio: z.string().datetime(),
+    profissionalId: z.string().min(1),
+  }),
 ]);
 
 class ErroTroca extends Error {}
+class HorarioOcupado extends Error {}
 
 export async function PATCH(
   request: Request,
@@ -57,6 +68,9 @@ export async function PATCH(
   }
 
   if ("acao" in dados.data) {
+    if (dados.data.acao === "reagendar") {
+      return reagendar(agendamento, sessao, new Date(dados.data.inicio), dados.data.profissionalId);
+    }
     return marcarSinalDevolvido(agendamento, sessao.role);
   }
 
@@ -126,6 +140,86 @@ export async function PATCH(
     // Alguém ocupou o horário entre a conferência acima e a gravação.
     if (ehConflitoDeHorario(erro)) {
       return NextResponse.json({ erro: "Esse horário acabou de ser ocupado por outro agendamento." }, { status: 409 });
+    }
+    throw erro;
+  }
+}
+
+// Muda o dia, o horário e, se o dono quiser, o profissional de um agendamento
+// confirmado. Mesmas regras de um agendamento novo pelo painel (expediente,
+// almoço, folgas, conflito), mas o lugar que ele ocupa hoje conta como livre.
+// O agendamento mantém a duração, o sinal pago e o cliente; o cliente recebe
+// o novo horário no WhatsApp.
+async function reagendar(
+  agendamento: Agendamento,
+  sessao: SessaoPayload,
+  inicio: Date,
+  profissionalId: string,
+) {
+  if (agendamento.status !== "CONFIRMADO") {
+    return NextResponse.json(
+      { erro: "Só dá para mudar o horário de agendamentos confirmados." },
+      { status: 409 },
+    );
+  }
+
+  const validado = await validarProfissional(sessao, profissionalId);
+  if ("erro" in validado) return NextResponse.json({ erro: validado.erro }, { status: validado.status });
+  const { profissional } = validado;
+
+  if (inicio.getTime() === agendamento.inicio.getTime() && profissional.id === agendamento.barbeiroId) {
+    return NextResponse.json({ erro: "Esse já é o horário do agendamento." }, { status: 400 });
+  }
+
+  const duracaoMinutos = duracaoEmMinutos(agendamento);
+  const fim = new Date(inicio.getTime() + duracaoMinutos * 60 * 1000);
+
+  const disponiveis = await horariosLivres({
+    barbeariaId: agendamento.barbeariaId,
+    profissionalId: profissional.id,
+    data: inicioDoDiaBrasil(inicio),
+    duracaoMinutos,
+    ignorarAgendamentoId: agendamento.id,
+    ...opcoesHorarioPainel(),
+  });
+  if (!disponiveis.some((h) => h.getTime() === inicio.getTime())) {
+    return NextResponse.json({ erro: "Esse horário não está mais disponível. Escolha outro." }, { status: 409 });
+  }
+
+  try {
+    const atualizado = await prisma.$transaction(async (tx) => {
+      const conflito = await tx.agendamento.findFirst({
+        where: {
+          barbeariaId: agendamento.barbeariaId,
+          barbeiroId: profissional.id,
+          id: { not: agendamento.id },
+          status: { not: "CANCELADO" },
+          inicio: { lt: fim },
+          fim: { gt: inicio },
+        },
+      });
+      if (conflito) throw new HorarioOcupado();
+
+      return tx.agendamento.update({
+        where: { id: agendamento.id },
+        data: { inicio, fim, barbeiroId: profissional.id },
+        include: { cliente: { select: { telefone: true, aceitaMensagens: true } } },
+      });
+    });
+
+    notificarAgendamento("agendamento.remarcado", agendamento.id, { avisarBarbearia: false });
+    const clienteAvisado =
+      notificacoesConfiguradas() &&
+      atualizado.cliente.aceitaMensagens &&
+      numeroWhatsApp(atualizado.cliente.telefone) !== null;
+
+    return NextResponse.json({
+      agendamento: { id: atualizado.id, inicio: atualizado.inicio, fim: atualizado.fim, profissionalId: profissional.id },
+      clienteAvisado,
+    });
+  } catch (erro) {
+    if (erro instanceof HorarioOcupado || ehConflitoDeHorario(erro)) {
+      return NextResponse.json({ erro: "Esse horário acabou de ser preenchido. Escolha outro." }, { status: 409 });
     }
     throw erro;
   }

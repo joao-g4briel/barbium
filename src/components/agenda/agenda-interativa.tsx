@@ -32,6 +32,7 @@ import {
 } from "@/lib/formatar";
 import { ROTULO_STATUS } from "@/lib/status-agendamento";
 import type { AgendamentoVM, GradeVM, GrupoAgendaVM, ServicoOpcaoVM } from "./tipos";
+import { MudarHorario, type HorarioEscolhido } from "./mudar-horario";
 
 // ---------------------------------------------------------------------------
 // Mudança de status e troca de serviço — mesma rota PATCH; a API aplica as
@@ -52,8 +53,9 @@ function useAtualizarAgendamento() {
       corpo:
         | { status: StatusAgendamento; formaPagamento?: FormaPagamento }
         | { servicoId: string }
-        | { acao: "sinal-devolvido" },
-    ): Promise<boolean> => {
+        | { acao: "sinal-devolvido" }
+        | { acao: "reagendar"; inicio: string; profissionalId: string },
+    ): Promise<Record<string, unknown> | null> => {
       setProcessandoId(id);
       setErro(null);
       try {
@@ -65,13 +67,14 @@ function useAtualizarAgendamento() {
         if (!resposta.ok) {
           const dados = await resposta.json().catch(() => null);
           setErro(dados?.erro ?? "Não foi possível atualizar o agendamento.");
-          return false;
+          return null;
         }
+        const dados = await resposta.json().catch(() => ({}));
         iniciarAtualizacao(() => router.refresh());
-        return true;
+        return dados ?? {};
       } catch {
         setErro("Falha de conexão. Tente novamente.");
-        return false;
+        return null;
       } finally {
         setProcessandoId(null);
       }
@@ -80,15 +83,29 @@ function useAtualizarAgendamento() {
   );
 
   const alterar = useCallback(
-    (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) =>
-      enviar(id, formaPagamento ? { status, formaPagamento } : { status }),
+    async (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) =>
+      (await enviar(id, formaPagamento ? { status, formaPagamento } : { status })) !== null,
     [enviar],
   );
-  const trocarServico = useCallback((id: string, servicoId: string) => enviar(id, { servicoId }), [enviar]);
-  const devolverSinal = useCallback((id: string) => enviar(id, { acao: "sinal-devolvido" }), [enviar]);
+  const trocarServico = useCallback(
+    async (id: string, servicoId: string) => (await enviar(id, { servicoId })) !== null,
+    [enviar],
+  );
+  const devolverSinal = useCallback(
+    async (id: string) => (await enviar(id, { acao: "sinal-devolvido" })) !== null,
+    [enviar],
+  );
+  // Devolve se o cliente vai receber o novo horário no WhatsApp, ou null se falhou.
+  const reagendar = useCallback(
+    async (id: string, escolha: HorarioEscolhido) => {
+      const dados = await enviar(id, { acao: "reagendar", ...escolha });
+      return dados === null ? null : { clienteAvisado: dados.clienteAvisado === true };
+    },
+    [enviar],
+  );
   const limparErro = useCallback(() => setErro(null), []);
 
-  return { alterar, trocarServico, devolverSinal, processandoId, atualizando, erro, limparErro };
+  return { alterar, trocarServico, devolverSinal, reagendar, processandoId, atualizando, erro, limparErro };
 }
 
 function descreverSinal(ag: AgendamentoVM): string {
@@ -127,6 +144,7 @@ export function AgendaInterativa({
   grade,
   vazio,
   emCard,
+  profissionais = [],
 }: {
   grupos: GrupoAgendaVM[];
   // Ações de dinheiro (ex.: registrar devolução de sinal) são só do dono.
@@ -140,12 +158,18 @@ export function AgendaInterativa({
   // Dentro de um card (visão geral): lista sem moldura própria e grade sem
   // card próprio, pra não aninhar cards.
   emCard?: boolean;
+  // Profissionais ativos, oferecidos ao mudar o horário. Só o dono recebe a
+  // lista; o barbeiro muda o horário só na própria agenda.
+  profissionais?: { id: string; nome: string }[];
 }) {
   const agoraMs = Date.parse(agora);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [modoAbertura, setModoAbertura] = useState<"concluir" | null>(null);
-  const { alterar, trocarServico, devolverSinal, processandoId, atualizando, erro, limparErro } =
+  const { alterar, trocarServico, devolverSinal, reagendar, processandoId, atualizando, erro, limparErro } =
     useAtualizarAgendamento();
+  // Confirmação de horário mudado. Fica aqui, fora do painel, porque o
+  // agendamento pode ter ido pra outro dia e sumido desta tela.
+  const [avisoGeral, setAvisoGeral] = useState<string | null>(null);
 
   const todos = useMemo(() => grupos.flatMap((g) => g.itens), [grupos]);
   const selecionado = todos.find((ag) => ag.id === selecionadoId) ?? null;
@@ -153,13 +177,26 @@ export function AgendaInterativa({
   const abrir = useCallback(
     (id: string, modo: "concluir" | null = null) => {
       limparErro();
+      setAvisoGeral(null);
       setModoAbertura(modo);
       setSelecionadoId(id);
     },
     [limparErro],
   );
 
-  if (todos.length === 0) return <>{vazio}</>;
+  const avisoNode = avisoGeral && (
+    <div style={{ marginBottom: 16 }}>
+      <Alerta tom="sucesso">{avisoGeral}</Alerta>
+    </div>
+  );
+
+  if (todos.length === 0)
+    return (
+      <>
+        {avisoNode}
+        {vazio}
+      </>
+    );
 
   const lista = (
     <div className={`agenda-lista${emCard ? " agenda-lista-plana" : ""}`}>
@@ -185,6 +222,7 @@ export function AgendaInterativa({
 
   return (
     <>
+      {avisoNode}
       {erro && !selecionado && (
         <div style={{ marginBottom: 16 }}>
           <Alerta tom="perigo">{erro}</Alerta>
@@ -212,6 +250,9 @@ export function AgendaInterativa({
         alterar={alterar}
         trocarServico={trocarServico}
         devolverSinal={devolverSinal}
+        reagendar={reagendar}
+        profissionais={profissionais}
+        aoReagendar={setAvisoGeral}
         processando={selecionado !== null && (processandoId === selecionado.id || atualizando)}
         atualizando={atualizando}
         erro={erro}
@@ -443,7 +484,7 @@ function GradeProfissionais({
 // Painel de detalhes + transições de status + troca de serviço
 // ---------------------------------------------------------------------------
 
-type Confirmacao = "cancelar" | "reabrir" | "trocar" | "concluir" | "devolver" | null;
+type Confirmacao = "cancelar" | "reabrir" | "trocar" | "reagendar" | "concluir" | "devolver" | null;
 
 function PainelAgendamento({
   ag,
@@ -455,6 +496,9 @@ function PainelAgendamento({
   alterar,
   trocarServico,
   devolverSinal,
+  reagendar,
+  profissionais,
+  aoReagendar,
   processando,
   atualizando,
   erro,
@@ -469,6 +513,9 @@ function PainelAgendamento({
   alterar: (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) => Promise<boolean>;
   trocarServico: (id: string, servicoId: string) => Promise<boolean>;
   devolverSinal: (id: string) => Promise<boolean>;
+  reagendar: (id: string, escolha: HorarioEscolhido) => Promise<{ clienteAvisado: boolean } | null>;
+  profissionais: { id: string; nome: string }[];
+  aoReagendar: (aviso: string) => void;
   processando: boolean;
   atualizando: boolean;
   erro: string | null;
@@ -490,6 +537,8 @@ function PainelAgendamento({
   const [trocaSalva, setTrocaSalva] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const botaoTrocarRef = useRef<HTMLButtonElement>(null);
+  const botaoMudarRef = useRef<HTMLButtonElement>(null);
+  const [novoHorario, setNovoHorario] = useState<HorarioEscolhido | null>(null);
   const idSelect = useId();
 
   // Só sai do modo de troca quando os dados novos chegaram, pra confirmação
@@ -546,6 +595,38 @@ function PainelAgendamento({
     limparErro();
     setConfirmacao(null);
     requestAnimationFrame(() => botaoTrocarRef.current?.focus());
+  }
+
+  function iniciarMudanca() {
+    limparErro();
+    setAviso(null);
+    setNovoHorario(null);
+    setConfirmacao("reagendar");
+  }
+
+  function cancelarMudanca() {
+    limparErro();
+    setConfirmacao(null);
+    requestAnimationFrame(() => botaoMudarRef.current?.focus());
+  }
+
+  async function salvarMudanca() {
+    if (!ag || !novoHorario) return;
+    const resultado = await reagendar(ag.id, novoHorario);
+    if (!resultado) return;
+    const inicioNovo = new Date(novoHorario.inicio);
+    const outroProfissional =
+      novoHorario.profissionalId !== ag.profissional.id
+        ? profissionais.find((p) => p.id === novoHorario.profissionalId)?.nome
+        : undefined;
+    const quando = formatarDataInstante(inicioNovo, { weekday: "long", day: "2-digit", month: "2-digit" });
+    aoReagendar(
+      `Horário de ${ag.cliente.nome} mudado para ${quando} às ${formatarHora(inicioNovo)}` +
+        (outroProfissional ? `, com ${outroProfissional}` : "") +
+        "." +
+        (resultado.clienteAvisado ? " O cliente recebe o novo horário no WhatsApp." : ""),
+    );
+    fechar();
   }
 
   async function salvarTroca() {
@@ -611,6 +692,23 @@ function PainelAgendamento({
         </Botao>
         <Botao variante="primary" onClick={registrarDevolucao} carregando={processando} textoCarregando="Registrando…">
           Registrar devolução
+        </Botao>
+      </>
+    );
+  } else if (confirmacao === "reagendar") {
+    rodape = (
+      <>
+        <Botao onClick={cancelarMudanca} disabled={processando}>
+          Voltar
+        </Botao>
+        <Botao
+          variante="primary"
+          onClick={salvarMudanca}
+          disabled={!novoHorario}
+          carregando={processando}
+          textoCarregando="Salvando…"
+        >
+          Salvar novo horário
         </Botao>
       </>
     );
@@ -750,7 +848,7 @@ function PainelAgendamento({
       rodape={rodape}
     >
       <div className="pilha-sm">
-        {erro && confirmacao !== "trocar" && <Alerta tom="perigo">{erro}</Alerta>}
+        {erro && confirmacao !== "trocar" && confirmacao !== "reagendar" && <Alerta tom="perigo">{erro}</Alerta>}
         {aviso && <Alerta tom="sucesso">{aviso}</Alerta>}
         {ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.expiraEm && (
           <Alerta tom="atencao">
@@ -794,10 +892,37 @@ function PainelAgendamento({
           </div>
           <div>
             <dt>Horário</dt>
-            <dd>
-              {formatarHora(inicio)} – {formatarHora(fim)}
+            <dd className="fatos-valor-acao">
+              <span>
+                {formatarHora(inicio)} – {formatarHora(fim)}
+              </span>
+              {ag.status === "CONFIRMADO" && confirmacao === null && (
+                <button
+                  ref={botaoMudarRef}
+                  type="button"
+                  className="btn btn-secondary btn-sm fatos-acao"
+                  onClick={iniciarMudanca}
+                  disabled={processando}
+                  aria-label={`Mudar horário (atual: ${formatarHora(inicio)})`}
+                >
+                  Mudar
+                </button>
+              )}
             </dd>
           </div>
+          {confirmacao === "reagendar" && (
+            <MudarHorario
+              ag={ag}
+              profissionais={profissionais}
+              agoraMs={agoraMs}
+              desabilitado={processando}
+              erro={erro}
+              aoMudar={(escolha) => {
+                setNovoHorario(escolha);
+                if (escolha) limparErro();
+              }}
+            />
+          )}
           {confirmacao === "trocar" ? (
             <div className="fatos-edicao">
               <dt>

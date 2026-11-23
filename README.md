@@ -95,6 +95,7 @@ em `para`, o texto pronto em `mensagem` e quem recebe em `destinatario`
 |---|---|---|
 | Agendamento pelo link (sem sinal, ou com o Pix pago) | "Novo agendamento" | "Seu horário está marcado" |
 | Agendamento feito pela equipe no painel | — | "Seu horário está marcado" |
+| Equipe muda o dia, o horário ou o profissional ("Mudar", na agenda) | — | "Seu horário mudou" |
 | Pix pago depois do prazo, horário já ocupado | aviso pra devolver ou remarcar | — |
 
 A barbearia recebe no **WhatsApp para avisos** (Configurações) ou, se ele

@@ -4,14 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // banco é simulado pra testar só a regra de montar a grade.
 const banco = vi.hoisted(() => ({
   expediente: null as null | Record<string, unknown>,
-  agendamentos: [] as { inicio: Date; fim: Date }[],
+  agendamentos: [] as { id?: string; inicio: Date; fim: Date }[],
   bloqueios: [] as { inicio: Date; fim: Date | null }[],
 }));
 
 vi.mock("./prisma", () => ({
   prisma: {
     expedienteDia: { findUnique: async () => banco.expediente },
-    agendamento: { findMany: async () => banco.agendamentos },
+    agendamento: {
+      findMany: async ({ where }: { where: { id?: { not: string } } }) =>
+        banco.agendamentos.filter((a) => !where.id || a.id !== where.id.not),
+    },
     bloqueioAgenda: { findMany: async () => banco.bloqueios },
   },
 }));
@@ -27,7 +30,10 @@ const br = (hhmm: string) => {
 };
 const horas = (lista: Date[]) => lista.map((d) => new Date(d.getTime() - 3 * 36e5).toISOString().slice(11, 16));
 
-const buscar = (duracaoMinutos: number, extras: { passoMinutos?: number; aceitarDesde?: Date } = {}) =>
+const buscar = (
+  duracaoMinutos: number,
+  extras: { passoMinutos?: number; aceitarDesde?: Date; ignorarAgendamentoId?: string } = {},
+) =>
   horariosLivres({
     barbeariaId: "b",
     profissionalId: "p",
@@ -84,5 +90,20 @@ describe("horários livres", () => {
 
   it("não oferece horário que já passou", async () => {
     expect(horas(await buscar(60, { aceitarDesde: br("10:30") }))).toEqual(["11:00"]);
+  });
+
+  it("ao mudar o horário, o lugar do próprio agendamento conta como livre", async () => {
+    banco.agendamentos = [
+      { id: "mudando", inicio: br("10:00"), fim: br("11:00") },
+      { id: "outro", inicio: br("11:00"), fim: br("11:30") },
+    ];
+    // Sem ignorar, 10:00 e 10:30 colidem com ele mesmo.
+    expect(horas(await buscar(60, { passoMinutos: 30 }))).toEqual(["09:00"]);
+    // Ignorando, dá pra empurrar meia hora, mas não invadir o das 11:00.
+    expect(horas(await buscar(60, { passoMinutos: 30, ignorarAgendamentoId: "mudando" }))).toEqual([
+      "09:00",
+      "09:30",
+      "10:00",
+    ]);
   });
 });

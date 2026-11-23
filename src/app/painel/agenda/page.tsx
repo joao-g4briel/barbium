@@ -295,6 +295,7 @@ export default async function PaginaAgenda({
           agora={new Date().toISOString()}
           mostrarProfissional={souDono && !filtroProfissional}
           souDono={souDono}
+          profissionais={profissionais}
           grade={
             mostrarGrade
               ? { inicioDia: horarioBrasil(dataRef, 0).toISOString(), profissionais }

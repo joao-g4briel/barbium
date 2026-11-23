@@ -14,6 +14,7 @@ import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formata
 
 export type EventoNotificacao =
   | "agendamento.confirmado" // agendamento novo (sem sinal, ou com o Pix pago)
+  | "agendamento.remarcado" // a barbearia mudou o dia, o horário ou o profissional
   | "sinal.pago_sem_horario"; // Pix pago depois do prazo, com o horário já ocupado: precisa devolver
 
 type Destinatario = "barbearia" | "cliente";
@@ -76,10 +77,10 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
   if (avisarBarbearia && whatsappBarbearia) {
     envios.push({ destinatario: "barbearia", para: whatsappBarbearia, mensagem: montarMensagem(evento, dados) });
   }
-  // O cliente só fica sabendo do que é bom pra ele: horário marcado. O Pix
+  // O cliente fica sabendo do horário marcado e do horário mudado. O Pix
   // pago sem horário é a barbearia que resolve com ele.
-  if (evento === "agendamento.confirmado" && whatsappCliente) {
-    envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados) });
+  if ((evento === "agendamento.confirmado" || evento === "agendamento.remarcado") && whatsappCliente) {
+    envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados, evento) });
   }
 
   const base = {
@@ -151,7 +152,7 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
     ].join("\n");
   }
   return [
-    "✂️ *Novo agendamento*",
+    evento === "agendamento.remarcado" ? "🔁 *Agendamento remarcado*" : "✂️ *Novo agendamento*",
     "",
     `*Cliente:* ${d.cliente}`,
     `*Telefone:* ${d.telefone}`,
@@ -162,16 +163,21 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
   ].join("\n");
 }
 
-// Mensagem pro cliente: confirma o horário e diz com quem falar pra mudar.
-export function montarMensagemCliente(d: DadosMensagem): string {
+// Mensagem pro cliente: confirma o horário (novo ou mudado) e diz com quem
+// falar pra mudar.
+export function montarMensagemCliente(
+  d: DadosMensagem,
+  evento: "agendamento.confirmado" | "agendamento.remarcado" = "agendamento.confirmado",
+): string {
   const primeiroNome = d.cliente.trim().split(/\s+/)[0];
+  const remarcado = evento === "agendamento.remarcado";
   return [
     `Olá, ${primeiroNome}! ✂️`,
-    `Seu horário na *${d.barbearia}* está marcado.`,
+    remarcado ? `Seu horário na *${d.barbearia}* mudou.` : `Seu horário na *${d.barbearia}* está marcado.`,
     "",
     `*Serviço:* ${d.servico}`,
     `*Profissional:* ${d.profissional}`,
-    `*Quando:* ${d.quando}`,
+    `*${remarcado ? "Novo horário" : "Quando"}:* ${d.quando}`,
     ...(d.sinalPago !== null ? [`*Sinal pago:* ${formatarMoeda(d.sinalPago)}`] : []),
     "",
     d.telefoneBarbearia

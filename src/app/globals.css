@@ -2446,6 +2446,16 @@ a.lista-item:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-ink);
 }
+/* Ao mudar o horário: o horário de agora aparece, mas não dá pra escolher. */
+.horario:disabled {
+  border-style: dashed;
+  color: var(--color-text-muted, inherit);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.horario:disabled:hover {
+  border-color: var(--color-border);
+}
 
 .confirmacao {
   display: grid;

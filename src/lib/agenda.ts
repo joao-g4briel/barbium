@@ -32,6 +32,9 @@ interface ParametrosHorariosLivres {
   passoMinutos?: number;
   // Primeiro início aceito. Padrão: agora.
   aceitarDesde?: Date;
+  // Ao mudar o horário de um agendamento, o lugar que ele ocupa hoje conta
+  // como livre (dá pra empurrar 15 minutos sem "colidir" consigo mesmo).
+  ignorarAgendamentoId?: string;
 }
 
 // No painel a grade é mais fina (encaixes) e aceita o horário que acabou de
@@ -57,6 +60,7 @@ export async function horariosLivres({
   duracaoMinutos,
   passoMinutos,
   aceitarDesde,
+  ignorarAgendamentoId,
 }: ParametrosHorariosLivres): Promise<Date[]> {
   // `data` já chega como meia-noite UTC do dia certo em Brasília (ver o
   // comentário no parâmetro) — não é um instante bruto que precise passar
@@ -84,6 +88,7 @@ export async function horariosLivres({
         barbeiroId: profissionalId,
         status: { not: "CANCELADO" },
         inicio: { gte: inicioDoDia, lt: fimDoDia },
+        ...(ignorarAgendamentoId ? { id: { not: ignorarAgendamentoId } } : {}),
       },
       select: { inicio: true, fim: true },
     }),

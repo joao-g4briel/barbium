@@ -62,6 +62,14 @@ describe("mensagem para o cliente", () => {
   it("mostra o sinal quando foi pago", () => {
     expect(montarMensagemCliente({ ...dados, sinalPago: 22.5 })).toMatch(/Sinal pago:\* R\$\s22,50/);
   });
+
+  it("horário remarcado avisa que mudou e mostra o novo horário", () => {
+    const texto = montarMensagemCliente(dados, "agendamento.remarcado");
+    expect(texto).toContain("*Barbearia RIO* mudou");
+    expect(texto).toContain("*Novo horário:* Quarta-feira, 04/11 às 09:30");
+    expect(texto).not.toContain("está marcado");
+    expect(texto).toMatch(/É só avisar a barbearia\._$/);
+  });
 });
 
 describe("número do WhatsApp", () => {
