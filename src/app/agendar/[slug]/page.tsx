@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { acessoVencido } from "@/lib/acesso";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Scissors, UserX } from "lucide-react";
@@ -32,7 +33,8 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
     obterSessao(),
   ]);
 
-  if (!barbearia || !barbearia.ativo) notFound();
+  // Barbearia suspensa ou com o acesso vencido não recebe agendamento novo.
+  if (!barbearia || !barbearia.ativo || acessoVencido(barbearia)) notFound();
 
   const sinal = await obterSinalPublico(barbearia.id);
 

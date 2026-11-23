@@ -77,9 +77,9 @@ enum DiaSemana {
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   nome               String
-  slug               String   @unique
+  slug               String    @unique
   telefone           String?
   // WhatsApp que recebe os avisos automáticos (novo agendamento etc.). Vazio:
   // vai pro telefone da barbearia. Separado porque o telefone da barbearia é
@@ -88,10 +88,16 @@ model Barbearia {
   // Quantas horas antes do horário o cliente recebe o lembrete no WhatsApp.
   // Vazio: não envia. Valores aceitos em src/lib/lembrete-opcoes.ts.
   lembreteHorasAntes Int?
-  plano              Plano    @default(SOLO)
-  ativo              Boolean  @default(true)
-  criadoEm           DateTime @default(now())
-  atualizadoEm       DateTime @updatedAt
+  plano              Plano     @default(SOLO)
+  ativo              Boolean   @default(true)
+  // Até quando a barbearia pode usar o painel. Vazio: sem prazo (barbearias
+  // cadastradas ou liberadas pelo super admin). Cadastro pelo site começa
+  // com o teste grátis; o pagamento empurra a data pra frente.
+  acessoAte          DateTime?
+  // Ainda no teste grátis (nunca pagou).
+  emTeste            Boolean   @default(false)
+  criadoEm           DateTime  @default(now())
+  atualizadoEm       DateTime  @updatedAt
 
   usuarios              Usuario[]
   unidades              Unidade[]

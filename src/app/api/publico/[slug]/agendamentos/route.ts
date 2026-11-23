@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { acessoVencido } from "@/lib/acesso";
 import { AUTOR_CLIENTE_AGENDAMENTO, registrarHistorico } from "@/lib/historico";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -41,7 +42,7 @@ export async function POST(
   }
 
   const barbearia = await prisma.barbearia.findUnique({ where: { slug } });
-  if (!barbearia || !barbearia.ativo) {
+  if (!barbearia || !barbearia.ativo || acessoVencido(barbearia)) {
     return NextResponse.json({ erro: "Barbearia não encontrada." }, { status: 404 });
   }
 

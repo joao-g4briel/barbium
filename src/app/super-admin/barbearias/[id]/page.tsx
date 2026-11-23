@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioEditarBarbearia } from "./formulario-editar-barbearia";
+import { LiberarAcesso } from "./liberar-acesso";
 
 export const metadata: Metadata = { title: "Gerenciar barbearia" };
 
@@ -43,6 +44,12 @@ export default async function DetalheBarbearia({ params }: { params: Promise<{ i
           <Indicador rotulo="Clientes cadastrados" valor={barbearia._count.clientes} icone={<Users size={22} />} />
           <Indicador rotulo="Agendamentos no total" valor={barbearia._count.agendamentos} icone={<CalendarCheck size={22} />} />
         </section>
+
+        <LiberarAcesso
+          barbeariaId={barbearia.id}
+          acessoAte={barbearia.acessoAte?.toISOString() ?? null}
+          emTeste={barbearia.emTeste}
+        />
 
         <div className="grade-painel grade-painel-1-1">
           <FormularioEditarBarbearia

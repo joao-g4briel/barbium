@@ -243,6 +243,9 @@ A dark, green-tinted neutral field with one mint-green voice and four semantic t
 - **Label** (700, 0.8125rem): field labels, small buttons, segmented items; secondary lines at 400–600 in Sage Gray.
 - **Caption** (600–700, 0.75rem): badges, indicator details, bottom-nav labels, nav group headings, grid blocks. Table column headers are the only uppercase text (700, 0.75rem, 0.04em tracking).
 
+### Marketing surfaces (landing `/`, `/cadastro`)
+The landing is a Persuade surface in the same world: same palette, Manrope and components, with a larger display step. Fluid sizes, all 800 with tight tracking: landing title `clamp(2.375rem → 4.25rem)` (-0.035em), section titles `clamp(1.75rem → 2.625rem)` (-0.03em), closing title `clamp(2rem → 3.25rem)`, plan price 2.5rem tabular. Its spine is the agenda time-rail (52px time column, 1px rail, mint node) running through "um dia na barbearia", with a 2px mint progress line that follows the scroll (all lit under reduced motion). Example screens use the real app components and carry an "exemplo" caption. WhatsApp message bubbles sit on `success-surface` with a 4px top-left corner (the speech-bubble tail) and 14px elsewhere.
+
 ### Named Rules
 **The Tabular Figures Rule.** Every time, date, amount and count sits in tabular figures (`<time>`, `.num`, tables, lists, facts, indicators) so columns of numbers align.
 

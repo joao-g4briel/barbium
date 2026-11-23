@@ -24,7 +24,23 @@ da barbearia e a página pública de agendamento.
 - **Caixa automático**: sinal entra quando o Pix é aprovado; o restante e a
   comissão entram ao concluir o atendimento.
 
+- **Landing e cadastro** (`/` e `/cadastro`): quem não está logado vê a
+  landing com os preços; o cadastro cria a barbearia em **teste grátis de 7
+  dias**. No fim do teste (ou da assinatura) o painel, as rotas da equipe, o
+  link público e os lembretes param, e o dono vê os planos para assinar.
+
 Regras de negócio detalhadas em [PRODUCT.md](PRODUCT.md).
+
+## Assinaturas
+
+Preços e links de pagamento ficam em `src/lib/precos.ts`. O pagamento é pela
+**Cakto**: preencha `CHECKOUT_CAKTO` com o link de cada plano e período;
+enquanto um link estiver vazio, o botão "Assinar" abre o WhatsApp de vendas.
+
+Cada barbearia tem um prazo (`acessoAte`). Vazio é sem prazo (as cadastradas
+pelo super admin). Depois de confirmar um pagamento na Cakto, o super admin
+estende o acesso na tela da barbearia (+1 mês, +6 meses, +1 ano). A
+liberação automática pelo webhook da Cakto ainda não existe.
 
 ## Rodando localmente
 

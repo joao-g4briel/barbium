@@ -3,6 +3,12 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { COOKIE_NAME, verificarTokenSessao, type SessaoPayload } from "./auth";
+import { acessoVencido } from "./acesso";
+
+// Sessão válida mais o estado do acesso da barbearia: com o teste ou a
+// assinatura vencidos, a pessoa continua logada (pra ver como assinar), mas
+// o painel e as rotas da equipe ficam bloqueados.
+export type SessaoComAcesso = SessaoPayload & { acessoVencido: boolean };
 
 // Lê e valida o cookie de sessão no servidor (Server Components, Server
 // Actions e Route Handlers). Retorna null se não houver sessão válida.
@@ -12,7 +18,7 @@ import { COOKIE_NAME, verificarTokenSessao, type SessaoPayload } from "./auth";
 // suspender uma barbearia corta o acesso na hora, não só no próximo login.
 // Nome e papel vêm do banco, então uma edição de perfil aparece na hora.
 // Trocar ou redefinir a senha encerra as sessões abertas antes disso.
-export const obterSessao = cache(async (): Promise<SessaoPayload | null> => {
+export const obterSessao = cache(async (): Promise<SessaoComAcesso | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
@@ -27,7 +33,7 @@ export const obterSessao = cache(async (): Promise<SessaoPayload | null> => {
       ativo: true,
       barbeariaId: true,
       senhaAlteradaEm: true,
-      barbearia: { select: { ativo: true } },
+      barbearia: { select: { ativo: true, acessoAte: true } },
     },
   });
   if (!usuario || !usuario.ativo) return null;
@@ -39,7 +45,13 @@ export const obterSessao = cache(async (): Promise<SessaoPayload | null> => {
   const emitidoEm = (sessao as SessaoPayload & { iat?: number }).iat ?? 0;
   if (usuario.senhaAlteradaEm && emitidoEm < Math.floor(usuario.senhaAlteradaEm.getTime() / 1000)) return null;
 
-  return { sub: sessao.sub, nome: usuario.nome, role: usuario.role, barbeariaId: usuario.barbeariaId };
+  return {
+    sub: sessao.sub,
+    nome: usuario.nome,
+    role: usuario.role,
+    barbeariaId: usuario.barbeariaId,
+    acessoVencido: usuario.barbearia ? acessoVencido(usuario.barbearia) : false,
+  };
 });
 
 export async function exigirSuperAdmin(): Promise<SessaoPayload> {
@@ -59,5 +71,7 @@ export async function exigirUsuarioDaBarbearia(): Promise<SessaoPayload> {
   ) {
     throw new Error("Acesso restrito à equipe da barbearia.");
   }
+  // Teste grátis ou assinatura vencidos: nada do painel funciona até pagar.
+  if (sessao.acessoVencido) throw new Error("Acesso da barbearia vencido.");
   return sessao;
 }

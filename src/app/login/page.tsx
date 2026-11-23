@@ -40,6 +40,12 @@ export default async function PaginaLogin({
             Esqueci minha senha
           </Link>
         )}
+        <p className="auth-rodape">
+          Ainda não usa o Barbium?{" "}
+          <Link href="/cadastro" className="link">
+            Teste 7 dias grátis
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   ChartColumn,
+  CreditCard,
   Clock,
   House,
   LayoutDashboard,
@@ -29,6 +30,7 @@ const ICONES = {
   servicos: Scissors,
   financeiro: Wallet,
   indicadores: ChartColumn,
+  assinatura: CreditCard,
   horarios: Clock,
   configuracoes: Settings,
   barbearias: Store,
