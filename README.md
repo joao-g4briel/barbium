@@ -17,7 +17,8 @@ da barbearia e a página pública de agendamento.
   novo agendamento pelo balcão, clientes com assinatura, serviços, equipe com
   limite por plano, expediente e bloqueios, caixa com comissões (o dono vê
   a equipe e o extrato de cada um; o barbeiro vê só as próprias, em "Minhas
-  comissões").
+  comissões") e indicadores do período (ticket médio, ocupação da agenda,
+  faltas e cancelamentos, no geral e por profissional; só o dono).
 - **Agendamento público** (`/agendar/[slug]`): escolher serviço, profissional
   e horário, com sinal opcional por Pix (Mercado Pago).
 - **Caixa automático**: sinal entra quando o Pix é aprovado; o restante e a

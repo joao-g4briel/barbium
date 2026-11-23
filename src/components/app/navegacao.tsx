@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
+  ChartColumn,
   Clock,
   House,
   LayoutDashboard,
@@ -27,6 +28,7 @@ const ICONES = {
   equipe: UsersRound,
   servicos: Scissors,
   financeiro: Wallet,
+  indicadores: ChartColumn,
   horarios: Clock,
   configuracoes: Settings,
   barbearias: Store,
