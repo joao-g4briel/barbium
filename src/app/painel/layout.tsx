@@ -21,12 +21,14 @@ export default async function LayoutPainel({ children }: { children: React.React
   const equipe: ItemNav = { href: "/painel/equipe", rotulo: "Equipe", icone: "equipe" };
   const servicos: ItemNav = { href: "/painel/servicos", rotulo: "Serviços", icone: "servicos" };
   const financeiro: ItemNav = { href: "/painel/caixa", rotulo: "Financeiro", icone: "financeiro" };
+  // O barbeiro não vê o caixa, só a própria comissão.
+  const minhasComissoes: ItemNav = { href: "/painel/caixa/comissoes", rotulo: "Minhas comissões", icone: "financeiro" };
   const horarios: ItemNav = { href: "/painel/disponibilidade", rotulo: "Meus horários", icone: "horarios" };
   const configuracoes: ItemNav = { href: "/painel/configuracoes", rotulo: "Configurações", icone: "configuracoes" };
 
   const grupos: GrupoNav[] = [
     { itens: [visaoGeral, agenda, clientes] },
-    { titulo: "Barbearia", itens: souDono ? [equipe, servicos, financeiro] : [servicos] },
+    { titulo: "Barbearia", itens: souDono ? [equipe, servicos, financeiro] : [servicos, minhasComissoes] },
     { titulo: "Conta", itens: [horarios, configuracoes] },
   ];
 
@@ -34,7 +36,7 @@ export default async function LayoutPainel({ children }: { children: React.React
   const principais = souDono ? [inicio, agenda, clientes, financeiro] : [inicio, agenda, clientes, horarios];
   const demais = souDono
     ? [servicos, equipe, horarios, configuracoes]
-    : [servicos, configuracoes];
+    : [minhasComissoes, servicos, configuracoes];
 
   return (
     <Shell

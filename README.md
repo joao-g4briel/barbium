@@ -15,7 +15,9 @@ da barbearia e a página pública de agendamento.
 - **Super admin** (`/super-admin`): barbearias, plano, ativar/suspender.
 - **Painel da barbearia** (`/painel`): visão geral, agenda (dia/semana),
   novo agendamento pelo balcão, clientes com assinatura, serviços, equipe com
-  limite por plano, expediente e bloqueios, caixa com comissões.
+  limite por plano, expediente e bloqueios, caixa com comissões (o dono vê
+  a equipe e o extrato de cada um; o barbeiro vê só as próprias, em "Minhas
+  comissões").
 - **Agendamento público** (`/agendar/[slug]`): escolher serviço, profissional
   e horário, com sinal opcional por Pix (Mercado Pago).
 - **Caixa automático**: sinal entra quando o Pix é aprovado; o restante e a

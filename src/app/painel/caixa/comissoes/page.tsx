@@ -1,123 +1,147 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Percent, UsersRound, Wallet } from "lucide-react";
+import { ChevronRight, Percent, UsersRound, Wallet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
-import { intervaloPeriodo, periodoValido, PERIODOS_CAIXA, ROTULO_PERIODO } from "@/lib/periodo-caixa";
+import { intervaloPeriodo, periodoValido, PERIODOS_CAIXA, ROTULO_PERIODO, type PeriodoCaixa } from "@/lib/periodo-caixa";
+import { atendimentosComComissao, resumirPorProfissional, totalizar } from "@/lib/comissoes";
 import { formatarDataInstante, formatarMoeda } from "@/lib/formatar";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
-import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { Abas } from "@/components/ui/abas";
 import { Indicador } from "@/components/ui/indicador";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Avatar } from "@/components/ui/avatar";
 import { Alerta } from "@/components/ui/alerta";
 import { NavFinanceiro } from "../nav-financeiro";
+import { ExtratoComissoes } from "./extrato-comissoes";
 
 export const metadata: Metadata = { title: "Comissões" };
 
-interface LinhaComissao {
-  id: string;
-  nome: string;
-  atendimentos: number;
-  semPercentual: number;
-  faturamento: number;
-  comissao: number;
-}
-
-export default async function PaginaComissoes({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
+// Dono: comissões de toda a equipe, e o extrato de cada profissional
+// (?profissional=). Barbeiro: só o próprio extrato ("Minhas comissões").
+export default async function PaginaComissoes({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; profissional?: string }>;
+}) {
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
 
+  const params = await searchParams;
+  const periodo = periodoValido(params.periodo);
+  const { inicio, fim } = intervaloPeriodo(periodo);
+  const intervalo = `${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" })} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" })}`;
+
+  const abasPeriodo = (extra = "") => (
+    <Abas
+      rotulo="Período"
+      itens={PERIODOS_CAIXA.map((p) => ({
+        href: `/painel/caixa/comissoes?periodo=${p}${extra}`,
+        rotulo: ROTULO_PERIODO[p],
+        ativo: p === periodo,
+      }))}
+    />
+  );
+
   if (sessao.role !== "DONO") {
+    const atendimentos = await atendimentosComComissao(sessao.barbeariaId, { inicio, fim, profissionalId: sessao.sub });
     return (
       <>
-        <CabecalhoPagina titulo="Comissões" />
-        <AcessoRestrito descricao="As comissões da equipe são visíveis só para o dono." />
+        <CabecalhoPagina titulo="Minhas comissões" descricao={intervalo} />
+        <div className="pilha">
+          {abasPeriodo()}
+          <ExtratoComissoes atendimentos={atendimentos} visaoDoDono={false} />
+        </div>
       </>
     );
   }
 
-  const periodo = periodoValido((await searchParams).periodo);
-  const { inicio, fim } = intervaloPeriodo(periodo);
-
-  // Atendimentos concluídos no período, pela data do atendimento. A comissão
-  // de cada um foi calculada e guardada na conclusão.
-  const concluidos = await prisma.agendamento.findMany({
-    where: { barbeariaId: sessao.barbeariaId, status: "CONCLUIDO", inicio: { gte: inicio, lte: fim } },
-    select: {
-      comissaoValor: true,
-      barbeiro: { select: { id: true, nome: true } },
-      caixaLancamentos: { select: { valor: true } },
-    },
-  });
-
-  const porProfissional = new Map<string, LinhaComissao>();
-  for (const a of concluidos) {
-    const linha = porProfissional.get(a.barbeiro.id) ?? {
-      id: a.barbeiro.id,
-      nome: a.barbeiro.nome,
-      atendimentos: 0,
-      semPercentual: 0,
-      faturamento: 0,
-      comissao: 0,
-    };
-    linha.atendimentos += 1;
-    // Faturamento = o que entrou no caixa por esse atendimento (sinal + restante).
-    linha.faturamento += a.caixaLancamentos.reduce((s, l) => s + Number(l.valor), 0);
-    if (a.comissaoValor === null) linha.semPercentual += 1;
-    else linha.comissao += Number(a.comissaoValor);
-    porProfissional.set(a.barbeiro.id, linha);
+  if (params.profissional) {
+    const profissional = await prisma.usuario.findFirst({
+      where: { id: params.profissional, barbeariaId: sessao.barbeariaId },
+      select: { id: true, nome: true },
+    });
+    if (profissional) {
+      const atendimentos = await atendimentosComComissao(sessao.barbeariaId, {
+        inicio,
+        fim,
+        profissionalId: profissional.id,
+      });
+      return (
+        <>
+          <CabecalhoPagina
+            titulo={`Comissões de ${profissional.nome}`}
+            descricao={intervalo}
+            voltar={{ href: `/painel/caixa/comissoes?periodo=${periodo}`, rotulo: "Todos os profissionais" }}
+          />
+          <div className="pilha">
+            <NavFinanceiro atual="comissoes" periodo={periodo} />
+            {abasPeriodo(`&profissional=${profissional.id}`)}
+            <ExtratoComissoes atendimentos={atendimentos} visaoDoDono />
+          </div>
+        </>
+      );
+    }
   }
-  const linhas = [...porProfissional.values()].sort((x, y) => y.comissao - x.comissao || x.nome.localeCompare(y.nome));
-  const totalComissao = linhas.reduce((s, l) => s + l.comissao, 0);
-  const totalFaturamento = linhas.reduce((s, l) => s + l.faturamento, 0);
-  const totalSemPercentual = linhas.reduce((s, l) => s + l.semPercentual, 0);
+
+  return <ResumoDaEquipe barbeariaId={sessao.barbeariaId} periodo={periodo} intervalo={intervalo} abas={abasPeriodo()} />;
+}
+
+async function ResumoDaEquipe({
+  barbeariaId,
+  periodo,
+  intervalo,
+  abas,
+}: {
+  barbeariaId: string;
+  periodo: PeriodoCaixa;
+  intervalo: string;
+  abas: React.ReactNode;
+}) {
+  const { inicio, fim } = intervaloPeriodo(periodo);
+  const atendimentos = await atendimentosComComissao(barbeariaId, { inicio, fim });
+  const linhas = resumirPorProfissional(atendimentos);
+  const total = totalizar(atendimentos);
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Comissões"
-        descricao={`${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" })} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" })}`}
-      />
+      <CabecalhoPagina titulo="Comissões" descricao={intervalo} />
 
       <div className="pilha">
         <NavFinanceiro atual="comissoes" periodo={periodo} />
-        <Abas
-          rotulo="Período"
-          itens={PERIODOS_CAIXA.map((p) => ({
-            href: `/painel/caixa/comissoes?periodo=${p}`,
-            rotulo: ROTULO_PERIODO[p],
-            ativo: p === periodo,
-          }))}
-        />
+        {abas}
 
-        <section className="indicadores" style={{ "--indicadores-colunas": 3 } as React.CSSProperties} aria-label="Resumo das comissões">
+        <section
+          className="indicadores"
+          style={{ "--indicadores-colunas": 3 } as CSSProperties}
+          aria-label="Resumo das comissões"
+        >
           <Indicador
             rotulo="Comissões do período"
-            valor={formatarMoeda(totalComissao)}
+            valor={formatarMoeda(total.comissao)}
             icone={<Percent size={22} />}
             tomIcone="primario"
             detalhe={`${linhas.length} ${linhas.length === 1 ? "profissional" : "profissionais"}`}
           />
           <Indicador
             rotulo="Faturamento dos atendimentos"
-            valor={formatarMoeda(totalFaturamento)}
+            valor={formatarMoeda(total.faturamento)}
             icone={<UsersRound size={22} />}
-            detalhe={`${concluidos.length} ${concluidos.length === 1 ? "atendimento concluído" : "atendimentos concluídos"}`}
+            detalhe={`${total.atendimentos} ${total.atendimentos === 1 ? "atendimento concluído" : "atendimentos concluídos"}`}
           />
           <Indicador
             rotulo="Fica com a barbearia"
-            valor={formatarMoeda(totalFaturamento - totalComissao)}
+            valor={formatarMoeda(total.faturamento - total.comissao)}
             icone={<Wallet size={22} />}
             detalhe="Faturamento menos comissões"
           />
         </section>
 
-        {totalSemPercentual > 0 && (
+        {total.semPercentual > 0 && (
           <Alerta tom="atencao">
-            {totalSemPercentual === 1 ? "1 atendimento ficou" : `${totalSemPercentual} atendimentos ficaram`} sem comissão
-            porque nem o profissional nem o serviço tinham percentual na hora da conclusão. Defina em{" "}
+            {total.semPercentual === 1 ? "1 atendimento ficou" : `${total.semPercentual} atendimentos ficaram`} sem
+            comissão porque nem o profissional nem o serviço tinham percentual na hora da conclusão. Defina em{" "}
             <Link href="/painel/equipe" className="link">
               Equipe
             </Link>{" "}
@@ -137,7 +161,7 @@ export default async function PaginaComissoes({ searchParams }: { searchParams: 
               </h2>
               <p className="card-descricao">
                 Vale o percentual do profissional; sem ele, o do serviço. Calculada sobre o valor cheio do serviço, no
-                momento da conclusão.
+                momento da conclusão. Toque num profissional para ver o extrato.
               </p>
             </div>
           </div>
@@ -169,10 +193,15 @@ export default async function PaginaComissoes({ searchParams }: { searchParams: 
                   {linhas.map((l) => (
                     <tr key={l.id}>
                       <td className="tabela-td-principal">
-                        <div className="tabela-celula-link">
+                        <Link
+                          href={`/painel/caixa/comissoes?periodo=${periodo}&profissional=${l.id}`}
+                          className="tabela-celula-link"
+                          aria-label={`Ver extrato de ${l.nome}`}
+                        >
                           <Avatar nome={l.nome} tamanho={32} />
                           <span className="tabela-celula-principal">{l.nome}</span>
-                        </div>
+                          <ChevronRight size={16} aria-hidden="true" className="texto-secundario" />
+                        </Link>
                       </td>
                       <td data-rotulo="Atendimentos" className="alinhar-direita num">
                         {l.atendimentos}
