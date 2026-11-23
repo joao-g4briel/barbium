@@ -27,7 +27,9 @@ export function intervaloPeriodo(periodo: PeriodoCaixa): { inicio: Date; fim: Da
     primeiroDia = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - 1, 1));
     ultimoDia = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 0));
   } else {
+    // O mês inteiro, do dia 1 ao último (30, 31, ou 28/29 em fevereiro).
     primeiroDia = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1));
+    ultimoDia = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, 0));
   }
 
   return {

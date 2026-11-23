@@ -25,6 +25,23 @@ describe("períodos do caixa", () => {
     });
   });
 
+  it("este mês vai do dia 1 ao último dia do mês, não só até hoje", () => {
+    vi.useFakeTimers({ now: new Date("2026-11-04T15:00:00Z") });
+    expect(intervaloPeriodo("mes")).toEqual({
+      inicio: new Date("2026-11-01T03:00:00Z"),
+      fim: new Date("2026-12-01T02:59:59.999Z"), // 30/11 às 23:59:59 em Brasília
+    });
+    vi.setSystemTime(new Date("2026-12-15T15:00:00Z"));
+    expect(intervaloPeriodo("mes").fim).toEqual(new Date("2027-01-01T02:59:59.999Z")); // 31/12
+    vi.setSystemTime(new Date("2028-02-10T15:00:00Z"));
+    expect(intervaloPeriodo("mes").fim).toEqual(new Date("2028-03-01T02:59:59.999Z")); // 29/02, ano bissexto
+  });
+
+  it("no último dia do mês às 22h de Brasília, ainda é o mesmo mês", () => {
+    vi.useFakeTimers({ now: new Date("2026-12-01T01:00:00Z") }); // 30/11 às 22h
+    expect(intervaloPeriodo("mes").inicio).toEqual(new Date("2026-11-01T03:00:00Z"));
+  });
+
   it("últimos 7 dias inclui hoje e os 6 anteriores", () => {
     vi.useFakeTimers({ now: new Date("2026-11-04T15:00:00Z") });
     expect(intervaloPeriodo("semana").inicio).toEqual(new Date("2026-10-29T03:00:00Z"));
