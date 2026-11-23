@@ -3,13 +3,16 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirDono } from "@/lib/equipe";
 import { numeroWhatsApp } from "@/lib/formatar";
+import { lembreteValido } from "@/lib/lembrete-opcoes";
 
-// Nome, telefone e WhatsApp dos avisos. O link (slug) e o plano ficam com a plataforma: trocar o
+// Nome, telefone, WhatsApp dos avisos e antecedência do lembrete. O link (slug) e o plano ficam com a plataforma: trocar o
 // link quebraria o que já foi divulgado aos clientes.
 const corpoSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da barbearia."),
   telefone: z.string().trim().nullable(),
   telefoneAvisos: z.string().trim().nullable().optional(),
+  // Horas antes do horário pro lembrete do cliente; null desliga.
+  lembreteHorasAntes: z.number().int().refine(lembreteValido).nullable().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -39,6 +42,7 @@ export async function PATCH(request: Request) {
       nome: dados.data.nome,
       telefone: telefone || null,
       ...(dados.data.telefoneAvisos !== undefined ? { telefoneAvisos: telefoneAvisos || null } : {}),
+      ...(dados.data.lembreteHorasAntes !== undefined ? { lembreteHorasAntes: dados.data.lembreteHorasAntes } : {}),
     },
   });
   return NextResponse.json({ ok: true });

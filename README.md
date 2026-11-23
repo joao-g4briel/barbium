@@ -96,6 +96,7 @@ em `para`, o texto pronto em `mensagem` e quem recebe em `destinatario`
 | Agendamento pelo link (sem sinal, ou com o Pix pago) | "Novo agendamento" | "Seu horário está marcado" |
 | Agendamento feito pela equipe no painel | — | "Seu horário está marcado" |
 | Equipe muda o dia, o horário ou o profissional ("Mudar", na agenda) | — | "Seu horário mudou" |
+| X horas antes do horário (X escolhido em Configurações) | — | Lembrete |
 | Pix pago depois do prazo, horário já ocupado | aviso pra devolver ou remarcar | — |
 
 A barbearia recebe no **WhatsApp para avisos** (Configurações) ou, se ele
@@ -115,6 +116,25 @@ Para configurar:
 4. Ative o fluxo e copie a **Production URL** do webhook.
 5. No app, configure `N8N_WEBHOOK_URL` (essa URL) e `N8N_WEBHOOK_TOKEN` (o
    mesmo valor secreto do passo 2).
+
+### Lembretes
+
+Cada barbearia escolhe em **Configurações** quantas horas antes o cliente
+recebe o lembrete (ou "não enviar", o padrão). Quem dispara é o n8n:
+
+1. Importe [docs/n8n/barbium-lembretes.json](docs/n8n/barbium-lembretes.json).
+2. No nó **Mandar lembretes**, troque a URL pelo endereço do app
+   (`https://…/api/lembretes`) e escolha a **mesma credencial Header Auth**
+   do webhook (`x-barbium-token`).
+3. Ative o fluxo. A cada 15 minutos ele chama o app, que manda os lembretes
+   que estão na hora (pelo mesmo webhook dos avisos) e responde quantos
+   foram enviados.
+
+Cada horário recebe no máximo um lembrete. Não recebe quem marcou já dentro
+da janela (acabou de receber a confirmação), quem pediu pra não receber
+mensagens, nem quem teve o horário mudado para dentro da janela (o "seu
+horário mudou" faz esse papel). Se o n8n ficar parado, quem tinha horário
+nesse intervalo fica sem lembrete; os outros recebem quando ele voltar.
 
 ## Deploy na Vercel
 

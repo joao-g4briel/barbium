@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./prisma", () => ({ prisma: {} }));
 
-const { montarMensagem, montarMensagemCliente } = await import("./notificacoes");
+const { montarMensagem, montarMensagemCliente, quandoRelativo } = await import("./notificacoes");
 const { numeroWhatsApp } = await import("./formatar");
 
 const dados = {
@@ -61,6 +61,25 @@ describe("mensagem para o cliente", () => {
 
   it("mostra o sinal quando foi pago", () => {
     expect(montarMensagemCliente({ ...dados, sinalPago: 22.5 })).toMatch(/Sinal pago:\* R\$\s22,50/);
+  });
+
+  it("lembrete chama o cliente pro horário", () => {
+    const texto = montarMensagemCliente(dados, "agendamento.lembrete");
+    expect(texto).toContain("Olá, João! ⏰");
+    expect(texto).toContain("Passando pra lembrar do seu horário na *Barbearia RIO*");
+    expect(texto).toContain("Fale com a barbearia");
+    expect(texto).toMatch(/É só avisar a barbearia\._$/);
+  });
+
+  it("lembrete diz hoje ou amanhã, e a data por extenso quando é mais longe", () => {
+    // 23:30 de quarta em Brasília; o horário é quinta às 09:00.
+    const agora = new Date("2026-11-05T02:30:00Z");
+    const quinta9h = new Date("2026-11-05T12:00:00Z");
+    expect(quandoRelativo(quinta9h, agora, "x")).toBe("Amanhã às 09:00");
+    expect(quandoRelativo(quinta9h, new Date("2026-11-05T11:00:00Z"), "x")).toBe("Hoje às 09:00");
+    expect(quandoRelativo(quinta9h, new Date("2026-11-03T12:00:00Z"), "Quinta-feira, 05/11 às 09:00")).toBe(
+      "Quinta-feira, 05/11 às 09:00",
+    );
   });
 
   it("horário remarcado avisa que mudou e mostra o novo horário", () => {

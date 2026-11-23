@@ -1,6 +1,8 @@
 import "server-only";
 import { after } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formatarTelefone, numeroWhatsApp } from "./formatar";
 
 // Avisos automáticos por WhatsApp: pro dono (agendamento novo) e pro cliente
@@ -15,6 +17,7 @@ import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formata
 export type EventoNotificacao =
   | "agendamento.confirmado" // agendamento novo (sem sinal, ou com o Pix pago)
   | "agendamento.remarcado" // a barbearia mudou o dia, o horário ou o profissional
+  | "agendamento.lembrete" // lembrete pro cliente antes do horário (ver lib/lembretes)
   | "sinal.pago_sem_horario"; // Pix pago depois do prazo, com o horário já ocupado: precisa devolver
 
 type Destinatario = "barbearia" | "cliente";
@@ -43,26 +46,24 @@ export function notificarAgendamento(
   });
 }
 
-async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBarbearia: boolean): Promise<void> {
-  const ag = await prisma.agendamento.findUnique({
-    where: { id: agendamentoId },
-    include: {
-      cliente: { select: { nome: true, telefone: true, aceitaMensagens: true } },
-      servico: { select: { nome: true, preco: true } },
-      barbeiro: { select: { nome: true } },
-      barbearia: { select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true } },
-    },
-  });
-  if (!ag) return;
+// O que as mensagens precisam de um agendamento.
+export const INCLUIR_NOTIFICACAO = {
+  cliente: { select: { nome: true, telefone: true, aceitaMensagens: true } },
+  servico: { select: { nome: true, preco: true } },
+  barbeiro: { select: { nome: true } },
+  barbearia: { select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true } },
+} satisfies Prisma.AgendamentoInclude;
 
-  // Números no formato do WhatsApp. Sem DDD não há pra quem mandar, e aquele
-  // envio nem acontece (o fluxo do n8n não precisa filtrar esse caso).
-  // Barbearia: o WhatsApp dos avisos ou, sem ele, o telefone da barbearia.
-  const whatsappBarbearia = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");
-  // Cliente que pediu pra não receber (ou foi removido) fica sem mensagem.
-  const whatsappCliente = ag.cliente.aceitaMensagens ? numeroWhatsApp(ag.cliente.telefone) : null;
+export type AgendamentoNotificacao = Prisma.AgendamentoGetPayload<{ include: typeof INCLUIR_NOTIFICACAO }>;
 
-  const dados: DadosMensagem = {
+// Cliente que pediu pra não receber (ou foi removido), ou sem DDD no
+// telefone, fica sem mensagem: o envio nem acontece.
+export function whatsappDoCliente(ag: AgendamentoNotificacao): string | null {
+  return ag.cliente.aceitaMensagens ? numeroWhatsApp(ag.cliente.telefone) : null;
+}
+
+export function dadosDaMensagem(ag: AgendamentoNotificacao): DadosMensagem {
+  return {
     quando: `${capitalizar(formatarDataInstante(ag.inicio, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(ag.inicio)}`,
     cliente: ag.cliente.nome,
     telefone: formatarTelefone(ag.cliente.telefone),
@@ -72,18 +73,12 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
     barbearia: ag.barbearia.nome,
     telefoneBarbearia: ag.barbearia.telefone ? formatarTelefone(ag.barbearia.telefone) : null,
   };
+}
 
-  const envios: { destinatario: Destinatario; para: string; mensagem: string }[] = [];
-  if (avisarBarbearia && whatsappBarbearia) {
-    envios.push({ destinatario: "barbearia", para: whatsappBarbearia, mensagem: montarMensagem(evento, dados) });
-  }
-  // O cliente fica sabendo do horário marcado e do horário mudado. O Pix
-  // pago sem horário é a barbearia que resolve com ele.
-  if ((evento === "agendamento.confirmado" || evento === "agendamento.remarcado") && whatsappCliente) {
-    envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados, evento) });
-  }
-
-  const base = {
+// Campos comuns a todo POST pro webhook (o fluxo do n8n só usa `para` e
+// `mensagem`; o resto fica pra quem quiser montar outra automação).
+export function corpoDoWebhook(evento: EventoNotificacao, ag: AgendamentoNotificacao, dados: DadosMensagem) {
+  return {
     evento,
     barbearia: { id: ag.barbearia.id, nome: ag.barbearia.nome, slug: ag.barbearia.slug },
     agendamento: {
@@ -95,8 +90,30 @@ async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBa
       profissional: dados.profissional,
       sinalPago: dados.sinalPago,
     },
-    cliente: { nome: dados.cliente, telefone: dados.telefone, whatsapp: whatsappCliente },
+    cliente: { nome: dados.cliente, telefone: dados.telefone, whatsapp: whatsappDoCliente(ag) },
   };
+}
+
+async function enviar(evento: EventoNotificacao, agendamentoId: string, avisarBarbearia: boolean): Promise<void> {
+  const ag = await prisma.agendamento.findUnique({ where: { id: agendamentoId }, include: INCLUIR_NOTIFICACAO });
+  if (!ag) return;
+
+  // Barbearia: o WhatsApp dos avisos ou, sem ele, o telefone da barbearia.
+  const whatsappBarbearia = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");
+  const whatsappCliente = whatsappDoCliente(ag);
+  const dados = dadosDaMensagem(ag);
+
+  const envios: { destinatario: Destinatario; para: string; mensagem: string }[] = [];
+  if (avisarBarbearia && whatsappBarbearia) {
+    envios.push({ destinatario: "barbearia", para: whatsappBarbearia, mensagem: montarMensagem(evento, dados) });
+  }
+  // O cliente fica sabendo do horário marcado e do horário mudado. O Pix
+  // pago sem horário é a barbearia que resolve com ele.
+  if ((evento === "agendamento.confirmado" || evento === "agendamento.remarcado") && whatsappCliente) {
+    envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados, evento) });
+  }
+
+  const base = corpoDoWebhook(evento, ag, dados);
 
   // Um destinatário com problema não impede o outro de receber.
   const resultados = await Promise.allSettled(
@@ -130,7 +147,7 @@ export async function postarWebhook(corpo: unknown): Promise<void> {
   if (!resposta.ok) throw new Error(`webhook respondeu ${resposta.status}`);
 }
 
-interface DadosMensagem {
+export interface DadosMensagem {
   quando: string;
   cliente: string;
   telefone: string;
@@ -163,21 +180,35 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
   ].join("\n");
 }
 
-// Mensagem pro cliente: confirma o horário (novo ou mudado) e diz com quem
-// falar pra mudar.
+// "Hoje às 15:00" / "Amanhã às 09:00" no lembrete, que chega perto do horário.
+// Mais longe que isso, a data por extenso de sempre.
+export function quandoRelativo(inicio: Date, agora: Date, quandoPorExtenso: string): string {
+  const dias = Math.round(
+    (inicioDoDiaBrasil(inicio).getTime() - inicioDoDiaBrasil(agora).getTime()) / (24 * 60 * 60 * 1000),
+  );
+  if (dias === 0) return `Hoje às ${formatarHora(inicio)}`;
+  if (dias === 1) return `Amanhã às ${formatarHora(inicio)}`;
+  return quandoPorExtenso;
+}
+
+// Mensagem pro cliente: confirma o horário (novo, mudado ou lembrete) e diz
+// com quem falar pra mudar.
 export function montarMensagemCliente(
   d: DadosMensagem,
-  evento: "agendamento.confirmado" | "agendamento.remarcado" = "agendamento.confirmado",
+  evento: "agendamento.confirmado" | "agendamento.remarcado" | "agendamento.lembrete" = "agendamento.confirmado",
 ): string {
   const primeiroNome = d.cliente.trim().split(/\s+/)[0];
-  const remarcado = evento === "agendamento.remarcado";
+  const abertura = {
+    "agendamento.confirmado": [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* está marcado.`],
+    "agendamento.remarcado": [`Olá, ${primeiroNome}! ✂️`, `Seu horário na *${d.barbearia}* mudou.`],
+    "agendamento.lembrete": [`Olá, ${primeiroNome}! ⏰`, `Passando pra lembrar do seu horário na *${d.barbearia}*.`],
+  }[evento];
   return [
-    `Olá, ${primeiroNome}! ✂️`,
-    remarcado ? `Seu horário na *${d.barbearia}* mudou.` : `Seu horário na *${d.barbearia}* está marcado.`,
+    ...abertura,
     "",
     `*Serviço:* ${d.servico}`,
     `*Profissional:* ${d.profissional}`,
-    `*${remarcado ? "Novo horário" : "Quando"}:* ${d.quando}`,
+    `*${evento === "agendamento.remarcado" ? "Novo horário" : "Quando"}:* ${d.quando}`,
     ...(d.sinalPago !== null ? [`*Sinal pago:* ${formatarMoeda(d.sinalPago)}`] : []),
     "",
     d.telefoneBarbearia

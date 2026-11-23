@@ -66,6 +66,7 @@ export default async function PaginaConfiguracoes() {
                   nomeInicial={barbearia.nome}
                   telefoneInicial={barbearia.telefone ? formatarTelefone(barbearia.telefone) : ""}
                   telefoneAvisosInicial={barbearia.telefoneAvisos ? formatarTelefone(barbearia.telefoneAvisos) : ""}
+                  lembreteHorasAntesInicial={barbearia.lembreteHorasAntes}
                 />
                 <dl className="fatos">
                   <div>

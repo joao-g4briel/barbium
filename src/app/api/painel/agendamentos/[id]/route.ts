@@ -10,6 +10,7 @@ import { horariosLivres, opcoesHorarioPainel } from "@/lib/agenda";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { duracaoEmMinutos, validarProfissional } from "@/lib/agendamento-painel";
 import { notificacoesConfiguradas, notificarAgendamento } from "@/lib/notificacoes";
+import { dentroDaJanelaDeLembrete } from "@/lib/lembrete-opcoes";
 import type { SessaoPayload } from "@/lib/auth";
 import {
   desfazerConclusao,
@@ -186,6 +187,17 @@ async function reagendar(
     return NextResponse.json({ erro: "Esse horário não está mais disponível. Escolha outro." }, { status: 409 });
   }
 
+  // Horário novo, lembrete novo. Se o novo horário já está dentro da janela
+  // do lembrete, o "seu horário mudou" faz esse papel e o lembrete é dispensado.
+  const barbearia = await prisma.barbearia.findUnique({
+    where: { id: agendamento.barbeariaId },
+    select: { lembreteHorasAntes: true },
+  });
+  const agora = new Date();
+  const lembreteEnviadoEm = dentroDaJanelaDeLembrete(inicio, barbearia?.lembreteHorasAntes ?? null, agora)
+    ? agora
+    : null;
+
   try {
     const atualizado = await prisma.$transaction(async (tx) => {
       const conflito = await tx.agendamento.findFirst({
@@ -202,7 +214,7 @@ async function reagendar(
 
       return tx.agendamento.update({
         where: { id: agendamento.id },
-        data: { inicio, fim, barbeiroId: profissional.id },
+        data: { inicio, fim, barbeiroId: profissional.id, lembreteEnviadoEm },
         include: { cliente: { select: { telefone: true, aceitaMensagens: true } } },
       });
     });

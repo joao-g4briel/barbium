@@ -8,6 +8,7 @@ import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Alerta } from "@/components/ui/alerta";
 import { apenasDigitos, numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
+import { OPCOES_LEMBRETE_HORAS, rotuloLembrete } from "@/lib/lembrete-opcoes";
 
 type Erros = Record<string, string | undefined>;
 
@@ -29,15 +30,18 @@ export function FormularioBarbearia({
   nomeInicial,
   telefoneInicial,
   telefoneAvisosInicial,
+  lembreteHorasAntesInicial,
 }: {
   nomeInicial: string;
   telefoneInicial: string;
   telefoneAvisosInicial: string;
+  lembreteHorasAntesInicial: number | null;
 }) {
   const router = useRouter();
   const [nome, setNome] = useState(nomeInicial);
   const [telefone, setTelefone] = useState(telefoneInicial);
   const [telefoneAvisos, setTelefoneAvisos] = useState(telefoneAvisosInicial);
+  const [lembrete, setLembrete] = useState(lembreteHorasAntesInicial === null ? "" : String(lembreteHorasAntesInicial));
   const [erros, setErros] = useState<Erros>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -58,6 +62,7 @@ export function FormularioBarbearia({
       nome,
       telefone: telefone.trim() || null,
       telefoneAvisos: telefoneAvisos.trim() || null,
+      lembreteHorasAntes: lembrete ? Number(lembrete) : null,
     });
     setSalvando(false);
     if (!r.ok) return setErros({ geral: r.erro ?? "Não foi possível salvar." });
@@ -104,6 +109,25 @@ export function FormularioBarbearia({
           onChange={(e) => setTelefoneAvisos(e.target.value)}
           placeholder="(11) 91234-5678"
         />
+      </Campo>
+      <Campo
+        id="barbearia-lembrete"
+        rotulo="Lembrete para o cliente"
+        dica="Mensagem no WhatsApp do cliente antes do horário. Quem marca em cima da hora não recebe: a confirmação já basta."
+      >
+        <select
+          {...ariaCampo("barbearia-lembrete", { dica: true })}
+          className="input"
+          value={lembrete}
+          onChange={(e) => setLembrete(e.target.value)}
+        >
+          <option value="">Não enviar</option>
+          {OPCOES_LEMBRETE_HORAS.map((h) => (
+            <option key={h} value={h}>
+              {rotuloLembrete(h)}
+            </option>
+          ))}
+        </select>
       </Campo>
       <div className="form-acoes">
         <Botao type="submit" variante="primary" carregando={salvando} textoCarregando="Salvando…">
