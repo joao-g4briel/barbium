@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { StatusAgendamento } from "@prisma/client";
-import { CalendarCheck, CheckCircle2, CircleSlash, Hourglass, UserX } from "lucide-react";
+import { CalendarCheck, CheckCircle2, CircleSlash, Hourglass, Scissors, UserCheck, UserX } from "lucide-react";
 import { ROTULO_STATUS, TOM_STATUS, type TomBadge } from "@/lib/status-agendamento";
 
 export function Badge({ tom = "neutro", icone, children }: { tom?: TomBadge; icone?: ReactNode; children: ReactNode }) {
@@ -14,6 +14,8 @@ export function Badge({ tom = "neutro", icone, children }: { tom?: TomBadge; ico
 
 export const ICONE_STATUS: Record<StatusAgendamento, typeof CheckCircle2> = {
   CONFIRMADO: CalendarCheck,
+  CHEGOU: UserCheck,
+  EM_ATENDIMENTO: Scissors,
   CONCLUIDO: CheckCircle2,
   CANCELADO: CircleSlash,
   FALTA: UserX,

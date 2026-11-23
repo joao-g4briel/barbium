@@ -8,6 +8,7 @@ import { validarServicoEProfissional } from "@/lib/agendamento-painel";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
 import { notificarAgendamento } from "@/lib/notificacoes";
+import { autorDaSessao, registrarHistorico } from "@/lib/historico";
 
 const corpoSchema = z.object({
   servicoId: z.string().min(1),
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
         clienteId = cliente.id;
       }
 
-      return tx.agendamento.create({
+      const criado = await tx.agendamento.create({
         data: {
           inicio,
           fim,
@@ -109,6 +110,8 @@ export async function POST(request: Request) {
         },
         include: { cliente: { select: { nome: true } } },
       });
+      await registrarHistorico(tx, criado.id, autorDaSessao(sessao), { acao: "CRIADO", statusPara: "CONFIRMADO" });
+      return criado;
     });
 
     // Foi a equipe que marcou: só o cliente recebe a confirmação no WhatsApp.

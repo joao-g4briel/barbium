@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { STATUS_EM_ABERTO } from "@/lib/status-agendamento";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
@@ -29,7 +30,7 @@ export default async function EditarProfissional({ params }: { params: Promise<{
   const agendamentosFuturos = await prisma.agendamento.count({
     where: {
       barbeiroId: profissional.id,
-      status: { in: ["CONFIRMADO", "AGUARDANDO_PAGAMENTO"] },
+      status: { in: [...STATUS_EM_ABERTO, "AGUARDANDO_PAGAMENTO"] },
       inicio: { gt: new Date() },
     },
   });

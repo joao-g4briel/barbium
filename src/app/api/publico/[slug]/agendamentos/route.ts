@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AUTOR_CLIENTE_AGENDAMENTO, registrarHistorico } from "@/lib/historico";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
@@ -134,7 +135,7 @@ export async function POST(
         nome: dados.data.nome,
       });
 
-      return tx.agendamento.create({
+      const criado = await tx.agendamento.create({
         data: {
           inicio,
           fim,
@@ -146,6 +147,8 @@ export async function POST(
           ...(sinal ? { sinalValor, sinalStatus: "PENDENTE" as const, sinalExpiraEm } : {}),
         },
       });
+      await registrarHistorico(tx, criado.id, AUTOR_CLIENTE_AGENDAMENTO, { acao: "CRIADO", statusPara: criado.status });
+      return criado;
     });
   } catch (erro) {
     if ((erro instanceof Error && erro.message === "HORARIO_INDISPONIVEL") || ehConflitoDeHorario(erro)) {

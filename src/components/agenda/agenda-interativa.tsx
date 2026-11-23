@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormaPagamento, StatusAgendamento } from "@prisma/client";
 import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
-import { AlertCircle, Check, ChevronRight, Clock, MessageCircle, User } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, Clock, History, MessageCircle, Scissors, User, UserCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, ICONE_STATUS, StatusBadge } from "@/components/ui/badge";
 import { Botao } from "@/components/ui/botao";
@@ -30,8 +30,8 @@ import {
   formatarTelefone,
   linkWhatsApp,
 } from "@/lib/formatar";
-import { ROTULO_STATUS } from "@/lib/status-agendamento";
-import type { AgendamentoVM, GradeVM, GrupoAgendaVM, ServicoOpcaoVM } from "./tipos";
+import { ROTULO_STATUS, estaEmAberto } from "@/lib/status-agendamento";
+import type { AgendamentoVM, GradeVM, GrupoAgendaVM, HistoricoVM, ServicoOpcaoVM } from "./tipos";
 import { MudarHorario, type HorarioEscolhido } from "./mudar-horario";
 
 // ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ function estaAcontecendo(ag: AgendamentoVM, agoraMs: number): boolean {
 // Concluir aparece direto no cartão só quando o horário já começou —
 // antes disso a ação fica no painel de detalhes.
 function podeConcluirRapido(ag: AgendamentoVM, agoraMs: number): boolean {
-  return ag.status === "CONFIRMADO" && Date.parse(ag.inicio) <= agoraMs;
+  return estaEmAberto(ag.status) && Date.parse(ag.inicio) <= agoraMs;
 }
 
 // ---------------------------------------------------------------------------
@@ -646,7 +646,7 @@ function PainelAgendamento({
   const concluido = ag.status === "CONCLUIDO";
 
   const podeTrocar =
-    (ag.status === "CONFIRMADO" || concluido) && servicos.some((s) => s.id !== ag.servico.id);
+    (estaEmAberto(ag.status) || concluido) && servicos.some((s) => s.id !== ag.servico.id);
   // O serviço atual pode ter sido desativado depois do agendamento; continua
   // na lista só pra marcar de onde se está saindo.
   const opcoesServico = servicos.some((s) => s.id === ag.servico.id) ? servicos : [ag.servico, ...servicos];
@@ -789,6 +789,39 @@ function PainelAgendamento({
         </Botao>
       </>
     );
+  } else if (ag.status === "CHEGOU" || ag.status === "EM_ATENDIMENTO") {
+    // Chegou: dá pra começar o atendimento ou concluir direto. Em atendimento:
+    // concluir. O botão da esquerda desfaz o último passo, se foi engano.
+    const chegou = ag.status === "CHEGOU";
+    rodape = (
+      <>
+        <Botao
+          variante="ghost"
+          onClick={() => executar(chegou ? "CONFIRMADO" : "CHEGOU")}
+          disabled={processando}
+        >
+          {chegou ? "Desfazer chegada" : "Ainda não começou"}
+        </Botao>
+        {chegou && (
+          <Botao
+            icone={<Scissors size={18} aria-hidden="true" />}
+            onClick={() => executar("EM_ATENDIMENTO")}
+            disabled={processando}
+          >
+            Iniciar atendimento
+          </Botao>
+        )}
+        <Botao
+          variante="primary"
+          icone={<Check size={18} aria-hidden="true" />}
+          onClick={iniciarConclusao}
+          carregando={processando}
+          textoCarregando="Salvando…"
+        >
+          Concluir
+        </Botao>
+      </>
+    );
   } else if (ag.status === "CONFIRMADO") {
     rodape = (
       <>
@@ -797,6 +830,13 @@ function PainelAgendamento({
         </Botao>
         <Botao onClick={() => executar("FALTA")} disabled={processando}>
           Marcar falta
+        </Botao>
+        <Botao
+          icone={<UserCheck size={18} aria-hidden="true" />}
+          onClick={() => executar("CHEGOU")}
+          disabled={processando}
+        >
+          Cliente chegou
         </Botao>
         <Botao
           variante="primary"
@@ -1011,7 +1051,7 @@ function PainelAgendamento({
               </dd>
             </div>
           )}
-          {ag.sinalNoCaixa > 0 && (ag.status === "CONFIRMADO" || ag.status === "AGUARDANDO_PAGAMENTO") && (
+          {ag.sinalNoCaixa > 0 && (estaEmAberto(ag.status) || ag.status === "AGUARDANDO_PAGAMENTO") && (
             <div>
               <dt>A receber no atendimento</dt>
               <dd>{formatarMoeda(restante)}</dd>
@@ -1043,6 +1083,7 @@ function PainelAgendamento({
             <dd>{formatarTelefone(ag.cliente.telefone)}</dd>
           </div>
         </dl>
+        {ag.historico.length > 0 && <HistoricoAgendamento itens={ag.historico} />}
         <div className="form-acoes">
           <Link href={`/painel/clientes/${ag.cliente.id}`} className="btn btn-secondary btn-sm">
             Ver ficha do cliente
@@ -1056,5 +1097,45 @@ function PainelAgendamento({
         </div>
       </div>
     </Dialogo>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Histórico: quem fez o quê, e quando
+// ---------------------------------------------------------------------------
+
+function descreverHistorico(h: HistoricoVM): string {
+  if (h.acao === "CRIADO") return "Agendamento criado";
+  if (h.acao === "HORARIO") return `Horário mudado: ${h.detalhe ?? ""}`;
+  if (h.acao === "SERVICO") return `Serviço trocado: ${h.detalhe ?? ""}`;
+  const para = h.statusPara ? ROTULO_STATUS[h.statusPara] : "";
+  const texto =
+    h.statusPara === "CONFIRMADO" && h.statusDe && h.statusDe !== "AGUARDANDO_PAGAMENTO"
+      ? `Voltou para ${para}`
+      : `Marcado como ${para}`;
+  return h.detalhe ? `${texto} · ${h.detalhe}` : texto;
+}
+
+function HistoricoAgendamento({ itens }: { itens: HistoricoVM[] }) {
+  return (
+    <details className="historico">
+      <summary className="historico-titulo">
+        <History size={16} aria-hidden="true" />
+        Histórico
+      </summary>
+      <ol className="historico-lista">
+        {itens.map((h) => {
+          const quando = new Date(h.quando);
+          return (
+            <li key={h.id}>
+              <span className="historico-texto">{descreverHistorico(h)}</span>
+              <span className="texto-secundario texto-pequeno">
+                {formatarDataInstante(quando, { day: "2-digit", month: "2-digit" })} às {formatarHora(quando)} · {h.autor}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </details>
   );
 }

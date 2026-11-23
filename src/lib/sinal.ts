@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
+import { AUTOR_SISTEMA_PIX_EXPIRADO, AUTOR_SISTEMA_PIX_PAGO, registrarHistorico } from "./historico";
 import { decifrar } from "./segredos";
 import { buscarPagamento, cancelarPagamento, type PagamentoMP } from "./mercadopago";
 import { registrarSinalPago, restanteAReceber } from "./caixa-agendamento";
@@ -42,9 +43,27 @@ export async function obterTokenMercadoPago(barbeariaId: string): Promise<string
 // Pix não pago a tempo: o horário volta a ficar livre. sinalStatus continua
 // PENDENTE pra um pagamento atrasado ainda ser reconhecido.
 export async function liberarSinaisExpirados(barbeariaId: string): Promise<void> {
-  await prisma.agendamento.updateMany({
-    where: { barbeariaId, status: "AGUARDANDO_PAGAMENTO", sinalExpiraEm: { lt: new Date() } },
-    data: { status: "CANCELADO" },
+  const agora = new Date();
+  const vencidos = await prisma.agendamento.findMany({
+    where: { barbeariaId, status: "AGUARDANDO_PAGAMENTO", sinalExpiraEm: { lt: agora } },
+    select: { id: true },
+  });
+  if (vencidos.length === 0) return;
+  await prisma.$transaction(async (tx) => {
+    for (const { id } of vencidos) {
+      // Só os que continuam esperando: o Pix pode ter sido pago neste meio-tempo.
+      const r = await tx.agendamento.updateMany({
+        where: { id, status: "AGUARDANDO_PAGAMENTO", sinalExpiraEm: { lt: agora } },
+        data: { status: "CANCELADO" },
+      });
+      if (r.count > 0) {
+        await registrarHistorico(tx, id, AUTOR_SISTEMA_PIX_EXPIRADO, {
+          acao: "STATUS",
+          statusDe: "AGUARDANDO_PAGAMENTO",
+          statusPara: "CANCELADO",
+        });
+      }
+    }
   });
 }
 
@@ -106,6 +125,11 @@ function aplicarPagamentoNoBanco(
 
     if (ag.status === "AGUARDANDO_PAGAMENTO") {
       await tx.agendamento.update({ where: { id: ag.id }, data: { ...pago, status: "CONFIRMADO" } });
+      await registrarHistorico(tx, ag.id, AUTOR_SISTEMA_PIX_PAGO, {
+        acao: "STATUS",
+        statusDe: "AGUARDANDO_PAGAMENTO",
+        statusPara: "CONFIRMADO",
+      });
       return "confirmado";
     }
 
@@ -124,6 +148,12 @@ function aplicarPagamentoNoBanco(
       });
       if (!conflito && ag.inicio > new Date()) {
         await tx.agendamento.update({ where: { id: ag.id }, data: { ...pago, status: "CONFIRMADO" } });
+        await registrarHistorico(tx, ag.id, AUTOR_SISTEMA_PIX_PAGO, {
+          acao: "STATUS",
+          statusDe: "CANCELADO",
+          statusPara: "CONFIRMADO",
+          detalhe: "Pix pago depois do prazo, com o horário ainda livre",
+        });
         return "confirmado";
       }
       await tx.agendamento.update({ where: { id: ag.id }, data: pago });

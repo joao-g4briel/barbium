@@ -1,4 +1,4 @@
-import type { FormaPagamento, StatusAgendamento } from "@prisma/client";
+import type { AcaoHistorico, FormaPagamento, StatusAgendamento } from "@prisma/client";
 
 // Forma serializável de um agendamento — é o que atravessa do servidor pros
 // componentes de cliente (datas como ISO, valores como number).
@@ -18,6 +18,18 @@ export interface AgendamentoVM {
   pagamento: { valor: number; forma: FormaPagamento | null } | null;
   // Comissão guardada na conclusão.
   comissao: { percentual: number; valor: number } | null;
+  // Quem fez o quê, do mais recente pro mais antigo.
+  historico: HistoricoVM[];
+}
+
+export interface HistoricoVM {
+  id: string;
+  quando: string;
+  acao: AcaoHistorico;
+  statusDe: StatusAgendamento | null;
+  statusPara: StatusAgendamento | null;
+  detalhe: string | null;
+  autor: string;
 }
 
 export interface ServicoOpcaoVM {

@@ -11,6 +11,9 @@ import { validarProfissional } from "@/lib/agendamento-painel";
 import { mudarHorario } from "@/lib/mudar-horario";
 import { notificacoesConfiguradas, notificarAgendamento } from "@/lib/notificacoes";
 import type { SessaoPayload } from "@/lib/auth";
+import { autorDaSessao, registrarHistorico } from "@/lib/historico";
+import { ROTULO_STATUS, estaEmAberto, transicaoPermitida } from "@/lib/status-agendamento";
+import { ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
 import {
   desfazerConclusao,
   registrarConclusao,
@@ -21,7 +24,7 @@ import {
 const corpoSchema = z.union([
   z.object({ servicoId: z.string().min(1) }),
   z.object({
-    status: z.enum(["CONFIRMADO", "CONCLUIDO", "CANCELADO", "FALTA"]),
+    status: z.enum(["CONFIRMADO", "CHEGOU", "EM_ATENDIMENTO", "CONCLUIDO", "CANCELADO", "FALTA"]),
     formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).optional(),
   }),
   z.object({ acao: z.literal("sinal-devolvido") }),
@@ -63,7 +66,7 @@ export async function PATCH(
   }
 
   if ("servicoId" in dados.data) {
-    return trocarServico(agendamento, dados.data.servicoId);
+    return trocarServico(agendamento, sessao, dados.data.servicoId);
   }
 
   if ("acao" in dados.data) {
@@ -79,6 +82,18 @@ export async function PATCH(
   if (agendamento.status === "AGUARDANDO_PAGAMENTO" && status !== "CONFIRMADO" && status !== "CANCELADO") {
     return NextResponse.json(
       { erro: "Esse agendamento ainda espera o Pix do sinal. Confirme sem sinal ou cancele." },
+      { status: 409 },
+    );
+  }
+
+  if (!transicaoPermitida(agendamento.status, status)) {
+    return NextResponse.json(
+      {
+        erro:
+          agendamento.status === status
+            ? `O agendamento já está como "${ROTULO_STATUS[status]}". Atualize a agenda.`
+            : `Não dá para passar de "${ROTULO_STATUS[agendamento.status]}" para "${ROTULO_STATUS[status]}".`,
+      },
       { status: 409 },
     );
   }
@@ -131,6 +146,12 @@ export async function PATCH(
       // concluído desfaz os dois. O sinal pago fica no caixa até ser devolvido.
       if (status === "CONCLUIDO") await registrarConclusao(tx, agendamento, formaPagamento ?? null);
       else if (agendamento.status === "CONCLUIDO") await desfazerConclusao(tx, id);
+      await registrarHistorico(tx, id, autorDaSessao(sessao), {
+        acao: "STATUS",
+        statusDe: agendamento.status,
+        statusPara: status,
+        detalhe: status === "CONCLUIDO" && formaPagamento ? `Pago em ${ROTULO_FORMA_PAGAMENTO[formaPagamento]}` : null,
+      });
       return resultado;
     });
 
@@ -156,7 +177,13 @@ async function reagendar(
   const validado = await validarProfissional(sessao, profissionalId);
   if ("erro" in validado) return NextResponse.json({ erro: validado.erro }, { status: validado.status });
 
-  const resultado = await mudarHorario(agendamento, inicio, validado.profissional.id, opcoesHorarioPainel());
+  const resultado = await mudarHorario(
+    agendamento,
+    inicio,
+    validado.profissional.id,
+    autorDaSessao(sessao),
+    opcoesHorarioPainel(),
+  );
   if (!resultado.ok) return NextResponse.json({ erro: resultado.erro }, { status: resultado.status });
 
   notificarAgendamento("agendamento.remarcado", agendamento.id, { avisarBarbearia: false });
@@ -196,12 +223,16 @@ async function marcarSinalDevolvido(agendamento: Agendamento, papel: string) {
 // lançado no caixa é corrigido junto, e o horário não é conferido porque o
 // atendimento já aconteceu.
 async function trocarServico(
-  agendamento: Agendamento & { barbeiro: { comissaoPercentual: Prisma.Decimal | null } },
+  agendamento: Agendamento & {
+    servico: { nome: string };
+    barbeiro: { comissaoPercentual: Prisma.Decimal | null };
+  },
+  sessao: SessaoPayload,
   servicoId: string,
 ) {
-  if (agendamento.status !== "CONFIRMADO" && agendamento.status !== "CONCLUIDO") {
+  if (!estaEmAberto(agendamento.status) && agendamento.status !== "CONCLUIDO") {
     return NextResponse.json(
-      { erro: "Só dá para trocar o serviço de agendamentos confirmados ou concluídos." },
+      { erro: "Só dá para trocar o serviço de agendamentos em aberto ou concluídos." },
       { status: 409 },
     );
   }
@@ -221,7 +252,7 @@ async function trocarServico(
     const atualizado = await prisma.$transaction(async (tx) => {
       // Só o tempo a mais precisa estar livre: encurtar nunca invade ninguém,
       // e o trecho que o atendimento já ocupava continua sendo dele.
-      if (agendamento.status === "CONFIRMADO" && novoFim > agendamento.fim) {
+      if (estaEmAberto(agendamento.status) && novoFim > agendamento.fim) {
         const conflito = await tx.agendamento.findFirst({
           where: {
             barbeariaId: agendamento.barbeariaId,
@@ -259,6 +290,10 @@ async function trocarServico(
       const resultado = await tx.agendamento.update({
         where: { id: agendamento.id },
         data: { servicoId: servico.id, fim: novoFim },
+      });
+      await registrarHistorico(tx, agendamento.id, autorDaSessao(sessao), {
+        acao: "SERVICO",
+        detalhe: `${agendamento.servico.nome} → ${servico.nome}`,
       });
 
       // Concluído: refaz o restante no caixa (mantendo a forma de pagamento)

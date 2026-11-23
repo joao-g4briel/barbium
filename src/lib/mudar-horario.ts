@@ -5,6 +5,7 @@ import { horariosLivres } from "./agenda";
 import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { ehConflitoDeHorario } from "./conflito-horario";
 import { dentroDaJanelaDeLembrete } from "./lembrete-opcoes";
+import { horarioCurto, registrarHistorico, type Autor } from "./historico";
 
 // Muda o dia, o horário e/ou o profissional de um agendamento confirmado.
 // Usado pelo painel (equipe) e pelo link do cliente. Mesmas regras de um
@@ -23,6 +24,7 @@ export async function mudarHorario(
   agendamento: Agendamento,
   inicio: Date,
   profissionalId: string,
+  autor: Autor,
   grade: { passoMinutos?: number; aceitarDesde?: Date } = {},
 ): Promise<ResultadoMudanca> {
   if (agendamento.status !== "CONFIRMADO") {
@@ -53,6 +55,14 @@ export async function mudarHorario(
     where: { id: agendamento.barbeariaId },
     select: { lembreteHorasAntes: true },
   });
+  const novoProfissional =
+    profissionalId !== agendamento.barbeiroId
+      ? await prisma.usuario.findUnique({ where: { id: profissionalId }, select: { nome: true } })
+      : null;
+  const detalhe =
+    `${horarioCurto(agendamento.inicio)} → ${horarioCurto(inicio)}` +
+    (novoProfissional ? `, com ${novoProfissional.nome}` : "");
+
   const agora = new Date();
   const lembreteEnviadoEm = dentroDaJanelaDeLembrete(inicio, barbearia?.lembreteHorasAntes ?? null, agora)
     ? agora
@@ -79,6 +89,7 @@ export async function mudarHorario(
         data: { inicio, fim, barbeiroId: profissionalId, lembreteEnviadoEm },
       });
       if (mudou.count === 0) return null;
+      await registrarHistorico(tx, agendamento.id, autor, { acao: "HORARIO", detalhe });
       return tx.agendamento.findUniqueOrThrow({ where: { id: agendamento.id } });
     });
     if (!atualizado) {

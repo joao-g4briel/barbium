@@ -26,6 +26,8 @@ enum Plano {
 
 enum StatusAgendamento {
   CONFIRMADO
+  CHEGOU // o cliente chegou e está esperando
+  EM_ATENDIMENTO // o atendimento começou
   CONCLUIDO
   CANCELADO
   FALTA
@@ -147,10 +149,11 @@ model Usuario {
   // Sessões emitidas antes deste instante deixam de valer (troca/redefinição de senha).
   senhaAlteradaEm    DateTime?
 
-  agendamentos      Agendamento[]           @relation("BarbeiroAgendamentos")
-  expediente        ExpedienteDia[]
-  bloqueios         BloqueioAgenda[]
-  tokensRedefinicao TokenRedefinicaoSenha[]
+  agendamentos          Agendamento[]           @relation("BarbeiroAgendamentos")
+  expediente            ExpedienteDia[]
+  bloqueios             BloqueioAgenda[]
+  historicoAgendamentos AgendamentoHistorico[]
+  tokensRedefinicao     TokenRedefinicaoSenha[]
 
   @@index([barbeariaId])
   @@map("usuarios")
@@ -288,6 +291,7 @@ model Agendamento {
   lembreteEnviadoEm DateTime?
 
   caixaLancamentos CaixaLancamento[]
+  historico        AgendamentoHistorico[]
 
   @@index([barbeariaId, barbeiroId, inicio])
   @@index([status, sinalExpiraEm])
@@ -325,4 +329,32 @@ model LimiteTentativa {
 
   @@index([expiraEm])
   @@map("limites_tentativas")
+}
+
+enum AcaoHistorico {
+  CRIADO
+  STATUS
+  HORARIO
+  SERVICO
+}
+
+// Quem fez o quê num agendamento, e quando. Só cresce: nada aqui é editado.
+model AgendamentoHistorico {
+  id            String             @id @default(cuid())
+  agendamentoId String
+  agendamento   Agendamento        @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  acao          AcaoHistorico
+  statusDe      StatusAgendamento?
+  statusPara    StatusAgendamento?
+  // Texto pronto pra tela, ex.: "qui 26/11 09:00 → sex 27/11 10:30".
+  detalhe       String?
+  // Quem fez: alguém da equipe (usuarioId) ou o cliente / o sistema (sem usuário).
+  usuarioId     String?
+  usuario       Usuario?           @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  // Nome na hora, pra continuar legível mesmo se a pessoa mudar de nome.
+  autor         String
+  criadoEm      DateTime           @default(now())
+
+  @@index([agendamentoId, criadoEm])
+  @@map("agendamento_historico")
 }

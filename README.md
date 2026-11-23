@@ -79,6 +79,14 @@ A migration `20261103000000_trava_horario_e_limites` cria uma constraint que
 impede dois agendamentos ativos do mesmo profissional no mesmo horário. Ela
 não aparece no `schema.prisma` (o Prisma não representa esse tipo de
 constraint), mas o código depende dela — ver `src/lib/conflito-horario.ts`.
+A constraint lista os status que travam o horário; a
+`20261124010100_trava_horario_novos_status` a recria incluindo "chegou" e
+"em atendimento". **Status novo que ocupa horário precisa entrar nessa lista**
+(numa migration separada da que cria o valor no enum).
+
+Cada agendamento guarda o histórico de quem criou, mudou o status, o
+horário ou o serviço (`agendamento_historico`, ver `src/lib/historico.ts`),
+inclusive o cliente pelo link e o sistema (Pix pago ou expirado).
 
 A migration `20261123000000_cliente_mensagens_e_remocao` é **vazia de
 propósito**: foi registrada na produção por engano, sem nenhum SQL. Não

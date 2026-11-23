@@ -160,11 +160,17 @@ export function GerenciarHorario({
           <Clock size={28} />
         </span>
         <h2 className="etapa-titulo">
-          {ag.status === "AGUARDANDO_PAGAMENTO" ? "Aguardando o pagamento do sinal" : "Este atendimento já passou"}
+          {ag.status === "AGUARDANDO_PAGAMENTO"
+            ? "Aguardando o pagamento do sinal"
+            : ag.status === "CHEGOU" || ag.status === "EM_ATENDIMENTO"
+              ? "Seu atendimento está em andamento"
+              : "Este atendimento já passou"}
         </h2>
-        <Link href={linkAgendar} className="btn btn-primary">
-          Marcar um horário
-        </Link>
+        {ag.status !== "CHEGOU" && ag.status !== "EM_ATENDIMENTO" && (
+          <Link href={linkAgendar} className="btn btn-primary">
+            Marcar um horário
+          </Link>
+        )}
       </section>
     );
   }

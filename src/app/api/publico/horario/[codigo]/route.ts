@@ -6,6 +6,7 @@ import { ANTECEDENCIA_LINK_HORAS, podeAlterarPeloLink } from "@/lib/link-cliente
 import { mudarHorario } from "@/lib/mudar-horario";
 import { notificarAgendamento } from "@/lib/notificacoes";
 import { consumirTentativa } from "@/lib/limite-tentativas";
+import { AUTOR_CLIENTE_LINK, registrarHistorico } from "@/lib/historico";
 
 // O cliente muda ou cancela o próprio horário pelo link da mensagem. Mesmo
 // profissional e serviço; só horários livres; até ANTECEDENCIA_LINK_HORAS
@@ -40,9 +41,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
 
   if (dados.data.acao === "cancelar") {
     // Só cancela se ainda está confirmado (a equipe pode ter mexido agora).
-    const cancelado = await prisma.agendamento.updateMany({
-      where: { id: agendamento.id, status: "CONFIRMADO" },
-      data: { status: "CANCELADO" },
+    const cancelado = await prisma.$transaction(async (tx) => {
+      const r = await tx.agendamento.updateMany({
+        where: { id: agendamento.id, status: "CONFIRMADO" },
+        data: { status: "CANCELADO" },
+      });
+      if (r.count > 0) {
+        await registrarHistorico(tx, agendamento.id, AUTOR_CLIENTE_LINK, {
+          acao: "STATUS",
+          statusDe: "CONFIRMADO",
+          statusPara: "CANCELADO",
+        });
+      }
+      return r;
     });
     if (cancelado.count === 0) {
       return NextResponse.json({ erro: "Este agendamento acabou de mudar. Atualize a página." }, { status: 409 });
@@ -55,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
   if (inicio.getTime() - Date.now() < ANTECEDENCIA_LINK_HORAS * 60 * 60 * 1000) {
     return NextResponse.json({ erro: "Escolha um horário com pelo menos 2 horas de antecedência." }, { status: 409 });
   }
-  const resultado = await mudarHorario(agendamento, inicio, agendamento.barbeiroId);
+  const resultado = await mudarHorario(agendamento, inicio, agendamento.barbeiroId, AUTOR_CLIENTE_LINK);
   if (!resultado.ok) return NextResponse.json({ erro: resultado.erro }, { status: resultado.status });
 
   notificarAgendamento("agendamento.remarcado_pelo_cliente", agendamento.id, { anterior: agendamento.inicio });

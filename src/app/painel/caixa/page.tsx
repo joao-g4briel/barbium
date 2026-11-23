@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { STATUS_EM_ABERTO } from "@/lib/status-agendamento";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Clock, Plus, Receipt, Scale } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -46,10 +47,10 @@ export default async function PaginaCaixa({
       where: { barbeariaId: sessao.barbeariaId, criadoEm: { gte: inicio, lte: fim } },
       orderBy: { criadoEm: "desc" },
     }),
-    // Confirmados do período que ainda não foram concluídos: é o que falta
+    // Em aberto no período (confirmado, chegou, em atendimento): é o que falta
     // entrar no caixa (concluir um atendimento lança a entrada sozinho).
     prisma.agendamento.findMany({
-      where: { barbeariaId: sessao.barbeariaId, status: "CONFIRMADO", inicio: { gte: inicio, lte: fim } },
+      where: { barbeariaId: sessao.barbeariaId, status: { in: STATUS_EM_ABERTO }, inicio: { gte: inicio, lte: fim } },
       select: {
         servico: { select: { preco: true } },
         caixaLancamentos: { where: { origem: "SINAL" }, select: { valor: true } },

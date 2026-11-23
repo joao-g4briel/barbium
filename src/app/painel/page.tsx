@@ -24,6 +24,7 @@ import {
 } from "@/lib/formatar";
 import { INCLUIR_AGENDAMENTO_COMPLETO, obterServicosAtivos, paraAgendamentoVM } from "@/lib/agenda-vm";
 import { obterAssinaturasAVencer } from "@/lib/dashboard-painel";
+import { estaEmAberto } from "@/lib/status-agendamento";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { Indicador } from "@/components/ui/indicador";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
@@ -98,7 +99,8 @@ export default async function VisaoGeral({
 
   const ativos = agendamentos.filter((a) => a.status !== "CANCELADO");
   const concluidos = agendamentos.filter((a) => a.status === "CONCLUIDO");
-  const confirmados = agendamentos.filter((a) => a.status === "CONFIRMADO");
+  // Em aberto: confirmado, chegou ou em atendimento (ainda não entrou no caixa).
+  const confirmados = agendamentos.filter((a) => estaEmAberto(a.status));
   const cancelados = agendamentos.filter((a) => a.status === "CANCELADO").length;
   const faltas = agendamentos.filter((a) => a.status === "FALTA").length;
 
@@ -134,7 +136,7 @@ export default async function VisaoGeral({
               tomIcone="primario"
               detalhe={
                 aReceber > 0
-                  ? `${formatarMoeda(aReceber)} a receber de ${confirmados.length} ${confirmados.length === 1 ? "confirmado" : "confirmados"}`
+                  ? `${formatarMoeda(aReceber)} a receber de ${confirmados.length} ${confirmados.length === 1 ? "atendimento" : "atendimentos"}`
                   : "Nada pendente para hoje"
               }
             />
@@ -151,7 +153,7 @@ export default async function VisaoGeral({
             rotulo="Agendamentos"
             valor={ativos.length}
             icone={<CalendarCheck size={22} />}
-            detalhe={`${confirmados.length} ${confirmados.length === 1 ? "confirmado" : "confirmados"}`}
+            detalhe={`${confirmados.length} em aberto`}
           />
           <Indicador
             rotulo="Concluídos"

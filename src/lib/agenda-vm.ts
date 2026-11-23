@@ -1,4 +1,4 @@
-import type { Agendamento, CaixaLancamento, Cliente, Servico, Usuario } from "@prisma/client";
+import type { Agendamento, AgendamentoHistorico, CaixaLancamento, Cliente, Servico, Usuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AgendamentoVM, ServicoOpcaoVM } from "@/components/agenda/tipos";
 
@@ -7,6 +7,7 @@ export type AgendamentoCompleto = Agendamento & {
   servico: Servico;
   barbeiro: Usuario;
   caixaLancamentos: Pick<CaixaLancamento, "origem" | "valor" | "formaPagamento">[];
+  historico: Pick<AgendamentoHistorico, "id" | "criadoEm" | "acao" | "statusDe" | "statusPara" | "detalhe" | "autor">[];
 };
 
 export const INCLUIR_AGENDAMENTO_COMPLETO = {
@@ -14,6 +15,11 @@ export const INCLUIR_AGENDAMENTO_COMPLETO = {
   servico: true,
   barbeiro: true,
   caixaLancamentos: { select: { origem: true, valor: true, formaPagamento: true } },
+  historico: {
+    orderBy: { criadoEm: "desc" },
+    take: 20,
+    select: { id: true, criadoEm: true, acao: true, statusDe: true, statusPara: true, detalhe: true, autor: true },
+  },
 } as const;
 
 export function paraAgendamentoVM(agendamento: AgendamentoCompleto): AgendamentoVM {
@@ -46,6 +52,15 @@ export function paraAgendamentoVM(agendamento: AgendamentoCompleto): Agendamento
       agendamento.comissaoPercentual !== null && agendamento.comissaoValor !== null
         ? { percentual: Number(agendamento.comissaoPercentual), valor: Number(agendamento.comissaoValor) }
         : null,
+    historico: agendamento.historico.map((h) => ({
+      id: h.id,
+      quando: h.criadoEm.toISOString(),
+      acao: h.acao,
+      statusDe: h.statusDe,
+      statusPara: h.statusPara,
+      detalhe: h.detalhe,
+      autor: h.autor,
+    })),
   };
 }
 
