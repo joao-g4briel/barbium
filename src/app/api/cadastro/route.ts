@@ -90,6 +90,7 @@ export async function POST(request: Request) {
 
   // Início do teste grátis pra Meta (API de Conversões), com o mesmo id do
   // evento que o navegador dispara — é o evento que as campanhas otimizam.
+  console.info(`Cadastro criado: ${criado.slug} · meta ${metaConfigurada() ? "ligada" : "desligada"}`);
   if (metaConfigurada()) {
     const idEvento = typeof corpo?.eventoMeta === "string" ? corpo.eventoMeta.slice(0, 100) : `starttrial-${criado.barbeariaId}`;
     const pagina = typeof corpo?.paginaMeta === "string" ? corpo.paginaMeta.slice(0, 500) : undefined;

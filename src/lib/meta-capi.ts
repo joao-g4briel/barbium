@@ -84,7 +84,14 @@ export async function enviarEventoMeta(evento: EventoMeta): Promise<void> {
     body: JSON.stringify(corpo),
     signal: AbortSignal.timeout(8000),
   });
+  const texto = (await resposta.text()).slice(0, 300);
   if (!resposta.ok) {
-    throw new Error(`Meta CAPI ${resposta.status}: ${(await resposta.text()).slice(0, 300)}`);
+    throw new Error(`Meta CAPI ${resposta.status}: ${texto}`);
   }
+  // Registro curto de cada envio (aparece nos logs da Vercel). Mostra só o
+  // final do código de teste, pra conferir se bate com o do Gerenciador.
+  const teste = process.env.META_TEST_EVENT_CODE;
+  console.info(
+    `Meta CAPI ok: ${evento.nome} ${evento.eventId} · teste ${teste ? `…${teste.slice(-4)}` : "não"} · resposta ${texto}`,
+  );
 }
