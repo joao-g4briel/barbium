@@ -15,6 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Alerta } from "@/components/ui/alerta";
 import { NavFinanceiro } from "../nav-financeiro";
 import { ExtratoComissoes } from "./extrato-comissoes";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Comissões" };
 
@@ -26,12 +27,13 @@ export default async function PaginaComissoes({
   searchParams: Promise<{ periodo?: string; profissional?: string }>;
 }) {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   const params = await searchParams;
   const periodo = periodoValido(params.periodo);
-  const { inicio, fim } = intervaloPeriodo(periodo);
-  const intervalo = `${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" })} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" })}`;
+  const { inicio, fim } = intervaloPeriodo(periodo, fuso);
+  const intervalo = `${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" }, fuso)} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" }, fuso)}`;
 
   const abasPeriodo = (extra = "") => (
     <Abas
@@ -51,7 +53,7 @@ export default async function PaginaComissoes({
         <CabecalhoPagina titulo="Minhas comissões" descricao={intervalo} />
         <div className="pilha">
           {abasPeriodo()}
-          <ExtratoComissoes atendimentos={atendimentos} visaoDoDono={false} />
+          <ExtratoComissoes atendimentos={atendimentos} visaoDoDono={false} fuso={fuso} />
         </div>
       </>
     );
@@ -78,7 +80,7 @@ export default async function PaginaComissoes({
           <div className="pilha">
             <NavFinanceiro atual="comissoes" periodo={periodo} />
             {abasPeriodo(`&profissional=${profissional.id}`)}
-            <ExtratoComissoes atendimentos={atendimentos} visaoDoDono />
+            <ExtratoComissoes atendimentos={atendimentos} visaoDoDono fuso={fuso} />
           </div>
         </>
       );
@@ -99,7 +101,8 @@ async function ResumoDaEquipe({
   intervalo: string;
   abas: React.ReactNode;
 }) {
-  const { inicio, fim } = intervaloPeriodo(periodo);
+  const fuso = (await obterSessao())?.fuso ?? FUSO_PADRAO;
+  const { inicio, fim } = intervaloPeriodo(periodo, fuso);
   const atendimentos = await atendimentosComComissao(barbeariaId, { inicio, fim });
   const linhas = resumirPorProfissional(atendimentos);
   const total = totalizar(atendimentos);

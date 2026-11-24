@@ -11,19 +11,21 @@ export function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export function formatarHora(instante: Date): string {
+// `fuso`: fuso da barbearia (IANA, lib/fusos.ts); sem ele, Brasília.
+export function formatarHora(instante: Date, fuso: string = FUSO_BRASIL): string {
   return instante.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: FUSO_BRASIL,
+    timeZone: fuso,
   });
 }
 
 export function formatarDataInstante(
   instante: Date,
   opcoes: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit", year: "numeric" },
+  fuso: string = FUSO_BRASIL,
 ): string {
-  return instante.toLocaleDateString("pt-BR", { ...opcoes, timeZone: FUSO_BRASIL });
+  return instante.toLocaleDateString("pt-BR", { ...opcoes, timeZone: fuso });
 }
 
 export function formatarDiaCalendario(

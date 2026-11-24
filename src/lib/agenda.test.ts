@@ -6,11 +6,13 @@ const banco = vi.hoisted(() => ({
   expediente: null as null | Record<string, unknown>,
   agendamentos: [] as { id?: string; inicio: Date; fim: Date }[],
   bloqueios: [] as { inicio: Date; fim: Date | null }[],
+  fuso: "America/Sao_Paulo",
 }));
 
 vi.mock("./prisma", () => ({
   prisma: {
     expedienteDia: { findUnique: async () => banco.expediente },
+    barbearia: { findUnique: async () => ({ fuso: banco.fuso }) },
     agendamento: {
       findMany: async ({ where }: { where: { id?: { not: string } } }) =>
         banco.agendamentos.filter((a) => !where.id || a.id !== where.id.not),
@@ -46,12 +48,20 @@ const buscar = (
 describe("horários livres", () => {
   beforeEach(() => {
     banco.expediente = { atende: true, horaInicio: "09:00", horaFim: "12:00", almocoInicio: null, almocoFim: null };
+    banco.fuso = "America/Sao_Paulo";
     banco.agendamentos = [];
     banco.bloqueios = [];
   });
 
   it("monta a grade dentro do expediente, no horário de Brasília", async () => {
     expect(horas(await buscar(60))).toEqual(["09:00", "10:00", "11:00"]);
+  });
+
+  it("em Manaus, o expediente das 09:00 começa uma hora depois em UTC", async () => {
+    banco.fuso = "America/Manaus";
+    const grade = await buscar(60);
+    expect(grade[0]).toEqual(new Date("2026-11-04T13:00:00Z"));
+    expect(grade).toHaveLength(3);
   });
 
   it("não oferece horário que termina depois do expediente", async () => {

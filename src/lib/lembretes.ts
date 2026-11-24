@@ -91,7 +91,7 @@ export async function enviarLembretesPendentes(agora = new Date()): Promise<Resu
       }
 
       const dados = dadosDaMensagem(ag);
-      dados.quando = quandoRelativo(ag.inicio, agora, dados.quando);
+      dados.quando = quandoRelativo(ag.inicio, agora, dados.quando, ag.barbearia.fuso);
       envios.push(() =>
         postarWebhook({
           ...corpoDoWebhook("agendamento.lembrete", ag, dados),

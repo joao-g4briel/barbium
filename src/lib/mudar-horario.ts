@@ -1,7 +1,7 @@
 import "server-only";
 import type { Agendamento } from "@prisma/client";
 import { prisma } from "./prisma";
-import { horariosLivres } from "./agenda";
+import { horariosLivres, fusoDaBarbearia } from "./agenda";
 import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { ehConflitoDeHorario } from "./conflito-horario";
 import { dentroDaJanelaDeLembrete } from "./lembrete-opcoes";
@@ -37,10 +37,12 @@ export async function mudarHorario(
   const duracaoMinutos = Math.round((agendamento.fim.getTime() - agendamento.inicio.getTime()) / 60000);
   const fim = new Date(inicio.getTime() + duracaoMinutos * 60 * 1000);
 
+  const fuso = await fusoDaBarbearia(agendamento.barbeariaId);
   const disponiveis = await horariosLivres({
     barbeariaId: agendamento.barbeariaId,
     profissionalId,
-    data: inicioDoDiaBrasil(inicio),
+    fuso,
+    data: inicioDoDiaBrasil(inicio, fuso),
     duracaoMinutos,
     ignorarAgendamentoId: agendamento.id,
     ...grade,

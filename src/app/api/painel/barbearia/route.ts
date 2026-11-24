@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { exigirDono } from "@/lib/equipe";
 import { numeroWhatsApp } from "@/lib/formatar";
 import { lembreteValido } from "@/lib/lembrete-opcoes";
+import { fusoValido } from "@/lib/fusos";
 
-// Nome, telefone, WhatsApp dos avisos e antecedência do lembrete. O link (slug) e o plano ficam com a plataforma: trocar o
+// Nome, telefone, WhatsApp dos avisos, antecedência do lembrete e fuso horário. O link (slug) e o plano ficam com a plataforma: trocar o
 // link quebraria o que já foi divulgado aos clientes.
 const corpoSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome da barbearia."),
@@ -13,6 +14,8 @@ const corpoSchema = z.object({
   telefoneAvisos: z.string().trim().nullable().optional(),
   // Horas antes do horário pro lembrete do cliente; null desliga.
   lembreteHorasAntes: z.number().int().refine(lembreteValido).nullable().optional(),
+  // Fuso da cidade da barbearia: horários livres, agenda e mensagens seguem ele.
+  fuso: z.string().refine(fusoValido, "Fuso horário inválido.").optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -21,7 +24,7 @@ export async function PATCH(request: Request) {
 
   const dados = corpoSchema.safeParse(await request.json().catch(() => null));
   if (!dados.success) {
-    const nossa = dados.error.issues.find((i) => i.message.startsWith("Informe"))?.message;
+    const nossa = dados.error.issues.find((i) => i.message.startsWith("Informe") || i.message.startsWith("Fuso"))?.message;
     return NextResponse.json({ erro: nossa ?? "Dados inválidos." }, { status: 400 });
   }
 
@@ -43,6 +46,7 @@ export async function PATCH(request: Request) {
       telefone: telefone || null,
       ...(dados.data.telefoneAvisos !== undefined ? { telefoneAvisos: telefoneAvisos || null } : {}),
       ...(dados.data.lembreteHorasAntes !== undefined ? { lembreteHorasAntes: dados.data.lembreteHorasAntes } : {}),
+      ...(dados.data.fuso !== undefined ? { fuso: dados.data.fuso } : {}),
     },
   });
   return NextResponse.json({ ok: true });

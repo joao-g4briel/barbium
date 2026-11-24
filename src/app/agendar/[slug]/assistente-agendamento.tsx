@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Alerta } from "@/components/ui/alerta";
+import { useFuso } from "@/components/fuso-contexto";
 
 interface Servico {
   id: string;
@@ -64,8 +65,8 @@ function chaveDia(dia: Date): string {
   return `${dia.getUTCFullYear()}-${String(dia.getUTCMonth() + 1).padStart(2, "0")}-${String(dia.getUTCDate()).padStart(2, "0")}`;
 }
 
-function proximosDias(quantidade: number): Date[] {
-  const hoje = inicioDoDiaBrasil(new Date());
+function proximosDias(quantidade: number, fuso: string): Date[] {
+  const hoje = inicioDoDiaBrasil(new Date(), fuso);
   return Array.from({ length: quantidade }, (_, i) => new Date(hoje.getTime() + i * 24 * 60 * 60 * 1000));
 }
 
@@ -116,6 +117,7 @@ function Escolha({
 }
 
 export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: Props) {
+  const fuso = useFuso();
   const [servico, setServico] = useState<Servico | null>(null);
   const [profissional, setProfissional] = useState<Profissional | null>(null);
   const [dia, setDia] = useState<Date | null>(null);
@@ -168,7 +170,7 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
     };
   }, [pagamento, confirmado, pixExpirado, slug]);
 
-  const dias = proximosDias(7);
+  const dias = proximosDias(7, fuso);
   const passoAtual = !servico ? 0 : !profissional ? 1 : !horario ? 2 : 3;
 
   function trocarServico() {
@@ -294,11 +296,11 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
           </div>
           <div>
             <dt>Data</dt>
-            <dd>{capitalizar(formatarDataInstante(horario, { weekday: "long", day: "2-digit", month: "long" }))}</dd>
+            <dd>{capitalizar(formatarDataInstante(horario, { weekday: "long", day: "2-digit", month: "long" }, fuso))}</dd>
           </div>
           <div>
             <dt>Horário</dt>
-            <dd>{formatarHora(horario)}</dd>
+            <dd>{formatarHora(horario, fuso)}</dd>
           </div>
           {pagamento && sinalPago && (
             <>
@@ -343,8 +345,8 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
           Pague o sinal para confirmar
         </h2>
         <p className="texto-secundario">
-          {servico.nome} · {capitalizar(formatarDataInstante(horario, { weekday: "short", day: "2-digit", month: "2-digit" }))}{" "}
-          às {formatarHora(horario)}
+          {servico.nome} · {capitalizar(formatarDataInstante(horario, { weekday: "short", day: "2-digit", month: "2-digit" }, fuso))}{" "}
+          às {formatarHora(horario, fuso)}
         </p>
         <p className="num valor-destaque">
           {formatarMoeda(pagamento.valor)}
@@ -394,7 +396,7 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
         <Escolha
           icone={<CalendarCheck size={20} />}
           rotulo="Data e horário"
-          valor={`${capitalizar(formatarDiaCalendario(dia, { weekday: "short", day: "2-digit", month: "2-digit" }))} às ${formatarHora(horario)}`}
+          valor={`${capitalizar(formatarDiaCalendario(dia, { weekday: "short", day: "2-digit", month: "2-digit" }))} às ${formatarHora(horario, fuso)}`}
           onTrocar={trocarHorario}
         />
       )}
@@ -488,7 +490,7 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
                       onClick={() => setHorario(h)}
                       className="horario"
                     >
-                      {formatarHora(h)}
+                      {formatarHora(h, fuso)}
                     </button>
                   ))}
                 </div>

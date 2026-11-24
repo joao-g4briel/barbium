@@ -3,6 +3,7 @@ import { Manrope } from "next/font/google";
 import "./globals.css";
 import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
 import { MetaPixel } from "@/components/meta-pixel";
+import { Analitica } from "@/components/analitica";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
         {children}
         <RegistrarServiceWorker />
         <MetaPixel />
+        <Analitica />
       </body>
     </html>
   );

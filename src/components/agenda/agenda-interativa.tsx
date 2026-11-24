@@ -33,6 +33,7 @@ import {
 import { ROTULO_STATUS, estaEmAberto } from "@/lib/status-agendamento";
 import type { AgendamentoVM, GradeVM, GrupoAgendaVM, HistoricoVM, ServicoOpcaoVM } from "./tipos";
 import { MudarHorario, type HorarioEscolhido } from "./mudar-horario";
+import { useFuso } from "@/components/fuso-contexto";
 
 // ---------------------------------------------------------------------------
 // Mudança de status e troca de serviço — mesma rota PATCH; a API aplica as
@@ -279,13 +280,14 @@ function LinhaAgenda({
   aoAbrir: (id: string) => void;
   aoConcluir: () => void;
 }) {
+  const fuso = useFuso();
   const agoraAcontecendo = estaAcontecendo(ag, agoraMs);
   const inicio = new Date(ag.inicio);
 
   return (
     <div className="agenda-linha" data-agora={agoraAcontecendo || undefined}>
       <time className="agenda-hora" dateTime={ag.inicio}>
-        {formatarHora(inicio)}
+        {formatarHora(inicio, fuso)}
       </time>
       <span className="agenda-trilho" aria-hidden="true" />
       <article className="agendamento-card" data-agora={agoraAcontecendo || undefined} data-status={ag.status}>
@@ -296,7 +298,7 @@ function LinhaAgenda({
               <button type="button" className="agendamento-abrir" onClick={() => aoAbrir(ag.id)}>
                 {ag.cliente.nome}
                 <span className="sr-only">
-                  , {formatarHora(inicio)}, {ag.servico.nome} — ver detalhes
+                  , {formatarHora(inicio, fuso)}, {ag.servico.nome} — ver detalhes
                 </span>
               </button>
             </h3>
@@ -359,6 +361,7 @@ function GradeProfissionais({
   agoraMs: number;
   aoAbrir: (id: string) => void;
 }) {
+  const fuso = useFuso();
   const inicioDiaMs = Date.parse(grade.inicioDia);
   const minutosDoDia = (iso: string) => (Date.parse(iso) - inicioDiaMs) / 60000;
 
@@ -465,7 +468,7 @@ function GradeProfissionais({
                     >
                       <span className="grade-bloco-linha">
                         <span className="grade-bloco-horario">
-                          {formatarHora(inicio)} – {formatarHora(fim)}
+                          {formatarHora(inicio, fuso)} – {formatarHora(fim, fuso)}
                         </span>
                         <span className="grade-bloco-status">
                           <IconeStatus size={12} strokeWidth={2.4} aria-hidden="true" />
@@ -526,6 +529,7 @@ function PainelAgendamento({
   erro: string | null;
   limparErro: () => void;
 }) {
+  const fuso = useFuso();
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
   const [forma, setForma] = useState<FormaPagamento | null>(null);
   const [novoServicoId, setNovoServicoId] = useState("");
@@ -624,9 +628,9 @@ function PainelAgendamento({
       novoHorario.profissionalId !== ag.profissional.id
         ? profissionais.find((p) => p.id === novoHorario.profissionalId)?.nome
         : undefined;
-    const quando = formatarDataInstante(inicioNovo, { weekday: "long", day: "2-digit", month: "2-digit" });
+    const quando = formatarDataInstante(inicioNovo, { weekday: "long", day: "2-digit", month: "2-digit" }, fuso);
     aoReagendar(
-      `Horário de ${ag.cliente.nome} mudado para ${quando} às ${formatarHora(inicioNovo)}` +
+      `Horário de ${ag.cliente.nome} mudado para ${quando} às ${formatarHora(inicioNovo, fuso)}` +
         (outroProfissional ? `, com ${outroProfissional}` : "") +
         "." +
         (resultado.clienteAvisado ? " O cliente recebe o novo horário no WhatsApp." : ""),
@@ -898,7 +902,7 @@ function PainelAgendamento({
         {ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.expiraEm && (
           <Alerta tom="atencao">
             O cliente ainda não pagou o Pix do sinal. O horário fica reservado até{" "}
-            {formatarHora(new Date(ag.sinal.expiraEm))} e depois volta a ficar livre.
+            {formatarHora(new Date(ag.sinal.expiraEm), fuso)} e depois volta a ficar livre.
           </Alerta>
         )}
         {(ag.status === "CANCELADO" || ag.status === "FALTA") && ag.sinal?.status === "PAGO" && !ag.sinal.devolvido && (
@@ -933,13 +937,13 @@ function PainelAgendamento({
         <dl className="fatos">
           <div>
             <dt>Data</dt>
-            <dd>{capitalizar(formatarDataInstante(inicio, { weekday: "long", day: "2-digit", month: "long" }))}</dd>
+            <dd>{capitalizar(formatarDataInstante(inicio, { weekday: "long", day: "2-digit", month: "long" }, fuso))}</dd>
           </div>
           <div>
             <dt>Horário</dt>
             <dd className="fatos-valor-acao">
               <span>
-                {formatarHora(inicio)} – {formatarHora(fim)}
+                {formatarHora(inicio, fuso)} – {formatarHora(fim, fuso)}
               </span>
               {ag.status === "CONFIRMADO" && confirmacao === null && (
                 <button
@@ -948,7 +952,7 @@ function PainelAgendamento({
                   className="btn btn-secondary btn-sm fatos-acao"
                   onClick={iniciarMudanca}
                   disabled={processando}
-                  aria-label={`Mudar horário (atual: ${formatarHora(inicio)})`}
+                  aria-label={`Mudar horário (atual: ${formatarHora(inicio, fuso)})`}
                 >
                   Mudar
                 </button>
@@ -998,7 +1002,7 @@ function PainelAgendamento({
                   {mudouServico ? (
                     <>
                       <p>
-                        Novo horário: {formatarHora(inicio)} – {formatarHora(novoFim)} · {formatarMoeda(escolhido.preco)}
+                        Novo horário: {formatarHora(inicio, fuso)} – {formatarHora(novoFim, fuso)} · {formatarMoeda(escolhido.preco)}
                       </p>
                       {concluido && (
                         <p>
@@ -1122,6 +1126,7 @@ function descreverHistorico(h: HistoricoVM): string {
 }
 
 function HistoricoAgendamento({ itens }: { itens: HistoricoVM[] }) {
+  const fuso = useFuso();
   return (
     <details className="historico">
       <summary className="historico-titulo">
@@ -1135,7 +1140,7 @@ function HistoricoAgendamento({ itens }: { itens: HistoricoVM[] }) {
             <li key={h.id}>
               <span className="historico-texto">{descreverHistorico(h)}</span>
               <span className="texto-secundario texto-pequeno">
-                {formatarDataInstante(quando, { day: "2-digit", month: "2-digit" })} às {formatarHora(quando)} · {h.autor}
+                {formatarDataInstante(quando, { day: "2-digit", month: "2-digit" }, fuso)} às {formatarHora(quando, fuso)} · {h.autor}
               </span>
             </li>
           );

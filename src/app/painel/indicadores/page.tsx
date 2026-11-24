@@ -11,6 +11,7 @@ import { Abas } from "@/components/ui/abas";
 import { Indicador } from "@/components/ui/indicador";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Indicadores" };
 
@@ -42,6 +43,7 @@ function Ocupacao({ ind, nome }: { ind: Indicadores; nome: string }) {
 
 export default async function PaginaIndicadores({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   if (sessao.role !== "DONO") {
@@ -54,15 +56,15 @@ export default async function PaginaIndicadores({ searchParams }: { searchParams
   }
 
   const periodo = periodoValido((await searchParams).periodo);
-  const intervalo = intervaloPeriodo(periodo);
-  const { geral, porProfissional } = await obterIndicadores(sessao.barbeariaId, intervalo);
+  const intervalo = intervaloPeriodo(periodo, fuso);
+  const { geral, porProfissional } = await obterIndicadores(sessao.barbeariaId, intervalo, fuso);
   const finalizados = geral.concluidos + geral.faltas;
 
   return (
     <>
       <CabecalhoPagina
         titulo="Indicadores"
-        descricao={`${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(intervalo.inicio, { day: "2-digit", month: "2-digit" })} a ${formatarDataInstante(intervalo.fim, { day: "2-digit", month: "2-digit" })}`}
+        descricao={`${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(intervalo.inicio, { day: "2-digit", month: "2-digit" }, fuso)} a ${formatarDataInstante(intervalo.fim, { day: "2-digit", month: "2-digit" }, fuso)}`}
       />
 
       <div className="pilha">

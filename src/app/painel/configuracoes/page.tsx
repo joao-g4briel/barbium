@@ -19,6 +19,7 @@ import { urlDoLogo } from "@/components/publico/cabecalho-barbearia";
 import { FormularioBarbearia, FormularioPerfil, FormularioSenha } from "./formularios-conta";
 import { Alerta } from "@/components/ui/alerta";
 import { estadoWhatsapp } from "@/lib/whatsapp-adicional";
+import { ianaDoFuso } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -86,6 +87,7 @@ export default async function PaginaConfiguracoes() {
                   telefoneInicial={barbearia.telefone ? formatarTelefone(barbearia.telefone) : ""}
                   telefoneAvisosInicial={barbearia.telefoneAvisos ? formatarTelefone(barbearia.telefoneAvisos) : ""}
                   lembreteHorasAntesInicial={barbearia.lembreteHorasAntes}
+                  fusoInicial={ianaDoFuso(barbearia.fuso)}
                 />
                 <dl className="fatos">
                   <div>

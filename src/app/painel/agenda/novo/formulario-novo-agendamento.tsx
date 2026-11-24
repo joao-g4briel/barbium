@@ -10,6 +10,7 @@ import { Alerta } from "@/components/ui/alerta";
 import { Avatar } from "@/components/ui/avatar";
 import { apenasDigitos, formatarDuracao, formatarHora, formatarMoeda, formatarTelefone } from "@/lib/formatar";
 import type { ServicoOpcaoVM } from "@/components/agenda/tipos";
+import { useFuso } from "@/components/fuso-contexto";
 
 interface ClienteResumo {
   id: string;
@@ -42,6 +43,7 @@ export function FormularioNovoAgendamento({
   dataMinima: string;
   profissionalInicial: string;
 }) {
+  const fuso = useFuso();
   const router = useRouter();
 
   const [cliente, setCliente] = useState<ClienteResumo | null>(clienteInicial);
@@ -372,7 +374,7 @@ export function FormularioNovoAgendamento({
                     setErros((e) => ({ ...e, horario: undefined }));
                   }}
                 >
-                  {formatarHora(new Date(h))}
+                  {formatarHora(new Date(h), fuso)}
                 </button>
               ))}
             </div>

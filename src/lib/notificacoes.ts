@@ -6,6 +6,7 @@ import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { linkDoCliente, linkParaAgendar } from "./link-cliente";
 import { whatsappLigado } from "./whatsapp-adicional";
 import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formatarTelefone, numeroWhatsApp } from "./formatar";
+import { FUSO_PADRAO } from "./fusos";
 
 // Avisos automáticos por WhatsApp: pro dono (agendamento novo) e pro cliente
 // (horário marcado). O Barbium só dispara um POST pro webhook configurado
@@ -73,6 +74,7 @@ export const INCLUIR_NOTIFICACAO = {
       slug: true,
       telefone: true,
       telefoneAvisos: true,
+      fuso: true,
       whatsappAtivo: true,
       emTeste: true,
       acessoAte: true,
@@ -88,14 +90,14 @@ export function whatsappDoCliente(ag: AgendamentoNotificacao): string | null {
   return ag.cliente.aceitaMensagens ? numeroWhatsApp(ag.cliente.telefone) : null;
 }
 
-function porExtenso(instante: Date): string {
-  return `${capitalizar(formatarDataInstante(instante, { weekday: "long", day: "2-digit", month: "2-digit" }))} às ${formatarHora(instante)}`;
+function porExtenso(instante: Date, fuso: string = FUSO_PADRAO): string {
+  return `${capitalizar(formatarDataInstante(instante, { weekday: "long", day: "2-digit", month: "2-digit" }, fuso))} às ${formatarHora(instante, fuso)}`;
 }
 
 export function dadosDaMensagem(ag: AgendamentoNotificacao, anterior?: Date): DadosMensagem {
   return {
-    quando: porExtenso(ag.inicio),
-    quandoAnterior: anterior ? porExtenso(anterior) : null,
+    quando: porExtenso(ag.inicio, ag.barbearia.fuso),
+    quandoAnterior: anterior ? porExtenso(anterior, ag.barbearia.fuso) : null,
     linkCliente: linkDoCliente(ag.id),
     linkAgendar: linkParaAgendar(ag.barbearia.slug),
     cliente: ag.cliente.nome,
@@ -243,12 +245,12 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
 
 // "Hoje às 15:00" / "Amanhã às 09:00" no lembrete, que chega perto do horário.
 // Mais longe que isso, a data por extenso de sempre.
-export function quandoRelativo(inicio: Date, agora: Date, quandoPorExtenso: string): string {
+export function quandoRelativo(inicio: Date, agora: Date, quandoPorExtenso: string, fuso: string = FUSO_PADRAO): string {
   const dias = Math.round(
-    (inicioDoDiaBrasil(inicio).getTime() - inicioDoDiaBrasil(agora).getTime()) / (24 * 60 * 60 * 1000),
+    (inicioDoDiaBrasil(inicio, fuso).getTime() - inicioDoDiaBrasil(agora, fuso).getTime()) / (24 * 60 * 60 * 1000),
   );
-  if (dias === 0) return `Hoje às ${formatarHora(inicio)}`;
-  if (dias === 1) return `Amanhã às ${formatarHora(inicio)}`;
+  if (dias === 0) return `Hoje às ${formatarHora(inicio, fuso)}`;
+  if (dias === 1) return `Amanhã às ${formatarHora(inicio, fuso)}`;
   return quandoPorExtenso;
 }
 

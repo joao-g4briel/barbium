@@ -1,4 +1,5 @@
 import { inicioDoDiaBrasil, horarioBrasil } from "./fuso-brasil";
+import { FUSO_PADRAO } from "./fusos";
 
 export type PeriodoCaixa = "hoje" | "semana" | "mes" | "mes-passado";
 
@@ -14,8 +15,8 @@ export const ROTULO_PERIODO: Record<PeriodoCaixa, string> = {
 // Instantes reais em Brasília: da 00:00 do primeiro dia até 23:59:59.999
 // do último. inicioDoDiaBrasil devolve o DIA de calendário (meia-noite UTC);
 // usar esse valor direto como instante deslocava o período em 3 horas.
-export function intervaloPeriodo(periodo: PeriodoCaixa): { inicio: Date; fim: Date } {
-  const hoje = inicioDoDiaBrasil(new Date());
+export function intervaloPeriodo(periodo: PeriodoCaixa, fuso: string = FUSO_PADRAO): { inicio: Date; fim: Date } {
+  const hoje = inicioDoDiaBrasil(new Date(), fuso);
 
   let primeiroDia: Date;
   let ultimoDia = hoje;
@@ -33,8 +34,8 @@ export function intervaloPeriodo(periodo: PeriodoCaixa): { inicio: Date; fim: Da
   }
 
   return {
-    inicio: horarioBrasil(primeiroDia, 0),
-    fim: new Date(horarioBrasil(ultimoDia, 24 * 60).getTime() - 1),
+    inicio: horarioBrasil(primeiroDia, 0, fuso),
+    fim: new Date(horarioBrasil(ultimoDia, 24 * 60, fuso).getTime() - 1),
   };
 }
 

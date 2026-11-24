@@ -2,6 +2,7 @@ import "server-only";
 import type { AcaoHistorico, Prisma, StatusAgendamento } from "@prisma/client";
 import { prisma } from "./prisma";
 import { capitalizar, formatarDataInstante, formatarHora } from "./formatar";
+import { FUSO_PADRAO } from "./fusos";
 
 // Histórico do agendamento: quem criou, mudou o status, o horário ou o
 // serviço, e quando. Gravado junto com a mudança (mesma transação, quando há
@@ -48,7 +49,7 @@ export async function registrarHistorico(
 }
 
 // "Qui 26/11 09:00"
-export function horarioCurto(instante: Date): string {
-  const dia = formatarDataInstante(instante, { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "").replace(",", "");
-  return `${capitalizar(dia)} ${formatarHora(instante)}`;
+export function horarioCurto(instante: Date, fuso: string = FUSO_PADRAO): string {
+  const dia = formatarDataInstante(instante, { weekday: "short", day: "2-digit", month: "2-digit" }, fuso).replace(".", "").replace(",", "");
+  return `${capitalizar(dia)} ${formatarHora(instante, fuso)}`;
 }

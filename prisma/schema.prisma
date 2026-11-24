@@ -104,6 +104,8 @@ model Barbearia {
   avisoTesteFimEm      DateTime?
   // Página de agendamento: endereço, cor da marca (#rrggbb) e logo (imagem
   // na tabela barbearia_logos; a data serve pra renovar o cache da imagem).
+  // Fuso horário da barbearia (IANA, lib/fusos.ts). Brasília por padrão.
+  fuso                 String         @default("America/Sao_Paulo")
   endereco             String?
   corMarca             String?
   logoAtualizadoEm     DateTime?

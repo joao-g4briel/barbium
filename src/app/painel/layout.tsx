@@ -7,6 +7,7 @@ import { Shell } from "@/components/app/shell";
 import type { GrupoNav, ItemNav } from "@/components/app/navegacao";
 import { AcessoVencido, FaixaTeste } from "@/components/app/aviso-acesso";
 import { diasRestantes } from "@/lib/acesso";
+import { ProvedorFuso } from "@/components/fuso-contexto";
 
 export default async function LayoutPainel({ children }: { children: React.ReactNode }) {
   const sessao = await obterSessao();
@@ -43,29 +44,31 @@ export default async function LayoutPainel({ children }: { children: React.React
     : [minhasComissoes, servicos, configuracoes];
 
   return (
-    <Shell
-      variante="barbearia"
-      contexto={{
-        nome: barbearia?.nome ?? "Sua barbearia",
-        detalhe: barbearia ? `Plano ${ROTULO_PLANO[barbearia.plano]}` : "",
-      }}
-      usuario={{ nome: sessao.nome, papel: ROTULO_PAPEL[sessao.role] }}
-      inicio="/painel"
-      perfilHref="/painel/configuracoes"
-      grupos={grupos}
-      navInferior={{ principais, demais }}
-    >
-      {sessao.acessoVencido ? (
-        // Teste ou assinatura vencidos: no lugar de qualquer página, como assinar.
-        <AcessoVencido souDono={souDono} emTeste={barbearia?.emTeste ?? false} plano={barbearia?.plano ?? "SOLO"} />
-      ) : (
-        <>
-          {barbearia?.emTeste && barbearia.acessoAte && (
-            <FaixaTeste dias={diasRestantes(barbearia) ?? 0} souDono={souDono} />
-          )}
-          {children}
-        </>
-      )}
-    </Shell>
+    <ProvedorFuso fuso={sessao.fuso}>
+      <Shell
+        variante="barbearia"
+        contexto={{
+          nome: barbearia?.nome ?? "Sua barbearia",
+          detalhe: barbearia ? `Plano ${ROTULO_PLANO[barbearia.plano]}` : "",
+        }}
+        usuario={{ nome: sessao.nome, papel: ROTULO_PAPEL[sessao.role] }}
+        inicio="/painel"
+        perfilHref="/painel/configuracoes"
+        grupos={grupos}
+        navInferior={{ principais, demais }}
+      >
+        {sessao.acessoVencido ? (
+          // Teste ou assinatura vencidos: no lugar de qualquer página, como assinar.
+          <AcessoVencido souDono={souDono} emTeste={barbearia?.emTeste ?? false} plano={barbearia?.plano ?? "SOLO"} />
+        ) : (
+          <>
+            {barbearia?.emTeste && barbearia.acessoAte && (
+              <FaixaTeste dias={diasRestantes(barbearia) ?? 0} souDono={souDono} />
+            )}
+            {children}
+          </>
+        )}
+      </Shell>
+    </ProvedorFuso>
   );
 }

@@ -64,7 +64,8 @@ export async function POST(request: Request) {
   const disponiveis = await horariosLivres({
     barbeariaId,
     profissionalId: profissional.id,
-    data: inicioDoDiaBrasil(inicio),
+    data: inicioDoDiaBrasil(inicio, sessao.fuso),
+    fuso: sessao.fuso,
     duracaoMinutos: servico.duracaoMinutos,
     ...opcoesHorarioPainel(),
   });

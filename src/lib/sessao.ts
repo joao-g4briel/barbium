@@ -4,11 +4,13 @@ import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { COOKIE_NAME, verificarTokenSessao, type SessaoPayload } from "./auth";
 import { acessoVencido } from "./acesso";
+import { ianaDoFuso } from "./fusos";
 
 // Sessão válida mais o estado do acesso da barbearia: com o teste ou a
 // assinatura vencidos, a pessoa continua logada (pra ver como assinar), mas
 // o painel e as rotas da equipe ficam bloqueados.
-export type SessaoComAcesso = SessaoPayload & { acessoVencido: boolean };
+// fuso: fuso horário da barbearia (IANA, lib/fusos.ts); Brasília para o super admin.
+export type SessaoComAcesso = SessaoPayload & { acessoVencido: boolean; fuso: string };
 
 // Lê e valida o cookie de sessão no servidor (Server Components, Server
 // Actions e Route Handlers). Retorna null se não houver sessão válida.
@@ -33,7 +35,7 @@ export const obterSessao = cache(async (): Promise<SessaoComAcesso | null> => {
       ativo: true,
       barbeariaId: true,
       senhaAlteradaEm: true,
-      barbearia: { select: { ativo: true, acessoAte: true } },
+      barbearia: { select: { ativo: true, acessoAte: true, fuso: true } },
     },
   });
   if (!usuario || !usuario.ativo) return null;
@@ -51,6 +53,7 @@ export const obterSessao = cache(async (): Promise<SessaoComAcesso | null> => {
     role: usuario.role,
     barbeariaId: usuario.barbeariaId,
     acessoVencido: usuario.barbearia ? acessoVencido(usuario.barbearia) : false,
+    fuso: ianaDoFuso(usuario.barbearia?.fuso),
   };
 });
 
@@ -62,7 +65,7 @@ export async function exigirSuperAdmin(): Promise<SessaoPayload> {
   return sessao;
 }
 
-export async function exigirUsuarioDaBarbearia(): Promise<SessaoPayload> {
+export async function exigirUsuarioDaBarbearia(): Promise<SessaoComAcesso> {
   const sessao = await obterSessao();
   if (
     !sessao ||

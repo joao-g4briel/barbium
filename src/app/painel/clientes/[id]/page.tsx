@@ -19,12 +19,14 @@ import { FormularioEditarCliente } from "./formulario-editar-cliente";
 import { SecaoAssinatura } from "./secao-assinatura";
 import { BotaoExcluirCliente } from "./botao-excluir-cliente";
 import { PreferenciaMensagens } from "./preferencia-mensagens";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Cliente" };
 
 export default async function DetalheCliente({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   const cliente = await prisma.cliente.findUnique({ where: { id } });
@@ -59,7 +61,7 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
         titulo={cliente.nome}
         descricao={
           removido ? (
-            `Dados pessoais removidos em ${formatarDataInstante(cliente.removidoEm!)}. O histórico fica para o caixa e as comissões.`
+            `Dados pessoais removidos em ${formatarDataInstante(cliente.removidoEm!, undefined, fuso)}. O histórico fica para o caixa e as comissões.`
           ) : (
             <span className="num">{formatarTelefone(cliente.telefone)}</span>
           )
@@ -94,7 +96,7 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
           <Indicador rotulo="Concluídos" valor={totalConcluidos} icone={<CheckCircle2 size={22} />} tomIcone="primario" />
           <Indicador
             rotulo="Último atendimento"
-            valor={ultimoConcluido ? formatarDataInstante(ultimoConcluido.inicio) : "—"}
+            valor={ultimoConcluido ? formatarDataInstante(ultimoConcluido.inicio, undefined, fuso) : "—"}
             icone={<History size={22} />}
           />
         </section>
@@ -124,7 +126,7 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
                   <div key={agendamento.id} className="lista-item">
                     <div className="lista-item-principal">
                       <p className="lista-item-titulo num">
-                        {formatarDataInstante(agendamento.inicio)} às {formatarHora(agendamento.inicio)}
+                        {formatarDataInstante(agendamento.inicio, undefined, fuso)} às {formatarHora(agendamento.inicio, fuso)}
                       </p>
                       <p className="lista-item-sub">
                         {agendamento.servico.nome} · {agendamento.barbeiro.nome}

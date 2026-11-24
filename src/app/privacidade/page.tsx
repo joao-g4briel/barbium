@@ -98,7 +98,7 @@ export default function PaginaPrivacidade() {
             <>
               <p>Não vendemos dados. Usamos fornecedores que tratam dados só para prestar o serviço:</p>
               <ul>
-                <li>Vercel (hospedagem do site e do sistema) e Neon (banco de dados).</li>
+                <li>Vercel (hospedagem do site e do sistema, e contagem de visitas) e Neon (banco de dados).</li>
                 <li>Cakto (pagamento da assinatura) e Mercado Pago (Pix do sinal, quando a barbearia usa).</li>
                 <li>Resend (envio de e-mails, como o de redefinir senha).</li>
                 <li>WhatsApp e a infraestrutura de envio das mensagens automáticas, quando o adicional está ligado.</li>
@@ -113,7 +113,8 @@ export default function PaginaPrivacidade() {
           conteudo: (
             <p>
               Usamos apenas o cookie de sessão necessário para manter você conectado ao painel. Não usamos cookies de publicidade nem de
-              rastreamento.
+              rastreamento. Para saber quantas pessoas visitam o site, usamos a contagem de visitas da Vercel, que não usa cookies e não
+              identifica quem visita.
             </p>
           ),
         },

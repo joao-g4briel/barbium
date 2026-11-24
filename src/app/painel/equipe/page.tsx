@@ -15,6 +15,7 @@ import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Equipe" };
 
@@ -30,6 +31,7 @@ function resumoExpediente(expediente: ExpedienteDia[]): { dias: string; horario:
 
 export default async function PaginaEquipe() {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   if (sessao.role !== "DONO") {
@@ -47,7 +49,7 @@ export default async function PaginaEquipe() {
       include: { expediente: true },
       orderBy: [{ ativo: "desc" }, { nome: "asc" }],
     }),
-    obterOcupacaoSemana(sessao.barbeariaId),
+    obterOcupacaoSemana(sessao.barbeariaId, fuso),
     obterBarbearia(sessao.barbeariaId),
   ]);
 

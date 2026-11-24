@@ -23,10 +23,10 @@ function escaparHtml(texto: string): string {
 
 export function montarAvisoDeTeste(
   etapa: EtapaAvisoTeste,
-  dados: { nomeDono: string; barbearia: string; acessoAte: Date; linkAssinatura: string },
+  dados: { nomeDono: string; barbearia: string; acessoAte: Date; linkAssinatura: string; fuso?: string },
 ) {
   const primeiroNome = dados.nomeDono.trim().split(/\s+/)[0] || dados.nomeDono;
-  const quando = formatarDataInstante(dados.acessoAte, { weekday: "long", day: "2-digit", month: "2-digit" }).toLowerCase();
+  const quando = formatarDataInstante(dados.acessoAte, { weekday: "long", day: "2-digit", month: "2-digit" }, dados.fuso).toLowerCase();
   const contato = `https://wa.me/${WHATSAPP_VENDAS}`;
   if (etapa === "acabando") {
     const linhas = [
@@ -103,6 +103,7 @@ export async function enviarAvisosDeTeste(agora = new Date()): Promise<Resultado
       nome: true,
       telefone: true,
       telefoneAvisos: true,
+      fuso: true,
       emTeste: true,
       acessoAte: true,
       avisoTesteAcabandoEm: true,
@@ -125,6 +126,7 @@ export async function enviarAvisosDeTeste(agora = new Date()): Promise<Resultado
       barbearia: b.nome,
       acessoAte: b.acessoAte,
       linkAssinatura,
+      fuso: b.fuso,
     });
     const envios: Promise<void>[] = [];
     const para = numeroWhatsApp(b.telefoneAvisos ?? b.telefone ?? "");

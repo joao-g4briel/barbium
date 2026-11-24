@@ -11,6 +11,8 @@ import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
 import { estiloDaMarca } from "@/lib/cor-marca";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { AssistenteAgendamento } from "./assistente-agendamento";
+import { ProvedorFuso } from "@/components/fuso-contexto";
+import { ianaDoFuso } from "@/lib/fusos";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -80,17 +82,19 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
             />
           </div>
         ) : (
-          <AssistenteAgendamento
-            slug={slug}
-            servicos={barbearia.servicos.map((s) => ({
-              id: s.id,
-              nome: s.nome,
-              duracaoMinutos: s.duracaoMinutos,
-              preco: Number(s.preco),
-            }))}
-            profissionais={barbearia.usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
-            sinal={sinal}
-          />
+          <ProvedorFuso fuso={ianaDoFuso(barbearia.fuso)}>
+            <AssistenteAgendamento
+              slug={slug}
+              servicos={barbearia.servicos.map((s) => ({
+                id: s.id,
+                nome: s.nome,
+                duracaoMinutos: s.duracaoMinutos,
+                preco: Number(s.preco),
+              }))}
+              profissionais={barbearia.usuarios.map((u) => ({ id: u.id, nome: u.nome }))}
+              sinal={sinal}
+            />
+          </ProvedorFuso>
         )}
       </main>
 

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { horarioBrasil } from "./fuso-brasil";
+import { ianaDoFuso } from "./fusos";
 import { liberarSinaisExpirados } from "./sinal";
 import type { DiaSemana } from "@prisma/client";
 
@@ -35,6 +36,14 @@ interface ParametrosHorariosLivres {
   // Ao mudar o horário de um agendamento, o lugar que ele ocupa hoje conta
   // como livre (dá pra empurrar 15 minutos sem "colidir" consigo mesmo).
   ignorarAgendamentoId?: string;
+  // Fuso da barbearia; sem ele, é buscado pelo barbeariaId.
+  fuso?: string;
+}
+
+// Fuso horário (IANA) da barbearia; Brasília se não achar.
+export async function fusoDaBarbearia(barbeariaId: string): Promise<string> {
+  const b = await prisma.barbearia.findUnique({ where: { id: barbeariaId }, select: { fuso: true } });
+  return ianaDoFuso(b?.fuso);
 }
 
 // No painel a grade é mais fina (encaixes) e aceita o horário que acabou de
@@ -61,6 +70,7 @@ export async function horariosLivres({
   passoMinutos,
   aceitarDesde,
   ignorarAgendamentoId,
+  fuso: fusoInformado,
 }: ParametrosHorariosLivres): Promise<Date[]> {
   // `data` já chega como meia-noite UTC do dia certo em Brasília (ver o
   // comentário no parâmetro) — não é um instante bruto que precise passar
@@ -75,8 +85,10 @@ export async function horariosLivres({
 
   if (!expediente || !expediente.atende) return [];
 
-  const inicioDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaInicio));
-  const fimDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaFim));
+  // O expediente ("09:00") é no horário local da barbearia.
+  const fuso = fusoInformado ?? (await fusoDaBarbearia(barbeariaId));
+  const inicioDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaInicio), fuso);
+  const fimDoDia = horarioBrasil(data, horaParaMinutos(expediente.horaFim), fuso);
   if (fimDoDia <= inicioDoDia) return [];
 
   await liberarSinaisExpirados(barbeariaId);
@@ -111,8 +123,8 @@ export async function horariosLivres({
 
   if (expediente.almocoInicio && expediente.almocoFim) {
     ocupados.push({
-      inicio: horarioBrasil(data, horaParaMinutos(expediente.almocoInicio)),
-      fim: horarioBrasil(data, horaParaMinutos(expediente.almocoFim)),
+      inicio: horarioBrasil(data, horaParaMinutos(expediente.almocoInicio), fuso),
+      fim: horarioBrasil(data, horaParaMinutos(expediente.almocoFim), fuso),
     });
   }
 

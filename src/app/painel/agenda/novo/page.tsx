@@ -7,6 +7,7 @@ import { obterServicosAtivos } from "@/lib/agenda-vm";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioNovoAgendamento } from "./formulario-novo-agendamento";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Novo agendamento" };
 
@@ -20,6 +21,7 @@ export default async function NovoAgendamento({
   searchParams: Promise<{ data?: string; profissional?: string; cliente?: string }>;
 }) {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
   const params = await searchParams;
   const souDono = sessao.role === "DONO";
@@ -45,7 +47,7 @@ export default async function NovoAgendamento({
       : Promise.resolve(null),
   ]);
 
-  const hoje = chaveDia(inicioDoDiaBrasil(new Date()));
+  const hoje = chaveDia(inicioDoDiaBrasil(new Date(), fuso));
   const dataInicial = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) && params.data >= hoje ? params.data : hoje;
   const profissionalInicial =
     profissionais.find((p) => p.id === params.profissional)?.id ??

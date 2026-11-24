@@ -8,6 +8,8 @@ import { agendamentoDoLink } from "@/lib/horario-do-cliente";
 import { ANTECEDENCIA_LINK_HORAS, podeAlterarPeloLink } from "@/lib/link-cliente";
 import { linkWhatsApp } from "@/lib/formatar";
 import { GerenciarHorario } from "./gerenciar-horario";
+import { ProvedorFuso } from "@/components/fuso-contexto";
+import { ianaDoFuso } from "@/lib/fusos";
 
 // Página que o cliente abre pelo link da mensagem: vê o horário e, até
 // ANTECEDENCIA_LINK_HORAS antes, muda ou cancela. Sem login; o código no
@@ -36,21 +38,23 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
       />
 
       <main className="publico-main">
-        <GerenciarHorario
-          codigo={codigo}
-          agendamento={{
-            inicio: ag.inicio.toISOString(),
-            fim: ag.fim.toISOString(),
-            status: ag.status,
-            servico: ag.servico.nome,
-            profissional: ag.barbeiro.nome,
-            sinalPago: ag.sinalStatus === "PAGO" && ag.sinalValor !== null && !ag.sinalDevolvidoEm ? Number(ag.sinalValor) : null,
-          }}
-          podeAlterar={podeAlterarPeloLink(ag)}
-          antecedenciaHoras={ANTECEDENCIA_LINK_HORAS}
-          whatsappBarbearia={ag.barbearia.telefone ? linkWhatsApp(ag.barbearia.telefone) : null}
-          linkAgendar={`/agendar/${ag.barbearia.slug}`}
-        />
+        <ProvedorFuso fuso={ianaDoFuso(ag.barbearia.fuso)}>
+          <GerenciarHorario
+            codigo={codigo}
+            agendamento={{
+              inicio: ag.inicio.toISOString(),
+              fim: ag.fim.toISOString(),
+              status: ag.status,
+              servico: ag.servico.nome,
+              profissional: ag.barbeiro.nome,
+              sinalPago: ag.sinalStatus === "PAGO" && ag.sinalValor !== null && !ag.sinalDevolvidoEm ? Number(ag.sinalValor) : null,
+            }}
+            podeAlterar={podeAlterarPeloLink(ag)}
+            antecedenciaHoras={ANTECEDENCIA_LINK_HORAS}
+            whatsappBarbearia={ag.barbearia.telefone ? linkWhatsApp(ag.barbearia.telefone) : null}
+            linkAgendar={`/agendar/${ag.barbearia.slug}`}
+          />
+        </ProvedorFuso>
       </main>
 
       <footer className="publico-rodape">

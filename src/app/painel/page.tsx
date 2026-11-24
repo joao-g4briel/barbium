@@ -37,6 +37,7 @@ import { obterBarbearia } from "@/lib/barbearia-atual";
 import { linkParaAgendar } from "@/lib/link-cliente";
 import { whatsappLigado } from "@/lib/whatsapp-adicional";
 import { COOKIE_PASSOS_OCULTOS, montarPassos, type Passo } from "@/lib/primeiros-passos";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -58,14 +59,15 @@ export default async function VisaoGeral({
   }
 
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
   const barbeariaId = sessao.barbeariaId;
   const souDono = sessao.role === "DONO";
 
   const agora = new Date();
-  const hoje = inicioDoDiaBrasil(agora);
-  const inicioHoje = horarioBrasil(hoje, 0);
-  const fimHoje = new Date(horarioBrasil(hoje, 24 * 60).getTime() - 1);
+  const hoje = inicioDoDiaBrasil(agora, fuso);
+  const inicioHoje = horarioBrasil(hoje, 0, fuso);
+  const fimHoje = new Date(horarioBrasil(hoje, 24 * 60, fuso).getTime() - 1);
 
   await liberarSinaisExpirados(barbeariaId);
 
@@ -162,7 +164,7 @@ export default async function VisaoGeral({
     <>
       <CabecalhoPagina
         titulo="Visão geral"
-        descricao={`Hoje, ${formatarDataInstante(agora, { weekday: "long", day: "2-digit", month: "long" })}`}
+        descricao={`Hoje, ${formatarDataInstante(agora, { weekday: "long", day: "2-digit", month: "long" }, fuso)}`}
         acoes={<BotaoNovoAgendamento />}
       />
 
@@ -197,7 +199,7 @@ export default async function VisaoGeral({
               valor={proximos.length}
               icone={<Clock size={22} />}
               tomIcone="primario"
-              detalhe={proximos[0] ? `Próximo às ${formatarHora(proximos[0].inicio)}` : "Nenhum atendimento restante"}
+              detalhe={proximos[0] ? `Próximo às ${formatarHora(proximos[0].inicio, fuso)}` : "Nenhum atendimento restante"}
             />
           )}
           <Indicador
@@ -275,7 +277,7 @@ export default async function VisaoGeral({
                     <li key={a.id} className="proximo">
                       <div>
                         <time className="proximo-hora" dateTime={a.inicio.toISOString()}>
-                          {formatarHora(a.inicio)}
+                          {formatarHora(a.inicio, fuso)}
                         </time>
                         <p className="proximo-relativo">{capitalizar(formatarTempoAte(minutos))}</p>
                       </div>
@@ -338,8 +340,8 @@ export default async function VisaoGeral({
                           <td className="tabela-td-principal tabela-celula-principal">{l.descricao ?? "Lançamento"}</td>
                           <td data-rotulo="Data" className="num">
                             <span>
-                              {formatarDataInstante(l.criadoEm, { day: "2-digit", month: "2-digit" })}{" "}
-                              <span className="texto-secundario">{formatarHora(l.criadoEm)}</span>
+                              {formatarDataInstante(l.criadoEm, { day: "2-digit", month: "2-digit" }, fuso)}{" "}
+                              <span className="texto-secundario">{formatarHora(l.criadoEm, fuso)}</span>
                             </span>
                           </td>
                           <td data-rotulo="Origem" className="texto-secundario">
@@ -376,7 +378,7 @@ export default async function VisaoGeral({
                         <p className="lista-item-titulo">{a.nome}</p>
                         <p className="lista-item-sub">
                           {a.vencida ? "Venceu em " : "Vence em "}
-                          {formatarDataInstante(a.vencimento, { day: "2-digit", month: "2-digit" })}
+                          {formatarDataInstante(a.vencimento, { day: "2-digit", month: "2-digit" }, fuso)}
                         </p>
                       </div>
                       <Badge tom={a.vencida ? "atencao" : "info"}>{a.vencida ? "Vencida" : "Vencendo"}</Badge>

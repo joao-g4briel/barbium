@@ -14,9 +14,11 @@ import { Alerta } from "@/components/ui/alerta";
 export function ExtratoComissoes({
   atendimentos,
   visaoDoDono,
+  fuso,
 }: {
   atendimentos: AtendimentoComissao[];
   visaoDoDono: boolean;
+  fuso: string;
 }) {
   const total = totalizar(atendimentos);
   const comComissao = total.atendimentos - total.semPercentual;
@@ -111,7 +113,7 @@ export function ExtratoComissoes({
                     <td className="tabela-td-principal">
                       <p className="tabela-celula-principal">{a.cliente}</p>
                       <p className="texto-secundario texto-pequeno num">
-                        {formatarDataInstante(a.inicio, { day: "2-digit", month: "2-digit" })} às {formatarHora(a.inicio)}
+                        {formatarDataInstante(a.inicio, { day: "2-digit", month: "2-digit" }, fuso)} às {formatarHora(a.inicio, fuso)}
                       </p>
                     </td>
                     <td data-rotulo="Serviço">{a.servico}</td>

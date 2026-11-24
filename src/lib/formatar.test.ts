@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatarTelefone, linkWhatsApp } from "./formatar";
+import { formatarHora, formatarTelefone, linkWhatsApp } from "./formatar";
 
 describe("telefone", () => {
   it("formata celular e fixo com DDD", () => {
@@ -15,5 +15,13 @@ describe("telefone", () => {
     expect(linkWhatsApp("(11) 98765-4321")).toBe("https://wa.me/5511987654321");
     expect(linkWhatsApp("5511987654321")).toBe("https://wa.me/5511987654321");
     expect(linkWhatsApp("98765-4321")).toBeNull();
+  });
+});
+
+describe("formatarHora em outro fuso", () => {
+  it("mostra a hora local da barbearia", () => {
+    const instante = new Date("2026-11-04T13:00:00Z");
+    expect(formatarHora(instante)).toBe("10:00");
+    expect(formatarHora(instante, "America/Manaus")).toBe("09:00");
   });
 });

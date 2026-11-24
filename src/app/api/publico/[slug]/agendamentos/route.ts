@@ -86,11 +86,12 @@ export async function POST(
   // horário, almoço) e não cai em cima de um bloqueio — reaproveita a
   // mesma função que gera a lista de horários oferecidos, pra não ter
   // duas regras de negócio diferentes que podem se desalinhar.
-  const inicioDoDia = inicioDoDiaBrasil(inicio);
+  const inicioDoDia = inicioDoDiaBrasil(inicio, barbearia.fuso);
   const disponiveis = await horariosLivres({
     barbeariaId: barbearia.id,
     profissionalId: profissional.id,
     data: inicioDoDia,
+    fuso: barbearia.fuso,
     duracaoMinutos: servico.duracaoMinutos,
   });
   const aindaDisponivel = disponiveis.some((h) => h.getTime() === inicio.getTime());

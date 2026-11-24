@@ -5,6 +5,7 @@ import { AlertCircle } from "lucide-react";
 import { Alerta } from "@/components/ui/alerta";
 import { formatarHora } from "@/lib/formatar";
 import type { AgendamentoVM } from "./tipos";
+import { useFuso } from "@/components/fuso-contexto";
 
 export interface HorarioEscolhido {
   inicio: string;
@@ -13,14 +14,8 @@ export interface HorarioEscolhido {
 
 // Dia (AAAA-MM-DD) de um instante no horário de Brasília — é o formato do
 // <input type="date"> e o que a rota de horários espera.
-const formatoDia = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Sao_Paulo",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-export function chaveDiaBrasil(instante: Date): string {
-  return formatoDia.format(instante);
+export function chaveDiaBrasil(instante: Date, fuso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: fuso, year: "numeric", month: "2-digit", day: "2-digit" }).format(instante);
 }
 
 // Escolha do novo dia, profissional (só o dono troca) e horário de um
@@ -42,9 +37,10 @@ export function MudarHorario({
   erro: string | null;
   aoMudar: (escolha: HorarioEscolhido | null) => void;
 }) {
+  const fuso = useFuso();
   const id = useId();
-  const hoje = chaveDiaBrasil(new Date(agoraMs));
-  const diaAtual = chaveDiaBrasil(new Date(ag.inicio));
+  const hoje = chaveDiaBrasil(new Date(agoraMs), fuso);
+  const diaAtual = chaveDiaBrasil(new Date(ag.inicio), fuso);
   const [data, setData] = useState(diaAtual < hoje ? hoje : diaAtual);
   const [profissionalId, setProfissionalId] = useState(ag.profissional.id);
   const [horarios, setHorarios] = useState<string[] | null>(null);
@@ -158,10 +154,10 @@ export function MudarHorario({
                   aria-pressed={horario === h}
                   disabled={desabilitado || mesmoLugar(h)}
                   title={mesmoLugar(h) ? "Horário atual" : undefined}
-                  aria-label={mesmoLugar(h) ? `${formatarHora(new Date(h))} (horário atual)` : undefined}
+                  aria-label={mesmoLugar(h) ? `${formatarHora(new Date(h), fuso)} (horário atual)` : undefined}
                   onClick={() => escolher(h)}
                 >
-                  {formatarHora(new Date(h))}
+                  {formatarHora(new Date(h), fuso)}
                 </button>
               ))}
             </div>
@@ -169,7 +165,7 @@ export function MudarHorario({
         </div>
         {horario && (
           <p className="campo-dica">
-            Fica {formatarHora(new Date(horario))} – {formatarHora(new Date(Date.parse(horario) + duracaoMs))}
+            Fica {formatarHora(new Date(horario), fuso)} – {formatarHora(new Date(Date.parse(horario) + duracaoMs), fuso)}
             {podeTrocarProfissional ? ` com ${nomeProfissional}` : ""}. O cliente recebe o novo horário no WhatsApp,
             se aceitar mensagens.
           </p>

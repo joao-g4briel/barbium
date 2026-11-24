@@ -9,6 +9,7 @@ import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
 import { capitalizar, formatarDataInstante, formatarDiaCalendario, formatarHora, formatarMoeda } from "@/lib/formatar";
+import { useFuso } from "@/components/fuso-contexto";
 
 interface HorarioVM {
   inicio: string;
@@ -29,14 +30,14 @@ function chaveDia(dia: Date): string {
   return `${dia.getUTCFullYear()}-${String(dia.getUTCMonth() + 1).padStart(2, "0")}-${String(dia.getUTCDate()).padStart(2, "0")}`;
 }
 
-function proximosDias(): Date[] {
-  const hoje = inicioDoDiaBrasil(new Date());
+function proximosDias(fuso: string): Date[] {
+  const hoje = inicioDoDiaBrasil(new Date(), fuso);
   return Array.from({ length: DIAS_OFERECIDOS }, (_, i) => new Date(hoje.getTime() + i * 24 * 60 * 60 * 1000));
 }
 
-function quando(iso: string): string {
+function quando(iso: string, fuso: string): string {
   const d = new Date(iso);
-  return capitalizar(formatarDataInstante(d, { weekday: "long", day: "2-digit", month: "long" }));
+  return capitalizar(formatarDataInstante(d, { weekday: "long", day: "2-digit", month: "long" }, fuso));
 }
 
 export function GerenciarHorario({
@@ -54,6 +55,7 @@ export function GerenciarHorario({
   whatsappBarbearia: string | null;
   linkAgendar: string;
 }) {
+  const fuso = useFuso();
   const router = useRouter();
   const [modo, setModo] = useState<Modo>("ver");
   const [dia, setDia] = useState<Date | null>(null);
@@ -112,7 +114,7 @@ export function GerenciarHorario({
       setAviso(
         corpo.acao === "cancelar"
           ? null
-          : `Pronto! Seu horário mudou para ${quando(corpo.inicio).toLowerCase()} às ${formatarHora(new Date(corpo.inicio))}. A barbearia já foi avisada.`,
+          : `Pronto! Seu horário mudou para ${quando(corpo.inicio, fuso).toLowerCase()} às ${formatarHora(new Date(corpo.inicio), fuso)}. A barbearia já foi avisada.`,
       );
       setModo("ver");
       setDia(null);
@@ -139,7 +141,7 @@ export function GerenciarHorario({
         </span>
         <h2 className="etapa-titulo">Horário cancelado</h2>
         <p className="texto-secundario">
-          {ag.servico} com {ag.profissional}, {quando(ag.inicio).toLowerCase()} às {formatarHora(new Date(ag.inicio))}.
+          {ag.servico} com {ag.profissional}, {quando(ag.inicio, fuso).toLowerCase()} às {formatarHora(new Date(ag.inicio), fuso)}.
         </p>
         {ag.sinalPago !== null && (
           <p className="texto-secundario">
@@ -195,12 +197,12 @@ export function GerenciarHorario({
           </div>
           <div>
             <dt>Data</dt>
-            <dd>{quando(ag.inicio)}</dd>
+            <dd>{quando(ag.inicio, fuso)}</dd>
           </div>
           <div>
             <dt>Horário</dt>
             <dd>
-              {formatarHora(new Date(ag.inicio))} – {formatarHora(new Date(ag.fim))}
+              {formatarHora(new Date(ag.inicio), fuso)} – {formatarHora(new Date(ag.fim), fuso)}
             </dd>
           </div>
           {ag.sinalPago !== null && (
@@ -280,7 +282,7 @@ export function GerenciarHorario({
             Com {ag.profissional}, {ag.servico.toLowerCase()}.
           </p>
           <div className="dias-rolagem" role="group" aria-label="Dias">
-            {proximosDias().map((d) => (
+            {proximosDias(fuso).map((d) => (
               <button
                 key={chaveDia(d)}
                 type="button"
@@ -315,7 +317,7 @@ export function GerenciarHorario({
                       aria-pressed={escolhido === h}
                       onClick={() => setEscolhido(h)}
                     >
-                      {formatarHora(new Date(h))}
+                      {formatarHora(new Date(h), fuso)}
                     </button>
                   ))}
                 </div>
@@ -335,7 +337,7 @@ export function GerenciarHorario({
               carregando={enviando}
               textoCarregando="Salvando…"
             >
-              {escolhido ? `Mudar para ${formatarHora(new Date(escolhido))}` : "Escolha um horário"}
+              {escolhido ? `Mudar para ${formatarHora(new Date(escolhido), fuso)}` : "Escolha um horário"}
             </Botao>
           </div>
         </section>

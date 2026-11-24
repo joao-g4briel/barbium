@@ -14,6 +14,7 @@ import { AgendaInterativa } from "@/components/agenda/agenda-interativa";
 import { FiltroProfissional } from "@/components/agenda/filtro-profissional";
 import { BotaoNovoAgendamento } from "@/components/agenda/botao-novo-agendamento";
 import type { GrupoAgendaVM } from "@/components/agenda/tipos";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Agenda" };
 
@@ -38,12 +39,12 @@ function chaveDia(data: Date): string {
   return `${ano}-${mes}-${dia}`;
 }
 
-function parseDataParam(valor: string | undefined): Date {
+function parseDataParam(valor: string | undefined, fuso: string): Date {
   if (valor && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
     const [ano, mes, dia] = valor.split("-").map(Number);
     return new Date(Date.UTC(ano, mes - 1, dia));
   }
-  return inicioDoDiaBrasil(new Date());
+  return inicioDoDiaBrasil(new Date(), fuso);
 }
 
 function somarDias(data: Date, dias: number): Date {
@@ -60,6 +61,7 @@ export default async function PaginaAgenda({
   searchParams: Promise<{ visualizacao?: string; data?: string; de?: string; ate?: string; profissional?: string }>;
 }) {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   const params = await searchParams;
@@ -69,8 +71,8 @@ export default async function PaginaAgenda({
       : "dia";
 
   const souDono = sessao.role === "DONO";
-  const dataRef = parseDataParam(params.data);
-  const hoje = inicioDoDiaBrasil(new Date());
+  const dataRef = parseDataParam(params.data, fuso);
+  const hoje = inicioDoDiaBrasil(new Date(), fuso);
 
   // Primeiro e último DIA DE CALENDÁRIO do período. Calculados direto, sem
   // os helpers de fuso: dataRef já é um dia puro de calendário, e os helpers
@@ -85,8 +87,8 @@ export default async function PaginaAgenda({
     diaInicio = new Date(Date.UTC(dataRef.getUTCFullYear(), dataRef.getUTCMonth(), 1));
     diaFim = new Date(Date.UTC(dataRef.getUTCFullYear(), dataRef.getUTCMonth() + 1, 0));
   } else if (visualizacao === "periodo") {
-    diaInicio = params.de ? parseDataParam(params.de) : hoje;
-    diaFim = params.ate ? parseDataParam(params.ate) : hoje;
+    diaInicio = params.de ? parseDataParam(params.de, fuso) : hoje;
+    diaFim = params.ate ? parseDataParam(params.ate, fuso) : hoje;
   } else {
     diaInicio = dataRef;
     diaFim = dataRef;
@@ -95,8 +97,8 @@ export default async function PaginaAgenda({
   // A consulta usa os instantes reais em Brasília (00:00 do primeiro dia até
   // 23:59:59 do último). Consultar da meia-noite UTC jogava atendimentos
   // depois das 21h pro dia seguinte.
-  const inicio = horarioBrasil(diaInicio, 0);
-  const fim = new Date(horarioBrasil(diaFim, 24 * 60).getTime() - 1);
+  const inicio = horarioBrasil(diaInicio, 0, fuso);
+  const fim = new Date(horarioBrasil(diaFim, 24 * 60, fuso).getTime() - 1);
 
   await liberarSinaisExpirados(sessao.barbeariaId);
 
@@ -144,7 +146,7 @@ export default async function PaginaAgenda({
   } else {
     const porDia = new Map<string, GrupoAgendaVM>();
     for (const agendamento of agendamentos) {
-      const dia = inicioDoDiaBrasil(agendamento.inicio);
+      const dia = inicioDoDiaBrasil(agendamento.inicio, fuso);
       const chave = chaveDia(dia);
       if (!porDia.has(chave)) {
         porDia.set(chave, {
@@ -298,7 +300,7 @@ export default async function PaginaAgenda({
           profissionais={profissionais}
           grade={
             mostrarGrade
-              ? { inicioDia: horarioBrasil(dataRef, 0).toISOString(), profissionais }
+              ? { inicioDia: horarioBrasil(dataRef, 0, fuso).toISOString(), profissionais }
               : null
           }
           vazio={

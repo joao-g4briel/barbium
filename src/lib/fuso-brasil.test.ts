@@ -43,3 +43,24 @@ describe("fuso de Brasília", () => {
     expect(inicioDoMesBrasil(utc("2026-12-01T01:00:00Z"))).toEqual(utc("2026-11-01T00:00:00Z"));
   });
 });
+
+describe("outros fusos do Brasil", () => {
+  const MANAUS = "America/Manaus";
+  const ACRE = "America/Rio_Branco";
+
+  it("09:00 do expediente em Manaus vira 13:00 UTC; no Acre, 14:00 UTC", () => {
+    expect(horarioBrasil(utc("2026-11-04T00:00:00Z"), 9 * 60, MANAUS)).toEqual(utc("2026-11-04T13:00:00Z"));
+    expect(horarioBrasil(utc("2026-11-04T00:00:00Z"), 9 * 60, ACRE)).toEqual(utc("2026-11-04T14:00:00Z"));
+  });
+
+  it("o dia vira mais tarde em Manaus do que em Brasília", () => {
+    // 03:30 UTC de quinta: em Brasília já é quinta 00:30; em Manaus ainda é quarta 23:30.
+    expect(inicioDoDiaBrasil(utc("2026-11-05T03:30:00Z"))).toEqual(utc("2026-11-05T00:00:00Z"));
+    expect(inicioDoDiaBrasil(utc("2026-11-05T03:30:00Z"), MANAUS)).toEqual(utc("2026-11-04T00:00:00Z"));
+    expect(diaDaSemanaBrasil(utc("2026-11-05T03:30:00Z"), MANAUS)).toBe(3);
+  });
+
+  it("fuso desconhecido cai em Brasília", () => {
+    expect(horarioBrasil(utc("2026-11-04T00:00:00Z"), 9 * 60, "Europe/Lisbon")).toEqual(utc("2026-11-04T12:00:00Z"));
+  });
+});

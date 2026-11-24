@@ -9,12 +9,14 @@ import { TabelaPrecos } from "@/components/precos/tabela-precos";
 import { Badge } from "@/components/ui/badge";
 import { estadoWhatsapp } from "@/lib/whatsapp-adicional";
 import { linkAdicionalWhatsapp } from "@/lib/precos";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Assinatura" };
 
 // Planos e pagamento, a partir do painel (durante o teste ou para renovar).
 export default async function PaginaAssinatura() {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   if (sessao.role !== "DONO") {
@@ -33,8 +35,8 @@ export default async function PaginaAssinatura() {
 
   const descricao = barbearia.acessoAte
     ? barbearia.emTeste
-      ? `Teste grátis até ${formatarDataInstante(barbearia.acessoAte, { day: "2-digit", month: "2-digit" })} (${dias} ${dias === 1 ? "dia" : "dias"}).`
-      : `Assinatura paga até ${formatarDataInstante(barbearia.acessoAte, { day: "2-digit", month: "2-digit", year: "numeric" })}.`
+      ? `Teste grátis até ${formatarDataInstante(barbearia.acessoAte, { day: "2-digit", month: "2-digit" }, fuso)} (${dias} ${dias === 1 ? "dia" : "dias"}).`
+      : `Assinatura paga até ${formatarDataInstante(barbearia.acessoAte, { day: "2-digit", month: "2-digit", year: "numeric" }, fuso)}.`
     : "Sua barbearia não tem prazo de assinatura.";
 
   return (

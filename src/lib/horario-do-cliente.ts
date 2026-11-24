@@ -14,7 +14,7 @@ export async function agendamentoDoLink(codigo: string) {
       servico: { select: { nome: true, preco: true } },
       barbeiro: { select: { nome: true } },
       barbearia: {
-        select: { nome: true, slug: true, telefone: true, ativo: true, endereco: true, corMarca: true, logoAtualizadoEm: true },
+        select: { nome: true, slug: true, telefone: true, ativo: true, endereco: true, corMarca: true, logoAtualizadoEm: true, fuso: true },
       },
     },
   });

@@ -2819,6 +2819,10 @@ button.horario:hover {
   color: var(--color-success);
   flex-shrink: 0;
 }
+/* A descrição da conta pode ser um e-mail longo: quebra em vez de alargar a página no celular. */
+.conta-conectada p {
+  overflow-wrap: anywhere;
+}
 .input-sufixo {
   position: relative;
   max-width: 160px;

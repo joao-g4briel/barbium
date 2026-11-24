@@ -9,7 +9,7 @@ import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
 import type { FormaPagamento } from "@prisma/client";
 import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
-import { FUSO_BRASIL } from "@/lib/fuso-brasil";
+import { useFuso } from "@/components/fuso-contexto";
 
 type Tipo = "ENTRADA" | "SAIDA";
 
@@ -24,8 +24,9 @@ export function FormularioNovoLancamento() {
   const [tipo, setTipo] = useState<Tipo>("SAIDA");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
-  // Hoje no calendário de Brasília (en-CA formata como AAAA-MM-DD).
-  const [data, setData] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: FUSO_BRASIL }));
+  // Hoje no calendário da barbearia (en-CA formata como AAAA-MM-DD).
+  const fuso = useFuso();
+  const [data, setData] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: fuso }));
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | "">("");
   const [erros, setErros] = useState<Erros>({});
   const [salvando, setSalvando] = useState(false);

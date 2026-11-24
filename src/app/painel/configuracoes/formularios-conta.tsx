@@ -9,6 +9,7 @@ import { Alerta } from "@/components/ui/alerta";
 import { apenasDigitos, numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
 import { OPCOES_LEMBRETE_HORAS, rotuloLembrete } from "@/lib/lembrete-opcoes";
+import { FUSOS } from "@/lib/fusos";
 
 type Erros = Record<string, string | undefined>;
 
@@ -31,17 +32,20 @@ export function FormularioBarbearia({
   telefoneInicial,
   telefoneAvisosInicial,
   lembreteHorasAntesInicial,
+  fusoInicial,
 }: {
   nomeInicial: string;
   telefoneInicial: string;
   telefoneAvisosInicial: string;
   lembreteHorasAntesInicial: number | null;
+  fusoInicial: string;
 }) {
   const router = useRouter();
   const [nome, setNome] = useState(nomeInicial);
   const [telefone, setTelefone] = useState(telefoneInicial);
   const [telefoneAvisos, setTelefoneAvisos] = useState(telefoneAvisosInicial);
   const [lembrete, setLembrete] = useState(lembreteHorasAntesInicial === null ? "" : String(lembreteHorasAntesInicial));
+  const [fuso, setFuso] = useState(fusoInicial);
   const [erros, setErros] = useState<Erros>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -63,6 +67,7 @@ export function FormularioBarbearia({
       telefone: telefone.trim() || null,
       telefoneAvisos: telefoneAvisos.trim() || null,
       lembreteHorasAntes: lembrete ? Number(lembrete) : null,
+      fuso,
     });
     setSalvando(false);
     if (!r.ok) return setErros({ geral: r.erro ?? "Não foi possível salvar." });
@@ -125,6 +130,24 @@ export function FormularioBarbearia({
           {OPCOES_LEMBRETE_HORAS.map((h) => (
             <option key={h} value={h}>
               {rotuloLembrete(h)}
+            </option>
+          ))}
+        </select>
+      </Campo>
+      <Campo
+        id="barbearia-fuso"
+        rotulo="Fuso horário"
+        dica="O da cidade da barbearia. A agenda, os horários livres e as mensagens seguem esse relógio."
+      >
+        <select
+          {...ariaCampo("barbearia-fuso", { dica: true })}
+          className="input"
+          value={fuso}
+          onChange={(e) => setFuso(e.target.value)}
+        >
+          {FUSOS.map((f) => (
+            <option key={f.iana} value={f.iana}>
+              {f.rotulo}
             </option>
           ))}
         </select>

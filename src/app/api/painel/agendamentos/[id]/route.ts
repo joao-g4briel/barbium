@@ -6,7 +6,7 @@ import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { formatarHora, numeroWhatsApp } from "@/lib/formatar";
 import { cancelarPixPendente } from "@/lib/sinal";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
-import { opcoesHorarioPainel } from "@/lib/agenda";
+import { fusoDaBarbearia, opcoesHorarioPainel } from "@/lib/agenda";
 import { validarProfissional } from "@/lib/agendamento-painel";
 import { mudarHorario } from "@/lib/mudar-horario";
 import { notificacoesConfiguradas, notificarAgendamento } from "@/lib/notificacoes";
@@ -43,6 +43,7 @@ export async function PATCH(
 ) {
   const sessao = await exigirUsuarioDaBarbearia().catch(() => null);
   if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 403 });
+  const fuso = sessao.fuso;
 
   const { id } = await params;
   const corpo = await request.json().catch(() => null);
@@ -127,7 +128,7 @@ export async function PATCH(
     });
     if (conflito) {
       return NextResponse.json(
-        { erro: `Esse horário já foi ocupado por ${conflito.cliente.nome}, às ${formatarHora(conflito.inicio)}.` },
+        { erro: `Esse horário já foi ocupado por ${conflito.cliente.nome}, às ${formatarHora(conflito.inicio, fuso)}.` },
         { status: 409 },
       );
     }
@@ -230,6 +231,7 @@ async function trocarServico(
   sessao: SessaoPayload,
   servicoId: string,
 ) {
+  const fuso = await fusoDaBarbearia(agendamento.barbeariaId);
   if (!estaEmAberto(agendamento.status) && agendamento.status !== "CONCLUIDO") {
     return NextResponse.json(
       { erro: "Só dá para trocar o serviço de agendamentos em aberto ou concluídos." },
@@ -267,7 +269,7 @@ async function trocarServico(
         });
         if (conflito) {
           throw new ErroTroca(
-            `O novo serviço termina às ${formatarHora(novoFim)} e invade o horário de ${conflito.cliente.nome}, às ${formatarHora(conflito.inicio)}.`,
+            `O novo serviço termina às ${formatarHora(novoFim, fuso)} e invade o horário de ${conflito.cliente.nome}, às ${formatarHora(conflito.inicio, fuso)}.`,
           );
         }
 
@@ -282,7 +284,7 @@ async function trocarServico(
         });
         if (folga) {
           throw new ErroTroca(
-            `O novo serviço termina às ${formatarHora(novoFim)} e invade uma folga marcada na agenda.`,
+            `O novo serviço termina às ${formatarHora(novoFim, fuso)} e invade uma folga marcada na agenda.`,
           );
         }
       }

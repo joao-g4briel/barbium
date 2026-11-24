@@ -15,6 +15,7 @@ import { Indicador } from "@/components/ui/indicador";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Badge } from "@/components/ui/badge";
 import { BotaoExcluirLancamento } from "./botao-excluir-lancamento";
+import { FUSO_PADRAO } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Financeiro" };
 
@@ -26,6 +27,7 @@ export default async function PaginaCaixa({
   searchParams: Promise<{ periodo?: string; tipo?: string }>;
 }) {
   const sessao = await obterSessao();
+  const fuso = sessao?.fuso ?? FUSO_PADRAO;
   if (!sessao?.barbeariaId) return null;
 
   if (sessao.role !== "DONO") {
@@ -40,7 +42,7 @@ export default async function PaginaCaixa({
   const { periodo: periodoParam, tipo: tipoParam } = await searchParams;
   const periodo = periodoValido(periodoParam);
   const filtroTipo: FiltroTipo = tipoParam === "entradas" || tipoParam === "saidas" ? tipoParam : "todos";
-  const { inicio, fim } = intervaloPeriodo(periodo);
+  const { inicio, fim } = intervaloPeriodo(periodo, fuso);
 
   const [lancamentos, confirmados] = await Promise.all([
     prisma.caixaLancamento.findMany({
@@ -91,7 +93,7 @@ export default async function PaginaCaixa({
     <>
       <CabecalhoPagina
         titulo="Financeiro"
-        descricao={`${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" })} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" })}`}
+        descricao={`${ROTULO_PERIODO[periodo]} · ${formatarDataInstante(inicio, { day: "2-digit", month: "2-digit" }, fuso)} a ${formatarDataInstante(fim, { day: "2-digit", month: "2-digit" }, fuso)}`}
         acoes={
           <Link href="/painel/caixa/novo" className="btn btn-primary">
             <Plus size={18} aria-hidden="true" />
@@ -210,8 +212,8 @@ export default async function PaginaCaixa({
                         <td className="tabela-td-principal tabela-celula-principal">{descricao}</td>
                         <td data-rotulo="Data" className="num">
                           <span>
-                            {formatarDataInstante(l.criadoEm)}{" "}
-                            <span className="texto-secundario">{formatarHora(l.criadoEm)}</span>
+                            {formatarDataInstante(l.criadoEm, undefined, fuso)}{" "}
+                            <span className="texto-secundario">{formatarHora(l.criadoEm, fuso)}</span>
                           </span>
                         </td>
                         <td data-rotulo="Origem" className="texto-secundario">

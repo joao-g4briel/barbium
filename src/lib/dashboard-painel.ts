@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { inicioDaSemanaBrasil, fimDaSemanaBrasil } from "./fuso-brasil";
 import { statusAssinatura } from "./assinatura";
+import { FUSO_PADRAO } from "./fusos";
 
 function horaParaMinutos(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
@@ -19,10 +20,13 @@ export interface OcupacaoProfissional {
   minutosCapacidade: number;
 }
 
-export async function obterOcupacaoSemana(barbeariaId: string): Promise<Map<string, OcupacaoProfissional>> {
+export async function obterOcupacaoSemana(
+  barbeariaId: string,
+  fuso: string = FUSO_PADRAO,
+): Promise<Map<string, OcupacaoProfissional>> {
   const agora = new Date();
-  const inicio = inicioDaSemanaBrasil(agora);
-  const fim = fimDaSemanaBrasil(agora);
+  const inicio = inicioDaSemanaBrasil(agora, fuso);
+  const fim = fimDaSemanaBrasil(agora, fuso);
 
   const profissionais = await prisma.usuario.findMany({
     where: { barbeariaId, ativo: true, role: { in: ["DONO", "BARBEIRO"] } },

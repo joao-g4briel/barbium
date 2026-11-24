@@ -2,6 +2,7 @@ import "server-only";
 import type { DiaSemana, SinalStatus, StatusAgendamento } from "@prisma/client";
 import { prisma } from "./prisma";
 import { horarioBrasil, inicioDoDiaBrasil } from "./fuso-brasil";
+import { FUSO_PADRAO } from "./fusos";
 
 // Indicadores da barbearia num período: ticket médio, faltas, cancelamentos e
 // ocupação da agenda, no geral e por profissional. O período conta pela data
@@ -78,6 +79,7 @@ export function capacidadeEmMinutos(
   bloqueios: { inicio: Date; fim: Date | null }[],
   de: Date,
   ate: Date,
+  fuso: string = FUSO_PADRAO,
 ): number {
   const periodo = { inicio: de.getTime(), fim: ate.getTime() };
   const bloqueado = juntar(
@@ -86,17 +88,17 @@ export function capacidadeEmMinutos(
   const porDia = new Map(expediente.map((d) => [d.diaSemana, d]));
 
   let total = 0;
-  for (let dia = inicioDoDiaBrasil(de); dia.getTime() <= ate.getTime(); dia = new Date(dia.getTime() + DIA_MS)) {
+  for (let dia = inicioDoDiaBrasil(de, fuso); dia.getTime() <= ate.getTime(); dia = new Date(dia.getTime() + DIA_MS)) {
     const exp = porDia.get(DIAS_SEMANA[dia.getUTCDay()]);
     if (!exp || !exp.atende) continue;
 
-    const abre = horarioBrasil(dia, minutos(exp.horaInicio)).getTime();
-    const fecha = horarioBrasil(dia, minutos(exp.horaFim)).getTime();
+    const abre = horarioBrasil(dia, minutos(exp.horaInicio), fuso).getTime();
+    const fecha = horarioBrasil(dia, minutos(exp.horaFim), fuso).getTime();
     const janelas: Intervalo[] =
       exp.almocoInicio && exp.almocoFim
         ? [
-            { inicio: abre, fim: horarioBrasil(dia, minutos(exp.almocoInicio)).getTime() },
-            { inicio: horarioBrasil(dia, minutos(exp.almocoFim)).getTime(), fim: fecha },
+            { inicio: abre, fim: horarioBrasil(dia, minutos(exp.almocoInicio), fuso).getTime() },
+            { inicio: horarioBrasil(dia, minutos(exp.almocoFim), fuso).getTime(), fim: fecha },
           ]
         : [{ inicio: abre, fim: fecha }];
 
@@ -160,6 +162,7 @@ export interface IndicadoresDaBarbearia {
 export async function obterIndicadores(
   barbeariaId: string,
   periodo: { inicio: Date; fim: Date },
+  fuso: string = FUSO_PADRAO,
 ): Promise<IndicadoresDaBarbearia> {
   const [profissionais, agendamentos] = await Promise.all([
     prisma.usuario.findMany({
@@ -201,7 +204,7 @@ export async function obterIndicadores(
   const porProfissional = profissionais
     .map((p) => {
       // Inativo não tem agenda a ocupar: entra só se teve atendimento no período.
-      const capacidade = p.ativo ? capacidadeEmMinutos(p.expediente, p.bloqueios, periodo.inicio, periodo.fim) : 0;
+      const capacidade = p.ativo ? capacidadeEmMinutos(p.expediente, p.bloqueios, periodo.inicio, periodo.fim, fuso) : 0;
       const doProfissional = lista.filter((a) => a.profissionalId === p.id);
       return { id: p.id, nome: p.nome, ativo: p.ativo, ...calcularIndicadores(doProfissional, capacidade, periodo) };
     })

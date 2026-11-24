@@ -12,12 +12,12 @@ const criarLancamentoSchema = z.object({
   formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).nullable().optional(),
 });
 
-function instanteDoLancamento(dia: string | undefined): Date {
+function instanteDoLancamento(dia: string | undefined, fuso: string): Date {
   if (!dia || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) return new Date();
   const [ano, mes, d] = dia.split("-").map(Number);
   const diaCalendario = new Date(Date.UTC(ano, mes - 1, d));
-  const hoje = inicioDoDiaBrasil(new Date());
-  return diaCalendario.getTime() === hoje.getTime() ? new Date() : horarioBrasil(diaCalendario, 12 * 60);
+  const hoje = inicioDoDiaBrasil(new Date(), fuso);
+  return diaCalendario.getTime() === hoje.getTime() ? new Date() : horarioBrasil(diaCalendario, 12 * 60, fuso);
 }
 
 export async function POST(request: Request) {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   // A data escolhida é um dia de calendário em Brasília. Hoje: agora mesmo.
   // Outro dia: meio-dia em Brasília (ler "AAAA-MM-DD" como meia-noite UTC
   // jogava o lançamento pro dia anterior, às 21h).
-  const criadoEm = instanteDoLancamento(dados.data.data);
+  const criadoEm = instanteDoLancamento(dados.data.data, sessao.fuso);
 
   const lancamento = await prisma.caixaLancamento.create({
     data: {
