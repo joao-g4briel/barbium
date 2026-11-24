@@ -11,6 +11,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Só mexe nas requisições do próprio site. Scripts de terceiros (pixel da
+// Meta e afins) seguem direto pelo navegador: repassados por aqui, eles
+// falhavam (net::ERR_FAILED) e o pixel nunca carregava.
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
   event.respondWith(fetch(event.request));
 });
