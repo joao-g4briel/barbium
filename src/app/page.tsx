@@ -4,9 +4,9 @@ import { obterSessao } from "@/lib/sessao";
 import { Landing } from "@/components/landing/landing";
 
 export const metadata: Metadata = {
-  title: { absolute: "Barbium · Agenda, WhatsApp e caixa para barbearias" },
+  title: { absolute: "Barbium · Agenda, link de agendamento e caixa para barbearias" },
   description:
-    "O cliente marca pelo link, recebe confirmação e lembrete no WhatsApp, e cada atendimento concluído já cai no caixa com a comissão calculada. Teste 7 dias grátis.",
+    "O cliente marca sozinho pelo link, a agenda acompanha cada atendimento, e cada um concluído já cai no caixa com a comissão calculada. Teste 7 dias grátis.",
 };
 
 // A raiz é a landing para quem não está logado, e também o start_url do PWA:

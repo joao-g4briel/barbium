@@ -39,11 +39,15 @@ export async function enviarLembretesPendentes(agora = new Date()): Promise<Resu
   const resultado: ResultadoLembretes = { enviados: 0, dispensados: 0, falhas: 0 };
 
   const barbearias = await prisma.barbearia.findMany({
-    // Barbearia com o teste ou a assinatura vencidos não manda lembrete.
+    // Barbearia com o teste ou a assinatura vencidos não manda lembrete, nem
+    // a que já saiu do teste sem o adicional de WhatsApp (lib/whatsapp-adicional).
     where: {
       ativo: true,
       lembreteHorasAntes: { not: null },
-      OR: [{ acessoAte: null }, { acessoAte: { gt: agora } }],
+      AND: [
+        { OR: [{ acessoAte: null }, { acessoAte: { gt: agora } }] },
+        { OR: [{ whatsappAtivo: true }, { emTeste: true }] },
+      ],
     },
     select: { id: true, lembreteHorasAntes: true },
   });

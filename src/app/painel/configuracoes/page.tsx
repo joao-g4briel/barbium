@@ -15,6 +15,8 @@ import { chaveSegredosConfigurada } from "@/lib/segredos";
 import { SINAL_PERCENTUAL_MAX, SINAL_PERCENTUAL_MIN } from "@/lib/sinal";
 import { SecaoPagamento } from "./secao-pagamento";
 import { FormularioBarbearia, FormularioPerfil, FormularioSenha } from "./formularios-conta";
+import { Alerta } from "@/components/ui/alerta";
+import { estadoWhatsapp } from "@/lib/whatsapp-adicional";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -37,6 +39,7 @@ export default async function PaginaConfiguracoes() {
   const host = cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host") ?? "";
   const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const linkPublico = barbearia ? `${protocolo}://${host}/agendar/${barbearia.slug}` : null;
+  const whatsapp = barbearia ? estadoWhatsapp(barbearia) : null;
 
   return (
     <>
@@ -62,6 +65,20 @@ export default async function PaginaConfiguracoes() {
             </div>
             {barbearia && souDono && (
               <div className="pilha-sm">
+                {whatsapp === "desligado" && (
+                  <Alerta tom="atencao" titulo="Mensagens no WhatsApp desligadas">
+                    Confirmação, lembrete e avisos fazem parte do adicional de WhatsApp.{" "}
+                    <Link href="/painel/assinatura" className="link">
+                      Ver assinatura
+                    </Link>
+                  </Alerta>
+                )}
+                {whatsapp === "teste" && (
+                  <Alerta tom="info">
+                    As mensagens no WhatsApp estão ligadas durante o teste grátis. Depois, continuam com o adicional de
+                    WhatsApp.
+                  </Alerta>
+                )}
                 <FormularioBarbearia
                   nomeInicial={barbearia.nome}
                   telefoneInicial={barbearia.telefone ? formatarTelefone(barbearia.telefone) : ""}

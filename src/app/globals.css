@@ -2904,6 +2904,11 @@ a.lista-item:hover {
   letter-spacing: -0.015em;
   text-wrap: balance;
 }
+.dia-hora-adicional {
+  margin-left: var(--space-2);
+  vertical-align: 0.2em;
+  letter-spacing: 0;
+}
 .dia-hora-texto p {
   margin: 0 0 var(--space-3);
   max-width: 54ch;
@@ -3074,6 +3079,28 @@ a.lista-item:hover {
   margin: 0 0 var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+}
+.precos-adicional {
+  display: flex;
+  align-items: start;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+}
+.precos-adicional p {
+  margin: 0;
+  max-width: 72ch;
+}
+.precos-adicional b {
+  color: var(--color-text);
+}
+.precos-adicional svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
 }
 .precos-itens {
   display: grid;

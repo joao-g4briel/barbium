@@ -121,7 +121,7 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
           onChange={mudar("email")}
         />
       </Campo>
-      <Campo id="cad-whatsapp" rotulo="WhatsApp" dica="Onde você recebe o aviso de cada agendamento novo." erro={erros.whatsapp}>
+      <Campo id="cad-whatsapp" rotulo="WhatsApp" dica="Para falarmos com você. Com o adicional de WhatsApp, é onde chegam os avisos de agendamento." erro={erros.whatsapp}>
         <input
           {...ariaCampo("cad-whatsapp", { dica: true, erro: erros.whatsapp })}
           className="input num"

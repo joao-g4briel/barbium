@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { linkDoCliente, linkParaAgendar } from "./link-cliente";
+import { whatsappLigado } from "./whatsapp-adicional";
 import { capitalizar, formatarDataInstante, formatarHora, formatarMoeda, formatarTelefone, numeroWhatsApp } from "./formatar";
 
 // Avisos automáticos por WhatsApp: pro dono (agendamento novo) e pro cliente
@@ -65,7 +66,18 @@ export const INCLUIR_NOTIFICACAO = {
   cliente: { select: { nome: true, telefone: true, aceitaMensagens: true } },
   servico: { select: { nome: true, preco: true } },
   barbeiro: { select: { nome: true } },
-  barbearia: { select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true } },
+  barbearia: {
+    select: {
+      id: true,
+      nome: true,
+      slug: true,
+      telefone: true,
+      telefoneAvisos: true,
+      whatsappAtivo: true,
+      emTeste: true,
+      acessoAte: true,
+    },
+  },
 } satisfies Prisma.AgendamentoInclude;
 
 export type AgendamentoNotificacao = Prisma.AgendamentoGetPayload<{ include: typeof INCLUIR_NOTIFICACAO }>;
@@ -123,6 +135,8 @@ async function enviar(
 ): Promise<void> {
   const ag = await prisma.agendamento.findUnique({ where: { id: agendamentoId }, include: INCLUIR_NOTIFICACAO });
   if (!ag) return;
+  // Sem o adicional de WhatsApp (e fora do teste grátis), nenhuma mensagem sai.
+  if (!whatsappLigado(ag.barbearia)) return;
 
   // Barbearia: o WhatsApp dos avisos ou, sem ele, o telefone da barbearia.
   const whatsappBarbearia = numeroWhatsApp(ag.barbearia.telefoneAvisos ?? ag.barbearia.telefone ?? "");

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioEditarBarbearia } from "./formulario-editar-barbearia";
 import { LiberarAcesso } from "./liberar-acesso";
+import { AdicionalWhatsapp } from "./adicional-whatsapp";
 
 export const metadata: Metadata = { title: "Gerenciar barbearia" };
 
@@ -49,6 +50,13 @@ export default async function DetalheBarbearia({ params }: { params: Promise<{ i
           barbeariaId={barbearia.id}
           acessoAte={barbearia.acessoAte?.toISOString() ?? null}
           emTeste={barbearia.emTeste}
+        />
+
+        <AdicionalWhatsapp
+          barbeariaId={barbearia.id}
+          whatsappAtivo={barbearia.whatsappAtivo}
+          emTeste={barbearia.emTeste}
+          acessoAte={barbearia.acessoAte?.toISOString() ?? null}
         />
 
         <div className="grade-painel grade-painel-1-1">

@@ -8,6 +8,8 @@ import { LIMITE_PROFISSIONAIS, ROTULO_PLANO, descreverLimite } from "@/lib/plano
 const atualizarSchema = z.object({
   plano: z.enum(["SOLO", "BARBEARIA", "REDE"]).optional(),
   ativo: z.boolean().optional(),
+  // Adicional de WhatsApp pago (liga ou desliga as mensagens depois do teste).
+  whatsappAtivo: z.boolean().optional(),
   // Pagamento confirmado: estende o prazo de uso, ou tira o prazo.
   acesso: z
     .union([z.object({ meses: z.union([z.literal(1), z.literal(6), z.literal(12)]) }), z.object({ semPrazo: z.literal(true) })])

@@ -2,17 +2,18 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, MessageCircle } from "lucide-react";
 import type { Plano } from "@prisma/client";
 import { ROTULO_PLANO, PLANOS, descreverLimite } from "@/lib/planos";
 import {
   MESES_DO_PERIODO,
   PERIODOS,
   PRECOS,
+  PRECO_ADICIONAL_WHATSAPP,
   ROTULO_PERIODO_ASSINATURA,
-  economia,
   linkAssinar,
   precoPorMes,
+  vantagemDoPeriodo,
   type Periodo,
 } from "@/lib/precos";
 import { formatarMoeda } from "@/lib/formatar";
@@ -70,7 +71,7 @@ export function TabelaPrecos({
               <p className="precos-cobranca num">
                 {meses === 1
                   ? "Cobrado todo mês"
-                  : `${formatarMoeda(total)} a cada ${meses} meses · ${economia(plano, periodo)}% a menos que o mensal`}
+                  : `${formatarMoeda(total)} ${meses === 12 ? "por ano" : `a cada ${meses} meses`} · ${vantagemDoPeriodo(plano, periodo)}`}
               </p>
               {acao === "cadastro" ? (
                 <Link href={`/cadastro?plano=${plano}&periodo=${periodo}`} className="btn btn-secondary btn-bloco">
@@ -90,7 +91,6 @@ export function TabelaPrecos({
                 {[
                   "Agenda com chegou e em atendimento",
                   "Link de agendamento com sinal no Pix",
-                  "Confirmação e lembrete no WhatsApp",
                   "Caixa, comissões e indicadores",
                 ].map((item) => (
                   <li key={item}>
@@ -103,6 +103,15 @@ export function TabelaPrecos({
           );
         })}
       </ul>
+
+      <div className="precos-adicional">
+        <MessageCircle size={20} aria-hidden="true" />
+        <p>
+          <b>Adicional de WhatsApp · {formatarMoeda(PRECO_ADICIONAL_WHATSAPP)}/mês.</b> Confirmação e lembrete para o
+          cliente, link para ele remarcar ou cancelar, e aviso de cada agendamento para você. Você inclui no pagamento
+          da assinatura{acao === "cadastro" ? "; no teste grátis, já vem ligado" : ""}.
+        </p>
+      </div>
     </div>
   );
 }

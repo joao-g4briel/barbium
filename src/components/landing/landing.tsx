@@ -6,7 +6,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui/badge";
 import { Indicador } from "@/components/ui/indicador";
 import { TabelaPrecos } from "@/components/precos/tabela-precos";
-import { DIAS_TESTE, WHATSAPP_VENDAS } from "@/lib/precos";
+import { DIAS_TESTE, PRECO_ADICIONAL_WHATSAPP, WHATSAPP_VENDAS } from "@/lib/precos";
+import { formatarMoeda } from "@/lib/formatar";
 import { TrilhoDoDia } from "./trilho-do-dia";
 
 // Landing do Barbium: um dia de trabalho na barbearia, hora a hora, cada hora
@@ -34,14 +35,34 @@ function Mensagem({ de, children }: { de: string; children: ReactNode }) {
   );
 }
 
-function Hora({ hora, titulo, children, exemplo }: { hora: string; titulo: string; children: ReactNode; exemplo: ReactNode }) {
+// "adicional": parte do adicional de WhatsApp, contratado à parte no pagamento.
+function Hora({
+  hora,
+  titulo,
+  children,
+  exemplo,
+  adicional = false,
+}: {
+  hora: string;
+  titulo: string;
+  children: ReactNode;
+  exemplo: ReactNode;
+  adicional?: boolean;
+}) {
   return (
     <li className="dia-hora" data-hora>
       <time className="dia-hora-relogio num">{hora}</time>
       <span className="dia-hora-no" aria-hidden="true" />
       <div className="dia-hora-corpo">
         <div className="dia-hora-texto">
-          <h3 className="dia-hora-titulo">{titulo}</h3>
+          <h3 className="dia-hora-titulo">
+            {titulo}
+            {adicional && (
+              <span className="badge dia-hora-adicional" data-tom="info">
+                Adicional
+              </span>
+            )}
+          </h3>
           {children}
         </div>
         {exemplo}
@@ -79,8 +100,8 @@ export function Landing() {
               O dia da sua barbearia, do primeiro horário ao fechamento.
             </h1>
             <p className="landing-subtitulo">
-              O cliente marca pelo link, recebe confirmação e lembrete no WhatsApp, e cada atendimento concluído já cai no
-              caixa com a comissão calculada.
+              O cliente marca sozinho pelo link, a agenda acompanha cada atendimento, e cada um concluído já cai no caixa
+              com a comissão calculada.
             </p>
             <div className="landing-acoes">
               <Link href="/cadastro" className="btn btn-primary landing-cta">
@@ -111,8 +132,8 @@ export function Landing() {
               </div>
             </div>
             {[
-              ["11:30", "Lembrete enviado no WhatsApp"],
-              ["14:00", "Lucas chegou"],
+              ["13:56", "Lucas chegou"],
+              ["14:03", "Em atendimento com Rafael"],
               ["14:40", "Concluído · R$ 55,00 no caixa"],
               ["20:00", "Fechamento do dia"],
             ].map(([hora, texto]) => (
@@ -163,6 +184,7 @@ export function Landing() {
             <Hora
               hora="08:12"
               titulo="Confirmação no WhatsApp, para ele e para você"
+              adicional
               exemplo={
                 <Exemplo rotulo="Mensagens automáticas">
                   <Mensagem de="WhatsApp do cliente">
@@ -188,12 +210,16 @@ export function Landing() {
                 O cliente recebe o horário marcado e um link para remarcar ou cancelar. Você recebe o aviso de cada
                 agendamento novo no WhatsApp que escolher.
               </p>
-              <p>Quem não quiser mensagens pede para parar, e o sistema respeita.</p>
+              <p>
+                Quem não quiser mensagens pede para parar, e o sistema respeita. As mensagens no WhatsApp são um
+                adicional de {formatarMoeda(PRECO_ADICIONAL_WHATSAPP)}/mês; no teste grátis, já vêm ligadas.
+              </p>
             </Hora>
 
             <Hora
               hora="11:30"
               titulo="Lembrete antes do horário"
+              adicional
               exemplo={
                 <Exemplo rotulo="Lembrete">
                   <Mensagem de="WhatsApp do cliente">
@@ -217,6 +243,7 @@ export function Landing() {
             <Hora
               hora="12:10"
               titulo="Precisa mudar? O cliente resolve pelo link"
+              adicional
               exemplo={
                 <Exemplo rotulo="Aviso para a barbearia">
                   <Mensagem de="Seu WhatsApp">
@@ -238,6 +265,7 @@ export function Landing() {
                 Até 2 horas antes, o cliente escolhe outro horário livre ou cancela, sem precisar te chamar. Você recebe o
                 aviso com o horário de antes e o de agora, e o horário vago volta para a agenda.
               </p>
+              <p>O link para mudar chega na mensagem de confirmação.</p>
             </Hora>
 
             <Hora
@@ -330,8 +358,9 @@ export function Landing() {
             Um preço para cada tamanho de equipe
           </h2>
           <p className="landing-secao-texto">
-            Todo plano tem tudo o que aparece acima. Muda quantos profissionais usam a agenda. Comece com {DIAS_TESTE} dias
-            grátis, sem cartão; depois, o pagamento é feito pela Cakto.
+            Todo plano tem o que aparece acima, menos as mensagens no WhatsApp, que são um adicional. Muda quantos
+            profissionais usam a agenda. Comece com {DIAS_TESTE} dias grátis, sem cartão; depois, o pagamento é feito
+            pela Cakto.
           </p>
           <TabelaPrecos acao="cadastro" />
         </section>
@@ -356,7 +385,7 @@ export function Landing() {
               ],
               [
                 "As mensagens no WhatsApp custam à parte?",
-                "Não. Confirmação, lembrete e avisos de remarcação e cancelamento estão incluídos em todos os planos.",
+                `Sim. Confirmação, lembrete, o link para o cliente remarcar ou cancelar e os avisos para a barbearia são um adicional de ${formatarMoeda(PRECO_ADICIONAL_WHATSAPP)}/mês, que você inclui na hora de pagar a assinatura. No teste grátis, as mensagens já vêm ligadas para você experimentar.`,
               ],
               [
                 "Meus barbeiros veem o caixa?",

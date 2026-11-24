@@ -96,6 +96,9 @@ model Barbearia {
   acessoAte          DateTime?
   // Ainda no teste grátis (nunca pagou).
   emTeste            Boolean   @default(false)
+  // Adicional de WhatsApp pago (ou liberado pela plataforma). No teste grátis
+  // as mensagens saem mesmo sem ele. Regra em src/lib/whatsapp-adicional.ts.
+  whatsappAtivo      Boolean   @default(false)
   criadoEm           DateTime  @default(now())
   atualizadoEm       DateTime  @updatedAt
 
