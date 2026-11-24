@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SimboloBarbium } from "@/components/ui/marca";
+import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
+import { estiloDaMarca } from "@/lib/cor-marca";
 import { agendamentoDoLink } from "@/lib/horario-do-cliente";
 import { ANTECEDENCIA_LINK_HORAS, podeAlterarPeloLink } from "@/lib/link-cliente";
 import { linkWhatsApp } from "@/lib/formatar";
@@ -23,13 +25,15 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
   if (!ag) notFound();
 
   return (
-    <div className="publico">
-      <header className="publico-topo">
-        <div className="publico-topo-conteudo">
-          <h1>{ag.barbearia.nome}</h1>
-          <p className="texto-secundario">Olá, {ag.cliente.nome.trim().split(/\s+/)[0]}. Este é o seu horário.</p>
-        </div>
-      </header>
+    <div className="publico" style={estiloDaMarca(ag.barbearia.corMarca)}>
+      <CabecalhoBarbearia
+        nome={ag.barbearia.nome}
+        slug={ag.barbearia.slug}
+        endereco={ag.barbearia.endereco}
+        telefone={ag.barbearia.telefone}
+        logoAtualizadoEm={ag.barbearia.logoAtualizadoEm}
+        subtitulo={`Olá, ${ag.cliente.nome.trim().split(/\s+/)[0]}. Este é o seu horário.`}
+      />
 
       <main className="publico-main">
         <GerenciarHorario

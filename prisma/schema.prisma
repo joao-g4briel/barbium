@@ -77,9 +77,9 @@ enum DiaSemana {
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
-  id                   String    @id @default(cuid())
+  id                   String         @id @default(cuid())
   nome                 String
-  slug                 String    @unique
+  slug                 String         @unique
   telefone             String?
   // WhatsApp que recebe os avisos automáticos (novo agendamento etc.). Vazio:
   // vai pro telefone da barbearia. Separado porque o telefone da barbearia é
@@ -88,22 +88,28 @@ model Barbearia {
   // Quantas horas antes do horário o cliente recebe o lembrete no WhatsApp.
   // Vazio: não envia. Valores aceitos em src/lib/lembrete-opcoes.ts.
   lembreteHorasAntes   Int?
-  plano                Plano     @default(SOLO)
-  ativo                Boolean   @default(true)
+  plano                Plano          @default(SOLO)
+  ativo                Boolean        @default(true)
   // Até quando a barbearia pode usar o painel. Vazio: sem prazo (barbearias
   // cadastradas ou liberadas pelo super admin). Cadastro pelo site começa
   // com o teste grátis; o pagamento empurra a data pra frente.
   acessoAte            DateTime?
   // Ainda no teste grátis (nunca pagou).
-  emTeste              Boolean   @default(false)
+  emTeste              Boolean        @default(false)
   // Adicional de WhatsApp pago (ou liberado pela plataforma). No teste grátis
   // as mensagens saem mesmo sem ele. Regra em src/lib/whatsapp-adicional.ts.
-  whatsappAtivo        Boolean   @default(false)
+  whatsappAtivo        Boolean        @default(false)
   // Avisos de fim do teste grátis já enviados ao dono (lib/avisos-teste.ts).
   avisoTesteAcabandoEm DateTime?
   avisoTesteFimEm      DateTime?
-  criadoEm             DateTime  @default(now())
-  atualizadoEm         DateTime  @updatedAt
+  // Página de agendamento: endereço, cor da marca (#rrggbb) e logo (imagem
+  // na tabela barbearia_logos; a data serve pra renovar o cache da imagem).
+  endereco             String?
+  corMarca             String?
+  logoAtualizadoEm     DateTime?
+  logo                 BarbeariaLogo?
+  criadoEm             DateTime       @default(now())
+  atualizadoEm         DateTime       @updatedAt
 
   usuarios              Usuario[]
   pagamentosCakto       PagamentoCakto[]
@@ -388,4 +394,15 @@ model PagamentoCakto {
 
   @@index([barbeariaId])
   @@map("cakto_pagamentos")
+}
+
+// Logo da barbearia (já reduzido no navegador, até 200 KB), fora da tabela
+// principal pra não pesar nas consultas da barbearia.
+model BarbeariaLogo {
+  barbeariaId String    @id
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  dados       Bytes
+  tipo        String
+
+  @@map("barbearia_logos")
 }

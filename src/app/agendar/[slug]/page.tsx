@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
 import { obterSinalPublico } from "@/lib/sinal";
 import { SimboloBarbium } from "@/components/ui/marca";
+import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
+import { estiloDaMarca } from "@/lib/cor-marca";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { AssistenteAgendamento } from "./assistente-agendamento";
 
@@ -42,19 +44,23 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
   const ehDaEquipe = sessao?.barbeariaId === barbearia.id;
 
   return (
-    <div className="publico">
-      <header className="publico-topo">
-        <div className="publico-topo-conteudo">
-          {ehDaEquipe && (
+    <div className="publico" style={estiloDaMarca(barbearia.corMarca)}>
+      <CabecalhoBarbearia
+        nome={barbearia.nome}
+        slug={barbearia.slug}
+        endereco={barbearia.endereco}
+        telefone={barbearia.telefone}
+        logoAtualizadoEm={barbearia.logoAtualizadoEm}
+        subtitulo="Agende seu horário em poucos passos."
+        antes={
+          ehDaEquipe ? (
             <Link href="/painel/agenda" className="voltar">
               <ChevronLeft size={16} aria-hidden="true" />
               Voltar ao painel
             </Link>
-          )}
-          <h1>{barbearia.nome}</h1>
-          <p className="texto-secundario">Agende seu horário em poucos passos.</p>
-        </div>
-      </header>
+          ) : undefined
+        }
+      />
 
       <main className="publico-main">
         {barbearia.servicos.length === 0 ? (

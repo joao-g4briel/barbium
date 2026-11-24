@@ -14,6 +14,8 @@ import { prisma } from "@/lib/prisma";
 import { chaveSegredosConfigurada } from "@/lib/segredos";
 import { SINAL_PERCENTUAL_MAX, SINAL_PERCENTUAL_MIN } from "@/lib/sinal";
 import { SecaoPagamento } from "./secao-pagamento";
+import { SecaoPaginaAgendamento } from "./secao-pagina-agendamento";
+import { urlDoLogo } from "@/components/publico/cabecalho-barbearia";
 import { FormularioBarbearia, FormularioPerfil, FormularioSenha } from "./formularios-conta";
 import { Alerta } from "@/components/ui/alerta";
 import { estadoWhatsapp } from "@/lib/whatsapp-adicional";
@@ -142,6 +144,16 @@ export default async function PaginaConfiguracoes() {
                 </a>
               </div>
             </section>
+          )}
+
+          {souDono && barbearia && (
+            <SecaoPaginaAgendamento
+              nome={barbearia.nome}
+              slug={barbearia.slug}
+              enderecoInicial={barbearia.endereco ?? ""}
+              corInicial={barbearia.corMarca}
+              logoUrl={urlDoLogo(barbearia.slug, barbearia.logoAtualizadoEm)}
+            />
           )}
 
           {souDono && (

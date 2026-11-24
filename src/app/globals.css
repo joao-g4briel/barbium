@@ -2506,6 +2506,77 @@ a.lista-item:hover {
 .publico-topo h1 {
   font-size: var(--text-xl);
   font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.publico-identidade {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.publico-identidade-texto {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.publico-logo {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg);
+  object-fit: contain;
+}
+.publico-logo-iniciais {
+  display: grid;
+  place-items: center;
+  background: var(--color-selected);
+  color: var(--color-accent-text);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+.publico-contato {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+@media (min-width: 560px) {
+  .publico-contato {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+.publico-contato-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+.publico-contato-item:hover {
+  border-color: var(--color-accent);
+}
+.publico-contato-item > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+.publico-contato-item > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.publico-contato-acao {
+  color: var(--color-accent-text);
+  font-weight: 700;
+  font-size: var(--text-xs);
 }
 .publico-main {
   flex: 1;
@@ -4059,6 +4130,98 @@ button.horario:hover {
   .dia-hora-no {
     transition: none;
   }
+}
+
+/* Página de agendamento (Configurações): logo, cor e endereço */
+.pagina-logo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.pagina-cores {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.pagina-cores-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pagina-cor {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.pagina-cor[aria-checked="true"] {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+.pagina-cor svg {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+.pagina-cor-livre {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pagina-cor-livre input {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.pagina-previa {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--color-bg);
+}
+.pagina-previa-rotulo {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.pagina-previa-corpo {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.pagina-previa-nome {
+  font-weight: 700;
+}
+.pagina-previa-endereco {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.pagina-previa-endereco svg {
+  color: var(--color-accent);
+}
+.pagina-previa-horarios {
+  grid-template-columns: repeat(3, 72px);
 }
 
 /* Primeiros passos da barbearia nova (visão geral do dono) */
