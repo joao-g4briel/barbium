@@ -9,6 +9,7 @@ import { apenasDigitos, formatarTelefone, numeroWhatsApp } from "@/lib/formatar"
 import { notificacoesConfiguradas, postarWebhook } from "@/lib/notificacoes";
 import { ROTULO_PLANO } from "@/lib/planos";
 import { DIAS_TESTE } from "@/lib/precos";
+import { cookiesMeta, enviarEventoMeta, metaConfigurada } from "@/lib/meta-capi";
 
 // Cadastro de barbearia pelo site (landing → /cadastro). Cria a barbearia em
 // teste grátis e o dono, e já devolve a sessão: a pessoa cai direto no painel.
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
   ]);
   if (!permitido) return NextResponse.json({ erro: MENSAGEM_LIMITE }, { status: 429 });
 
-  const dados = cadastroSchema.safeParse(await request.json().catch(() => null));
+  const corpo = await request.json().catch(() => null);
+  const dados = cadastroSchema.safeParse(corpo);
   if (!dados.success) {
     const campo = dados.error.issues[0];
     // Robô preencheu o campo escondido: responde como se nada tivesse acontecido.
@@ -83,6 +85,30 @@ export async function POST(request: Request) {
           `*Teste até:* ${DIAS_TESTE} dias a partir de hoje`,
         ].join("\n"),
       }).catch((e) => console.error("Aviso de cadastro:", e instanceof Error ? e.message : e)),
+    );
+  }
+
+  // Início do teste grátis pra Meta (API de Conversões), com o mesmo id do
+  // evento que o navegador dispara — é o evento que as campanhas otimizam.
+  if (metaConfigurada()) {
+    const idEvento = typeof corpo?.eventoMeta === "string" ? corpo.eventoMeta.slice(0, 100) : `starttrial-${criado.barbeariaId}`;
+    const pagina = typeof corpo?.paginaMeta === "string" ? corpo.paginaMeta.slice(0, 500) : undefined;
+    const { fbp, fbc } = cookiesMeta(request);
+    after(() =>
+      enviarEventoMeta({
+        nome: "StartTrial",
+        eventId: idEvento,
+        url: pagina,
+        email,
+        telefone,
+        nome_pessoa: nome,
+        idExterno: criado.barbeariaId,
+        ip: ip === "desconhecido" ? null : ip,
+        userAgent: request.headers.get("user-agent"),
+        fbp,
+        fbc,
+        valor: 0,
+      }).catch((e) => console.error("Meta CAPI (StartTrial):", e instanceof Error ? e.message : e)),
     );
   }
 

@@ -7,6 +7,7 @@ import { LIMITE_PROFISSIONAIS, ROTULO_PLANO } from "./planos";
 import { ROTULO_PERIODO_ASSINATURA } from "./precos";
 import { formatarDataInstante, formatarMoeda, numeroWhatsApp } from "./formatar";
 import { notificacoesConfiguradas, postarWebhook } from "./notificacoes";
+import { enviarEventoMeta, metaConfigurada } from "./meta-capi";
 import { EVENTOS_ALERTA, EVENTOS_PAGOS, ofertaDoPedido, pedidosDoEvento, type EventoCakto, type PedidoCakto } from "./cakto-regras";
 
 // Liberação automática pelo webhook da Cakto. Pagamento confirmado da
@@ -158,6 +159,22 @@ async function processarPedido(evento: string, pedido: PedidoCakto): Promise<Res
     { barbeariaId: barbearia.id, data: { plano, emTeste: false, ...(semPrazo ? {} : { acessoAte: novoPrazo }) } },
   );
   if (!liberou) return { pedido: idPedido, resultado: "repetido" };
+
+  // Venda pra Meta (API de Conversões): o pagamento é na Cakto, fora do site,
+  // então só o servidor consegue avisar. Primeira compra = Purchase;
+  // renovação = Subscribe (não conta como venda nova nos anúncios).
+  if (metaConfigurada() && typeof pedido.amount === "number") {
+    await enviarEventoMeta({
+      nome: evento === "subscription_renewed" ? "Subscribe" : "Purchase",
+      eventId: `purchase-${idPedido}`,
+      origem: "system_generated",
+      email: pedido.customer?.email,
+      telefone: pedido.customer?.phone ?? barbearia.telefone,
+      nome_pessoa: pedido.customer?.name,
+      idExterno: barbearia.id,
+      valor: pedido.amount,
+    }).catch((e) => console.error("Meta CAPI (Purchase):", e instanceof Error ? e.message : e));
+  }
 
   const ate = novoPrazo ? formatarDataInstante(novoPrazo, { day: "2-digit", month: "2-digit", year: "numeric" }) : "sem prazo";
   const paraDono = numeroWhatsApp(barbearia.telefoneAvisos ?? barbearia.telefone ?? "");

@@ -12,6 +12,7 @@ import { PLANOS, ROTULO_PLANO, descreverLimite } from "@/lib/planos";
 import { PRECOS } from "@/lib/precos";
 import { formatarMoeda, numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
+import { rastrearMeta } from "@/components/meta-pixel";
 
 type Campos = "nomeBarbearia" | "nome" | "email" | "whatsapp" | "senha";
 type Erros = Partial<Record<Campos | "aceite" | "geral", string>>;
@@ -55,11 +56,14 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
     if (Object.values(validacao).some(Boolean)) return;
 
     setEnviando(true);
+    // Mesmo id no pixel (navegador) e na API de Conversões (servidor): a Meta
+    // junta os dois e conta um início de teste só.
+    const eventoMeta = `starttrial-${crypto.randomUUID()}`;
     try {
       const resposta = await fetch("/api/cadastro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...valores, plano, site, aceite }),
+        body: JSON.stringify({ ...valores, plano, site, aceite, eventoMeta, paginaMeta: window.location.href }),
       });
       const dados = await resposta.json().catch(() => null);
       if (!resposta.ok) {
@@ -68,6 +72,7 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
         setEnviando(false);
         return;
       }
+      rastrearMeta("StartTrial", { value: 0, currency: "BRL", predicted_ltv: PRECOS[plano].MENSAL }, eventoMeta);
       router.push("/painel?bemvindo=1");
       router.refresh();
     } catch {
