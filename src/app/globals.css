@@ -4061,6 +4061,102 @@ button.horario:hover {
   }
 }
 
+/* Primeiros passos da barbearia nova (visão geral do dono) */
+.passos-iniciais {
+  display: grid;
+  gap: var(--space-4);
+}
+.passos-iniciais-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.passos-iniciais-lista {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.passo-inicial {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+.passo-inicial:first-child {
+  border-top: none;
+}
+@media (min-width: 640px) {
+  .passo-inicial {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+.passo-inicial-marca {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-control);
+  background: var(--color-input);
+}
+.passo-inicial[data-proximo] .passo-inicial-marca {
+  border: 2px solid var(--color-accent);
+}
+.passo-inicial[data-feito] .passo-inicial-marca {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.passo-inicial-texto {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.passo-inicial-titulo {
+  font-weight: 700;
+}
+.passo-inicial[data-feito] .passo-inicial-titulo {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-decoration: line-through;
+  text-decoration-color: var(--color-text-subtle);
+}
+.passo-inicial-descricao {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.passo-inicial-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+.passo-inicial-link > .num {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-input);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.passo-inicial-acao {
+  grid-column: 2;
+  justify-self: start;
+}
+@media (min-width: 640px) {
+  .passo-inicial-acao {
+    grid-column: 3;
+  }
+}
+
 /* Páginas legais (/termos, /privacidade): leitura */
 .legal {
   min-height: 100dvh;

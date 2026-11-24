@@ -17,6 +17,7 @@ export const obterBarbearia = cache(async (barbeariaId: string) => {
       acessoAte: true,
       emTeste: true,
       whatsappAtivo: true,
+      criadoEm: true,
       plano: true,
       ativo: true,
     },

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
 import {
   ArrowRight,
   CalendarCheck,
@@ -31,6 +32,11 @@ import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { AgendaInterativa } from "@/components/agenda/agenda-interativa";
 import { BotaoNovoAgendamento } from "@/components/agenda/botao-novo-agendamento";
+import { PrimeirosPassos } from "@/components/app/primeiros-passos";
+import { obterBarbearia } from "@/lib/barbearia-atual";
+import { linkParaAgendar } from "@/lib/link-cliente";
+import { whatsappLigado } from "@/lib/whatsapp-adicional";
+import { COOKIE_PASSOS_OCULTOS, montarPassos, type Passo } from "@/lib/primeiros-passos";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -117,6 +123,41 @@ export default async function VisaoGeral({
   const proximos = confirmados.filter((a) => a.fim > agora).slice(0, 4);
   const mostrarGrade = souDono && profissionais.length >= 2;
 
+  // Primeiros passos: só para o dono de barbearia nova (em teste ou criada há
+  // até 30 dias), enquanto faltar algum passo e ele não tiver ocultado.
+  let passos: Passo[] | null = null;
+  let linkAgendamento = "";
+  const ocultouPassos = (await cookies()).get(COOKIE_PASSOS_OCULTOS)?.value === barbeariaId;
+  if (souDono && !ocultouPassos) {
+    const barbearia = await obterBarbearia(barbeariaId);
+    const recente = barbearia && (barbearia.emTeste || agora.getTime() - barbearia.criadoEm.getTime() < 30 * 24 * 60 * 60 * 1000);
+    if (barbearia && recente) {
+      const [expediente, totalAgendamentos] = await Promise.all([
+        prisma.expedienteDia.findMany({
+          where: { usuarioId: sessao.sub },
+          select: { diaSemana: true, atende: true, horaInicio: true, horaFim: true, almocoInicio: true, almocoFim: true },
+        }),
+        prisma.agendamento.count({ where: { barbeariaId } }),
+      ]);
+      const todos = montarPassos({
+        servicosAtivos: servicos.length,
+        expediente,
+        profissionaisAtivos: profissionais.length,
+        plano: barbearia.plano,
+        lembreteAtivo: barbearia.lembreteHorasAntes !== null,
+        whatsappLigado: whatsappLigado(barbearia, agora),
+        agendamentos: totalAgendamentos,
+      });
+      if (todos.some((p) => !p.feito)) {
+        passos = todos;
+        const cabecalhos = await headers();
+        const host = cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host") ?? "";
+        const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+        linkAgendamento = linkParaAgendar(barbearia.slug) ?? `${protocolo}://${host}/agendar/${barbearia.slug}`;
+      }
+    }
+  }
+
   return (
     <>
       <CabecalhoPagina
@@ -126,6 +167,14 @@ export default async function VisaoGeral({
       />
 
       <div className="pilha">
+        {passos && (
+          <PrimeirosPassos
+            passos={passos}
+            linkAgendamento={linkAgendamento}
+            barbeariaId={barbeariaId}
+            boasVindas={params.bemvindo === "1"}
+          />
+        )}
         <section aria-label="Resumo de hoje" className="indicadores indicadores-destaque">
           {souDono ? (
             <Indicador
