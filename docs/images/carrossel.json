@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "width": 1920,
+  "height": 1080,
+  "aspectRatio": "16:9",
+  "illustrative": true,
+  "slides": [
+    {
+      "order": 1,
+      "slug": "visao-geral",
+      "title": "Seu dia em um só lugar.",
+      "description": "Agenda, clientes e gestão.",
+      "alt": "Prévia ilustrativa da Barbium com agenda de atendimentos no computador e no celular.",
+      "webp": "barbium-01-visao-geral.webp",
+      "png": "barbium-01-visao-geral.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "order": 2,
+      "slug": "agendamento",
+      "title": "Seu cliente agenda pelo link.",
+      "description": "Serviço, profissional e horário.",
+      "alt": "Prévia ilustrativa da página de agendamento da Barbium com seleção de serviço, profissional e horário.",
+      "webp": "barbium-02-agendamento.webp",
+      "png": "barbium-02-agendamento.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "order": 3,
+      "slug": "whatsapp-automatico",
+      "title": "Confirmações sem trabalho manual.",
+      "description": "Lembretes pelo WhatsApp.",
+      "alt": "Prévia ilustrativa do adicional de WhatsApp da Barbium, com confirmação, lembrete e aviso de novo agendamento.",
+      "webp": "barbium-03-whatsapp-automatico.webp",
+      "png": "barbium-03-whatsapp-automatico.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "order": 4,
+      "slug": "atendimentos",
+      "title": "Cada atendimento, no seu ritmo.",
+      "description": "Do agendamento à conclusão.",
+      "alt": "Prévia ilustrativa do acompanhamento de atendimentos da Barbium nos estados chegou, em atendimento e concluído.",
+      "webp": "barbium-04-atendimentos.webp",
+      "png": "barbium-04-atendimentos.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "order": 5,
+      "slug": "caixa-comissoes",
+      "title": "Concluiu? O caixa acompanha.",
+      "description": "Pagamentos e comissões organizados.",
+      "alt": "Prévia ilustrativa de caixa e comissões da Barbium com um exemplo de pagamento no Pix e divisão da comissão.",
+      "webp": "barbium-05-caixa-comissoes.webp",
+      "png": "barbium-05-caixa-comissoes.png",
+      "width": 1920,
+      "height": 1080
+    }
+  ]
+}

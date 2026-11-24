@@ -17,7 +17,7 @@ export default function PaginaRecuperarSenha() {
     <main className="auth">
       <div className="auth-caixa">
         <div className="auth-cabecalho">
-          <Marca variante="login" tamanho={28} />
+          <Marca tamanho={34} />
           <div>
             <h1 className="auth-titulo">Recuperar senha</h1>
             <p className="auth-subtitulo">Enviamos um link para você escolher uma senha nova.</p>

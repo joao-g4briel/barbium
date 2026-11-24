@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 // A espinha da landing: o trilho da agenda atravessando o dia. Conforme a
 // página desce, a linha "agora" acompanha a rolagem e cada hora alcançada
-// acende em menta. Sem JavaScript ou com movimento reduzido, tudo já aparece
+// acende no verde de destaque. Sem JavaScript ou com movimento reduzido, tudo já aparece
 // aceso; nada fica escondido esperando animação.
 export function TrilhoDoDia({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLOListElement>(null);

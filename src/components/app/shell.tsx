@@ -24,7 +24,7 @@ export function Shell({ variante, contexto, usuario, inicio, perfilHref, grupos,
     <div className="app">
       <aside className="sidebar">
         <Link href={inicio} className="sidebar-marca" aria-label="Barbium — início">
-          <Marca variante="sidebar" />
+          <Marca tamanho={28} />
         </Link>
 
         <div className="contexto-conta">
@@ -55,7 +55,7 @@ export function Shell({ variante, contexto, usuario, inicio, perfilHref, grupos,
         <header className="topbar">
           <div className="topbar-contexto">
             <Link href={inicio} aria-label="Barbium — início">
-              <Marca variante="topbar" tamanho={22} />
+              <Marca tamanho={26} />
             </Link>
             <span className="topbar-barbearia">{contexto.nome}</span>
           </div>

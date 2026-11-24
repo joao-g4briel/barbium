@@ -5,7 +5,7 @@ import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
 
 const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-manrope",
   display: "swap",
 });
@@ -24,6 +24,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/brand/favicon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],

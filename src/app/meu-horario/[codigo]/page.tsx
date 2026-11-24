@@ -49,7 +49,7 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
       </main>
 
       <footer className="publico-rodape">
-        <SimboloBarbium variante="publico" tamanho={15} />
+        <SimboloBarbium tamanho={16} />
         Agendamento pelo barbium
       </footer>
     </div>

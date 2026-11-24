@@ -23,7 +23,7 @@ export default async function PaginaRedefinirSenha({ searchParams }: { searchPar
     <main className="auth">
       <div className="auth-caixa">
         <div className="auth-cabecalho">
-          <Marca variante="login" tamanho={28} />
+          <Marca tamanho={34} />
           <div>
             <h1 className="auth-titulo">Nova senha</h1>
             {registro && (

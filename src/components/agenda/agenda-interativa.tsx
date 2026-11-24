@@ -394,9 +394,14 @@ function GradeProfissionais({
 
         <div className="grade-agenda-horas" style={{ height: altura }} aria-hidden="true">
           {slots
-            .filter((m) => m % 60 === 0 && m > inicioJanela && m < fimJanela)
+            .filter((m) => m % 60 === 0 && m >= inicioJanela && m < fimJanela)
             .map((m) => (
-              <span key={m} className="grade-agenda-hora num" style={{ top: (m - inicioJanela) * PX_POR_MINUTO }}>
+              <span
+                key={m}
+                className="grade-agenda-hora num"
+                data-primeira={m === inicioJanela || undefined}
+                style={{ top: (m - inicioJanela) * PX_POR_MINUTO }}
+              >
                 {rotuloSlot(m)}
               </span>
             ))}

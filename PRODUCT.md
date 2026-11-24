@@ -27,7 +27,7 @@ Ainda não definida. O usuário confirmou que o foco atual é terminar o MVP fun
 - Fuso horário é um ponto historicamente sensível (commits recentes corrigindo bug de fuso/agenda). Expediente semanal é guardado como texto `"HH:mm"`, não `DateTime`, deliberadamente para evitar esse tipo de bug — qualquer nova UI de horário/agenda deve preservar essa escolha.
 - Status de assinatura do cliente final é calculado a partir do vencimento, não armazenado — vencimento é a fonte da verdade.
 - Caixa é alimentado automaticamente ao concluir um agendamento (`ENTRADA`) e manualmente pelo dono para o resto (ex.: `SAIDA`).
-- Lembrete de agendamento hoje é via `wa.me` manual — não é integração de API do WhatsApp.
+- Confirmação, lembrete e avisos por WhatsApp saem automáticos (n8n + Evolution API) e são um adicional pago (R$ 60/mês); ligados no teste grátis e, depois, só com o adicional (`whatsappAtivo`).
 
 ## Capabilities and Constraints
 
@@ -49,7 +49,9 @@ Ainda não definida. O usuário confirmou que o foco atual é terminar o MVP fun
 - Interface inteira em português do Brasil, com datas e valores no formato brasileiro e horários no fuso de Brasília.
 - Linguagem simples, voltada à operação do dia a dia; o produto deve transmitir organização, confiança e qualidade.
 - Referências conceituais citadas pelo usuário (não para copiar): SQUIRE (organização da operação), Booksy (clareza de agendamento), dashboards profissionais (hierarquia e densidade equilibrada).
-- Símbolo: o poste de barbeiro estilizado (mantido pelo usuário ao longo dos redesenhos).
+- Símbolo: o poste de barbeiro estilizado (mantido pelo usuário ao longo dos redesenhos). Logo aprovada em `docs/images` (horizontal e compacta), vetorizada para o site e o app; no tema escuro, tampas e nome na cor do texto e faixas no verde de destaque.
+- Identidade visual definida em `docs/Prompt_Implementacao_Barbium_Design_System.md`: verdes sóbrios sobre fundo escuro esverdeado, Manrope, movimento discreto; um só design system para landing, painel e páginas públicas (detalhes em DESIGN.md).
+- Prévias ilustrativas da landing (`docs/images`) são sempre identificadas como "Prévia ilustrativa", nunca como capturas reais.
 
 ## Evidence on Hand
 

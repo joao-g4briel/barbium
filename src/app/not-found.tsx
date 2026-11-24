@@ -5,12 +5,12 @@ export default function NaoEncontrada() {
   return (
     <main className="pagina-central">
       <div className="pagina-central-conteudo">
-        <Marca variante="nao-encontrada" />
+        <Marca tamanho={28} />
         <div style={{ display: "grid", gap: 8 }}>
           <p className="texto-secundario num" style={{ fontWeight: 700 }}>
             Erro 404
           </p>
-          <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800 }}>Página não encontrada</h1>
+          <h1 className="pagina-central-titulo">Página não encontrada</h1>
           <p className="texto-secundario">O endereço pode ter mudado ou o link está incompleto.</p>
         </div>
         <Link href="/" className="btn btn-primary">

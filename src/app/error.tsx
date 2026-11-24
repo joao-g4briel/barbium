@@ -7,9 +7,9 @@ export default function ErroRaiz({ reset }: { error: Error & { digest?: string }
   return (
     <main className="pagina-central">
       <div className="pagina-central-conteudo">
-        <Marca variante="erro" />
+        <Marca tamanho={28} />
         <div style={{ display: "grid", gap: 8 }}>
-          <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 800 }}>Algo deu errado</h1>
+          <h1 className="pagina-central-titulo">Algo deu errado</h1>
           <p className="texto-secundario">Não foi possível carregar esta página. Tente de novo em instantes.</p>
         </div>
         <div className="form-acoes" style={{ justifyContent: "center" }}>

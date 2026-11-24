@@ -1,38 +1,39 @@
-// Símbolo do Barbium: o poste de barbeiro, redesenhado no verde da marca.
-// `variante` só existe pra dar um id único ao clipPath quando a marca
-// aparece mais de uma vez na mesma página (menu lateral e barra do topo).
-export function SimboloBarbium({ variante, tamanho = 24 }: { variante: string; tamanho?: number }) {
-  const clipId = `barbium-poste-${variante}`;
+import { CAMINHO_FAIXAS, CAMINHO_NOME, CAMINHO_TAMPAS, LARGURA_LOGO, LARGURA_SIMBOLO } from "./marca-caminhos";
+
+// Logo aprovada do Barbium (docs/images), vetorizada: poste com tampas
+// arredondadas e três faixas diagonais, ao lado do nome. Tampas e nome usam a
+// cor do texto (currentColor); as faixas, o verde de destaque (.marca-faixas).
+// `tamanho` é a altura da arte em pixels.
+
+export function SimboloBarbium({ tamanho = 24 }: { tamanho?: number }) {
   return (
     <svg
-      width={(tamanho * 2) / 3}
+      className="marca-simbolo"
+      width={+((tamanho * LARGURA_SIMBOLO) / 100).toFixed(2)}
       height={tamanho}
-      viewBox="0 0 16 24"
-      fill="none"
+      viewBox={`0 0 ${LARGURA_SIMBOLO} 100`}
       aria-hidden="true"
+      focusable="false"
     >
-      <defs>
-        <clipPath id={clipId}>
-          <rect x="2.5" y="2.5" width="11" height="19" rx="5.5" />
-        </clipPath>
-      </defs>
-      <rect x="1.25" y="1.25" width="13.5" height="21.5" rx="6.75" stroke="currentColor" strokeWidth="2.5" />
-      <g clipPath={`url(#${clipId})`}>
-        <path
-          d="M-4 9 18 -2M-4 16 18 5M-4 23 18 12M-4 30 18 19"
-          stroke="currentColor"
-          strokeWidth="3.2"
-        />
-      </g>
+      <path fill="currentColor" d={CAMINHO_TAMPAS} />
+      <path className="marca-faixas" d={CAMINHO_FAIXAS} />
     </svg>
   );
 }
 
-export function Marca({ variante, tamanho = 24 }: { variante: string; tamanho?: number }) {
+export function Marca({ tamanho = 28 }: { tamanho?: number }) {
   return (
     <span className="marca">
-      <SimboloBarbium variante={variante} tamanho={tamanho} />
-      barbium
+      <svg
+        width={+((tamanho * LARGURA_LOGO) / 100).toFixed(2)}
+        height={tamanho}
+        viewBox={`0 0 ${LARGURA_LOGO} 100`}
+        role="img"
+        aria-label="Barbium"
+      >
+        <path fill="currentColor" fillRule="evenodd" d={CAMINHO_TAMPAS + CAMINHO_NOME} />
+        <path className="marca-faixas" d={CAMINHO_FAIXAS} />
+      </svg>
     </span>
   );
 }

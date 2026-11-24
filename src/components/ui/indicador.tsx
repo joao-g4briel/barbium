@@ -7,6 +7,7 @@ export function Indicador({
   icone,
   tomIcone,
   tomValor,
+  destaque = false,
 }: {
   rotulo: string;
   valor: ReactNode;
@@ -14,9 +15,11 @@ export function Indicador({
   icone?: ReactNode;
   tomIcone?: "primario" | "perigo";
   tomValor?: "positivo" | "negativo";
+  // O indicador principal da página: mais largo e com o valor maior.
+  destaque?: boolean;
 }) {
   return (
-    <div className="indicador">
+    <div className="indicador" data-destaque={destaque || undefined}>
       {icone && (
         <span className="indicador-icone" data-tom={tomIcone} aria-hidden="true">
           {icone}

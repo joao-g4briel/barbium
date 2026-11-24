@@ -346,7 +346,7 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
           {servico.nome} · {capitalizar(formatarDataInstante(horario, { weekday: "short", day: "2-digit", month: "2-digit" }))}{" "}
           às {formatarHora(horario)}
         </p>
-        <p className="num" style={{ fontSize: "var(--text-2xl)", fontWeight: 800 }}>
+        <p className="num valor-destaque">
           {formatarMoeda(pagamento.valor)}
         </p>
         {pagamento.qrCodeBase64 && (

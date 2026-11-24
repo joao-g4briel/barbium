@@ -27,7 +27,7 @@ export default async function PaginaCadastro({ searchParams }: { searchParams: P
       <div className="auth-caixa auth-caixa-larga">
         <div className="auth-cabecalho">
           <Link href="/" aria-label="Barbium — início">
-            <Marca variante="cadastro" tamanho={28} />
+            <Marca tamanho={34} />
           </Link>
           <div>
             <h1 className="auth-titulo">Crie a conta da sua barbearia</h1>

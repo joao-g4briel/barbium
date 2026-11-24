@@ -126,10 +126,11 @@ export default async function VisaoGeral({
       />
 
       <div className="pilha">
-        <section aria-label="Resumo de hoje" className="indicadores">
+        <section aria-label="Resumo de hoje" className="indicadores indicadores-destaque">
           {souDono ? (
             <Indicador
               rotulo="Recebido hoje"
+              destaque
               valor={formatarMoeda(recebido)}
               tomValor={recebido > 0 ? "positivo" : undefined}
               icone={<Wallet size={22} />}
@@ -143,6 +144,7 @@ export default async function VisaoGeral({
           ) : (
             <Indicador
               rotulo="Pela frente"
+              destaque
               valor={proximos.length}
               icone={<Clock size={22} />}
               tomIcone="primario"
@@ -295,7 +297,7 @@ export default async function VisaoGeral({
                             {l.origem === "SINAL" ? "Sinal" : l.origem === "ATENDIMENTO" ? "Atendimento" : "Manual"}
                           </td>
                           <td data-rotulo="Valor" className="alinhar-direita tabela-celula-principal">
-                            <span style={{ color: l.tipo === "ENTRADA" ? "var(--color-primary)" : "var(--color-text)" }}>
+                            <span className={l.tipo === "ENTRADA" ? "valor-entrada" : undefined}>
                               {l.tipo === "ENTRADA" ? "+ " : "− "}
                               {formatarMoeda(Number(l.valor))}
                             </span>

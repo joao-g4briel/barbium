@@ -24,7 +24,7 @@ export default async function PaginaLogin({
     <main className="auth">
       <div className="auth-caixa">
         <div className="auth-cabecalho">
-          <Marca variante="login" tamanho={28} />
+          <Marca tamanho={34} />
           <div>
             <h1 className="auth-titulo">Entrar no painel</h1>
             <p className="auth-subtitulo">Agenda, clientes e caixa da sua barbearia.</p>

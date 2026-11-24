@@ -92,14 +92,14 @@ export function montarEmailRedefinicao(nome: string, link: string) {
 <html lang="pt-BR">
   <body style="margin:0;padding:24px;background:#f4f7f5;font-family:Manrope,sans-serif;color:#0d1110">
     <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-      <p style="margin:0 0 24px;font-size:20px;font-weight:800">barbium</p>
+      <p style="margin:0 0 24px;font-size:20px;font-weight:700;color:#064e3b">barbium</p>
       <p style="margin:0 0 16px;font-size:16px">Olá, ${primeiroNome}.</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.5">
         Recebemos um pedido para redefinir a senha da sua conta no Barbium.
       </p>
       <p style="margin:24px 0">
         <a href="${escaparHtml(link)}"
-           style="display:inline-block;background:#4ade80;color:#0d1110;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">
+           style="display:inline-block;background:#047857;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">
           Escolher nova senha
         </a>
       </p>

@@ -230,7 +230,7 @@ export default async function PaginaCaixa({
                           )}
                         </td>
                         <td data-rotulo="Valor" className="alinhar-direita tabela-celula-principal">
-                          <span style={{ color: entrada ? "var(--color-primary)" : "var(--color-text)" }}>
+                          <span className={entrada ? "valor-entrada" : undefined}>
                             {entrada ? "+ " : "− "}
                             {formatarMoeda(Number(l.valor))}
                           </span>

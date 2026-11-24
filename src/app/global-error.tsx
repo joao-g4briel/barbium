@@ -1,7 +1,8 @@
 "use client";
 
 // Última linha de defesa: substitui o layout raiz inteiro, então não pode
-// depender do CSS global — o estilo mínimo vai inline.
+// depender do CSS global — o estilo mínimo vai inline, com os valores da
+// paleta oficial (bg-page, text-primary, text-secondary, brand-primary).
 export default function ErroGlobal({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <html lang="pt-BR">
@@ -30,10 +31,10 @@ export default function ErroGlobal({ reset }: { error: Error & { digest?: string
               padding: "0 20px",
               border: "none",
               borderRadius: 10,
-              background: "#4ade80",
-              color: "#0b1a10",
+              background: "#047857",
+              color: "#ffffff",
               fontWeight: 700,
-              fontSize: 15,
+              fontSize: 16,
               cursor: "pointer",
             }}
           >
