@@ -80,9 +80,11 @@ export function linkAdicionalWhatsapp(): string {
 
 export const WHATSAPP_VENDAS = "5581989479982";
 
-export function linkAssinar(plano: Plano, periodo: Periodo, nomePlano: string): string {
+// barbeariaId vai no "sck" do checkout e volta no webhook da Cakto, que assim
+// sabe qual barbearia pagou (lib/cakto.ts).
+export function linkAssinar(plano: Plano, periodo: Periodo, nomePlano: string, barbeariaId?: string): string {
   const checkout = CHECKOUT_CAKTO[plano][periodo];
-  if (checkout) return checkout;
+  if (checkout) return barbeariaId ? `${checkout}?sck=${encodeURIComponent(barbeariaId)}` : checkout;
   const texto = `Olá! Quero assinar o Barbium, plano ${nomePlano} ${ROTULO_PERIODO_ASSINATURA[periodo].toLowerCase()}.`;
   return `https://wa.me/${WHATSAPP_VENDAS}?text=${encodeURIComponent(texto)}`;
 }

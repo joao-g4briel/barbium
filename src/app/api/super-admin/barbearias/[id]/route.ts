@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { estenderAcesso } from "@/lib/acesso";
 import { exigirSuperAdmin } from "@/lib/sessao";
 import { contarProfissionaisAtivos } from "@/lib/equipe";
 import { LIMITE_PROFISSIONAIS, ROTULO_PLANO, descreverLimite } from "@/lib/planos";
@@ -16,13 +17,6 @@ const atualizarSchema = z.object({
     .optional(),
 });
 
-// Soma meses a partir do fim do prazo atual, ou de agora se já venceu.
-function estenderAcesso(acessoAte: Date | null, meses: number): Date {
-  const agora = new Date();
-  const base = acessoAte && acessoAte > agora ? new Date(acessoAte) : agora;
-  base.setMonth(base.getMonth() + meses);
-  return base;
-}
 
 export async function PATCH(
   request: Request,

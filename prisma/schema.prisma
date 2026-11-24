@@ -77,32 +77,36 @@ enum DiaSemana {
 // Cada Barbearia é um tenant. Toda tabela "de negócio" carrega barbeariaId
 // e é sempre filtrada por ele — é o que garante o isolamento multi-tenant.
 model Barbearia {
-  id                 String    @id @default(cuid())
-  nome               String
-  slug               String    @unique
-  telefone           String?
+  id                   String    @id @default(cuid())
+  nome                 String
+  slug                 String    @unique
+  telefone             String?
   // WhatsApp que recebe os avisos automáticos (novo agendamento etc.). Vazio:
   // vai pro telefone da barbearia. Separado porque o telefone da barbearia é
   // o de contato com clientes; o aviso costuma ir pro celular do dono.
-  telefoneAvisos     String?
+  telefoneAvisos       String?
   // Quantas horas antes do horário o cliente recebe o lembrete no WhatsApp.
   // Vazio: não envia. Valores aceitos em src/lib/lembrete-opcoes.ts.
-  lembreteHorasAntes Int?
-  plano              Plano     @default(SOLO)
-  ativo              Boolean   @default(true)
+  lembreteHorasAntes   Int?
+  plano                Plano     @default(SOLO)
+  ativo                Boolean   @default(true)
   // Até quando a barbearia pode usar o painel. Vazio: sem prazo (barbearias
   // cadastradas ou liberadas pelo super admin). Cadastro pelo site começa
   // com o teste grátis; o pagamento empurra a data pra frente.
-  acessoAte          DateTime?
+  acessoAte            DateTime?
   // Ainda no teste grátis (nunca pagou).
-  emTeste            Boolean   @default(false)
+  emTeste              Boolean   @default(false)
   // Adicional de WhatsApp pago (ou liberado pela plataforma). No teste grátis
   // as mensagens saem mesmo sem ele. Regra em src/lib/whatsapp-adicional.ts.
-  whatsappAtivo      Boolean   @default(false)
-  criadoEm           DateTime  @default(now())
-  atualizadoEm       DateTime  @updatedAt
+  whatsappAtivo        Boolean   @default(false)
+  // Avisos de fim do teste grátis já enviados ao dono (lib/avisos-teste.ts).
+  avisoTesteAcabandoEm DateTime?
+  avisoTesteFimEm      DateTime?
+  criadoEm             DateTime  @default(now())
+  atualizadoEm         DateTime  @updatedAt
 
   usuarios              Usuario[]
+  pagamentosCakto       PagamentoCakto[]
   unidades              Unidade[]
   clientes              Cliente[]
   servicos              Servico[]
@@ -366,4 +370,22 @@ model AgendamentoHistorico {
 
   @@index([agendamentoId, criadoEm])
   @@map("agendamento_historico")
+}
+
+// Pagamentos recebidos da Cakto pelo webhook (lib/cakto.ts). O id é o pedido
+// na Cakto: o mesmo pedido nunca libera acesso duas vezes.
+model PagamentoCakto {
+  id          String     @id
+  evento      String
+  barbeariaId String?
+  barbearia   Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: SetNull)
+  ofertaId    String?
+  tipoOferta  String?
+  valor       Decimal?   @db.Decimal(10, 2)
+  email       String?
+  resultado   String
+  criadoEm    DateTime   @default(now())
+
+  @@index([barbeariaId])
+  @@map("cakto_pagamentos")
 }

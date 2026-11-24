@@ -28,10 +28,12 @@ const PLANO_RECOMENDADO: Plano = "BARBEARIA";
 export function TabelaPrecos({
   acao,
   planoAtual,
+  barbeariaId,
   periodoInicial = "MENSAL",
 }: {
   acao: "cadastro" | "assinar";
   planoAtual?: Plano;
+  barbeariaId?: string;
   periodoInicial?: Periodo;
 }) {
   const [periodo, setPeriodo] = useState<Periodo>(periodoInicial);
@@ -98,7 +100,7 @@ export function TabelaPrecos({
                 </Link>
               ) : (
                 <a
-                  href={linkAssinar(plano, periodo, ROTULO_PLANO[plano])}
+                  href={linkAssinar(plano, periodo, ROTULO_PLANO[plano], barbeariaId)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`btn btn-bloco ${destaque ? "btn-primary" : "btn-secondary"}`}

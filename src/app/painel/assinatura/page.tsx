@@ -67,7 +67,7 @@ export default async function PaginaAssinatura() {
             )}
           </div>
         </section>
-        <TabelaPrecos acao="assinar" planoAtual={barbearia.plano} />
+        <TabelaPrecos acao="assinar" planoAtual={barbearia.plano} barbeariaId={barbearia.id} />
         <p className="texto-secundario texto-pequeno">
           O pagamento é feito pela Cakto. Depois de pagar, o acesso (e o adicional de WhatsApp, se você marcar) é
           liberado pelo período escolhido.

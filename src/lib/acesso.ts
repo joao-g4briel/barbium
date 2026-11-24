@@ -12,3 +12,10 @@ export function diasRestantes(barbearia: { acessoAte: Date | null }, agora = new
   if (barbearia.acessoAte === null) return null;
   return Math.max(0, Math.ceil((barbearia.acessoAte.getTime() - agora.getTime()) / DIA_MS));
 }
+
+// Soma meses a partir do fim do prazo atual, ou de agora se já venceu.
+export function estenderAcesso(acessoAte: Date | null, meses: number, agora = new Date()): Date {
+  const base = acessoAte && acessoAte > agora ? new Date(acessoAte) : new Date(agora);
+  base.setMonth(base.getMonth() + meses);
+  return base;
+}
