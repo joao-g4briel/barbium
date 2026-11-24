@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import type { Plano } from "@prisma/client";
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
@@ -13,7 +14,7 @@ import { formatarMoeda, numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
 
 type Campos = "nomeBarbearia" | "nome" | "email" | "whatsapp" | "senha";
-type Erros = Partial<Record<Campos | "geral", string>>;
+type Erros = Partial<Record<Campos | "aceite" | "geral", string>>;
 
 export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
   const router = useRouter();
@@ -26,6 +27,7 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
     senha: "",
   });
   const [site, setSite] = useState("");
+  const [aceite, setAceite] = useState(false);
   const [verSenha, setVerSenha] = useState(false);
   const [erros, setErros] = useState<Erros>({});
   const [enviando, setEnviando] = useState(false);
@@ -42,6 +44,7 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
     if (!/^\S+@\S+\.\S+$/.test(valores.email.trim())) e.email = "Informe um e-mail válido.";
     if (!numeroWhatsApp(valores.whatsapp)) e.whatsapp = "Informe o WhatsApp com DDD.";
     if (valores.senha.length < SENHA_MINIMO) e.senha = `A senha precisa ter pelo menos ${SENHA_MINIMO} caracteres.`;
+    if (!aceite) e.aceite = "Para criar a conta, aceite os Termos de uso e a Política de privacidade.";
     return e;
   }
 
@@ -56,11 +59,11 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
       const resposta = await fetch("/api/cadastro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...valores, plano, site }),
+        body: JSON.stringify({ ...valores, plano, site, aceite }),
       });
       const dados = await resposta.json().catch(() => null);
       if (!resposta.ok) {
-        const campo = dados?.campo as Campos | undefined;
+        const campo = dados?.campo as Campos | "aceite" | undefined;
         setErros(campo ? { [campo]: dados.erro } : { geral: dados?.erro ?? "Não foi possível criar a conta." });
         setEnviando(false);
         return;
@@ -159,6 +162,38 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
       <div className="sr-only" aria-hidden="true">
         <label htmlFor="cad-site">Site</label>
         <input id="cad-site" tabIndex={-1} autoComplete="off" value={site} onChange={(e) => setSite(e.target.value)} />
+      </div>
+
+      <div className="campo">
+        <label className="checkbox cadastro-aceite">
+          <input
+            type="checkbox"
+            checked={aceite}
+            onChange={(e) => {
+              setAceite(e.target.checked);
+              if (e.target.checked) setErros((atual) => ({ ...atual, aceite: undefined }));
+            }}
+            aria-invalid={erros.aceite ? true : undefined}
+            aria-describedby={erros.aceite ? "cad-aceite-erro" : undefined}
+          />
+          <span>
+            Li e aceito os{" "}
+            <Link href="/termos" target="_blank" className="link">
+              Termos de uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" target="_blank" className="link">
+              Política de privacidade
+            </Link>
+            .
+          </span>
+        </label>
+        {erros.aceite && (
+          <p id="cad-aceite-erro" className="campo-erro">
+            <AlertCircle size={14} aria-hidden="true" />
+            {erros.aceite}
+          </p>
+        )}
       </div>
 
       <Botao type="submit" variante="primary" bloco carregando={enviando} textoCarregando="Criando a conta…">

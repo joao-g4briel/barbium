@@ -452,6 +452,8 @@ export function Landing() {
           <Marca tamanho={24} />
           <nav aria-label="Rodapé" className="landing-rodape-links">
             <a href="#planos">Planos</a>
+            <Link href="/termos">Termos de uso</Link>
+            <Link href="/privacidade">Privacidade</Link>
             <Link href="/login">Entrar</Link>
             <Link href="/cadastro">Criar conta</Link>
             <a href={whatsapp} target="_blank" rel="noopener noreferrer">

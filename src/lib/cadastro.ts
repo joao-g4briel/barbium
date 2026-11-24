@@ -16,6 +16,10 @@ export const cadastroSchema = z.object({
   whatsapp: z.string().trim().refine((v) => numeroWhatsApp(v) !== null, "Informe o WhatsApp com DDD."),
   senha: z.string().min(SENHA_MINIMO, `A senha precisa ter pelo menos ${SENHA_MINIMO} caracteres.`).max(200),
   plano: z.enum(["SOLO", "BARBEARIA", "REDE"]),
+  // Aceite dos Termos de uso e da Política de privacidade (/termos, /privacidade).
+  aceite: z.literal(true, {
+    errorMap: () => ({ message: "Para criar a conta, aceite os Termos de uso e a Política de privacidade." }),
+  }),
   // Campo escondido: gente não preenche, robô costuma preencher.
   site: z.string().max(0).optional(),
 });

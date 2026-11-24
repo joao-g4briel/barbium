@@ -91,6 +91,10 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
       <footer className="publico-rodape">
         <SimboloBarbium tamanho={16} />
         Agendamento pelo barbium
+        <span aria-hidden="true">·</span>
+        <Link href="/privacidade" className="publico-rodape-link">
+          Privacidade
+        </Link>
       </footer>
     </div>
   );

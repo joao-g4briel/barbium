@@ -82,11 +82,16 @@ describe("cadastro pelo site", () => {
       whatsapp: "(81) 98947-9982",
       senha: "12345678",
       plano: "SOLO",
+      aceite: true,
     };
     expect(cadastroSchema.safeParse(base).success).toBe(true);
     expect(cadastroSchema.safeParse({ ...base, site: "http://spam" }).success).toBe(false);
     expect(cadastroSchema.safeParse({ ...base, whatsapp: "98947-9982" }).success).toBe(false);
     expect(cadastroSchema.safeParse({ ...base, senha: "123" }).success).toBe(false);
+    expect(cadastroSchema.safeParse({ ...base, aceite: false }).success).toBe(false);
+    const semAceite: Partial<typeof base> = { ...base };
+    delete semAceite.aceite;
+    expect(cadastroSchema.safeParse(semAceite).success).toBe(false);
   });
 });
 

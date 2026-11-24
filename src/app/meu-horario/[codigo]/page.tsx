@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SimboloBarbium } from "@/components/ui/marca";
@@ -51,6 +52,10 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
       <footer className="publico-rodape">
         <SimboloBarbium tamanho={16} />
         Agendamento pelo barbium
+        <span aria-hidden="true">·</span>
+        <Link href="/privacidade" className="publico-rodape-link">
+          Privacidade
+        </Link>
       </footer>
     </div>
   );
