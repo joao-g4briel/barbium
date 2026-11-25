@@ -54,7 +54,11 @@ export async function PATCH(
 
   const agendamento = await prisma.agendamento.findUnique({
     where: { id },
-    include: { servico: true, barbeiro: { select: { comissaoPercentual: true } } },
+    include: {
+      servico: true,
+      barbeiro: { select: { comissaoPercentual: true } },
+      assinatura: { select: { plano: { select: { comissaoValor: true } } } },
+    },
   });
 
   if (!agendamento || agendamento.barbeariaId !== sessao.barbeariaId) {
@@ -102,7 +106,7 @@ export async function PATCH(
   // Qualquer decisão da barbearia encerra um Pix ainda pendente. Se ele for
   // pago mesmo assim, o webhook registra o pagamento sem mexer no status.
   // Concluir com valor a receber exige saber como o cliente pagou.
-  if (status === "CONCLUIDO" && !formaPagamento) {
+  if (status === "CONCLUIDO" && !formaPagamento && !agendamento.assinaturaId) {
     const restante = await restanteAReceber(prisma, id, Number(agendamento.servico.preco));
     if (restante > 0) {
       return NextResponse.json(
@@ -227,6 +231,7 @@ async function trocarServico(
   agendamento: Agendamento & {
     servico: { nome: string };
     barbeiro: { comissaoPercentual: Prisma.Decimal | null };
+    assinatura: { plano: { comissaoValor: Prisma.Decimal } } | null;
   },
   sessao: SessaoPayload,
   servicoId: string,
@@ -307,7 +312,13 @@ async function trocarServico(
         });
         await registrarConclusao(
           tx,
-          { id: agendamento.id, barbeariaId: agendamento.barbeariaId, servico, barbeiro: agendamento.barbeiro },
+          {
+            id: agendamento.id,
+            barbeariaId: agendamento.barbeariaId,
+            servico,
+            barbeiro: agendamento.barbeiro,
+            assinatura: agendamento.assinatura,
+          },
           anterior?.formaPagamento ?? null,
         );
       }

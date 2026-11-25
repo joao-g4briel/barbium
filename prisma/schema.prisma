@@ -52,6 +52,7 @@ enum OrigemLancamento {
   MANUAL
   ATENDIMENTO
   SINAL
+  ASSINATURA // pagamento de plano de corte (sem agendamento)
 }
 
 enum TipoLancamento {
@@ -114,6 +115,9 @@ model Barbearia {
   atualizadoEm         DateTime       @updatedAt
 
   usuarios              Usuario[]
+  planosCorte           PlanoCorte[]
+  assinaturasPlano      AssinaturaPlano[]
+  pagamentosAssinatura  PagamentoAssinatura[]
   pagamentosCakto       PagamentoCakto[]
   unidades              Unidade[]
   clientes              Cliente[]
@@ -255,7 +259,8 @@ model Cliente {
   // comissões continuarem batendo. Some das listas e da busca.
   removidoEm      DateTime?
 
-  agendamentos Agendamento[]
+  agendamentos     Agendamento[]
+  assinaturasPlano AssinaturaPlano[]
 
   @@unique([barbeariaId, telefone])
   @@index([barbeariaId])
@@ -273,6 +278,7 @@ model Servico {
   barbearia          Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 
   agendamentos Agendamento[]
+  planos       PlanoCorteServico[]
 
   @@index([barbeariaId])
   @@map("servicos")
@@ -311,11 +317,17 @@ model Agendamento {
   // sentido). Garante um lembrete só por horário; mudar o horário zera.
   lembreteEnviadoEm DateTime?
 
+  // Agendado como assinante de um plano de corte: não cobra sinal nem valor
+  // na conclusão, e a comissão é o valor fixo do plano.
+  assinaturaId String?
+  assinatura   AssinaturaPlano? @relation(fields: [assinaturaId], references: [id])
+
   caixaLancamentos CaixaLancamento[]
   historico        AgendamentoHistorico[]
 
   @@index([barbeariaId, barbeiroId, inicio])
   @@index([status, sinalExpiraEm])
+  @@index([assinaturaId, inicio])
   @@map("agendamentos")
 }
 
@@ -323,17 +335,20 @@ model Agendamento {
 // e quando um agendamento é concluído (ATENDIMENTO, o restante), ou criado
 // avulso pelo dono (MANUAL, ex.: uma despesa).
 model CaixaLancamento {
-  id             String           @id @default(cuid())
-  tipo           TipoLancamento
-  valor          Decimal          @db.Decimal(10, 2)
-  descricao      String?
-  barbeariaId    String
-  barbearia      Barbearia        @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  agendamentoId  String?
-  agendamento    Agendamento?     @relation(fields: [agendamentoId], references: [id])
-  origem         OrigemLancamento @default(MANUAL)
-  formaPagamento FormaPagamento?
-  criadoEm       DateTime         @default(now())
+  id                    String               @id @default(cuid())
+  tipo                  TipoLancamento
+  valor                 Decimal              @db.Decimal(10, 2)
+  descricao             String?
+  barbeariaId           String
+  barbearia             Barbearia            @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamentoId         String?
+  agendamento           Agendamento?         @relation(fields: [agendamentoId], references: [id])
+  origem                OrigemLancamento     @default(MANUAL)
+  formaPagamento        FormaPagamento?
+  // Pagamento de plano de corte que gerou esta entrada (origem ASSINATURA).
+  pagamentoAssinaturaId String?              @unique
+  pagamentoAssinatura   PagamentoAssinatura? @relation(fields: [pagamentoAssinaturaId], references: [id])
+  criadoEm              DateTime             @default(now())
 
   @@unique([agendamentoId, origem])
   @@index([barbeariaId, criadoEm])
@@ -407,4 +422,96 @@ model BarbeariaLogo {
   tipo        String
 
   @@map("barbearia_logos")
+}
+
+// Plano de corte que a barbearia vende aos próprios clientes: um valor por
+// mês que dá direito a alguns serviços (regras em lib/planos-corte-regras.ts).
+model PlanoCorte {
+  id            String    @id @default(cuid())
+  barbeariaId   String
+  barbearia     Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  nome          String
+  // Valor de cada mês (30 dias) de plano.
+  valor         Decimal   @db.Decimal(10, 2)
+  // Quantos atendimentos o assinante pode marcar em cada mês. Vazio: ilimitado.
+  usosPorMes    Int?
+  // Comissão fixa do profissional em cada atendimento feito pelo plano.
+  comissaoValor Decimal   @default(0) @db.Decimal(10, 2)
+  // Desativado: some da página de agendamento e não aceita assinatura nova;
+  // quem já assina continua usando até o fim do que pagou.
+  ativo         Boolean   @default(true)
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  servicos    PlanoCorteServico[]
+  assinaturas AssinaturaPlano[]
+
+  @@index([barbeariaId])
+  @@map("planos_corte")
+}
+
+// Serviços que o plano cobre.
+model PlanoCorteServico {
+  planoId   String
+  plano     PlanoCorte @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  servicoId String
+  servico   Servico    @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+
+  @@id([planoId, servicoId])
+  @@map("planos_corte_servicos")
+}
+
+// Assinatura de um cliente num plano. Como na assinatura antiga do cliente,
+// a validade é a fonte da verdade: cada mês pago empurra validaAte 30 dias.
+// Um cliente tem no máximo uma assinatura não cancelada (índice parcial na
+// migration).
+model AssinaturaPlano {
+  id          String     @id @default(cuid())
+  barbeariaId String
+  barbearia   Barbearia  @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  clienteId   String
+  cliente     Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  planoId     String
+  plano       PlanoCorte @relation(fields: [planoId], references: [id])
+  // Vazio: o primeiro mês ainda não foi pago.
+  validaAte   DateTime?
+  canceladaEm DateTime?
+  criadoEm    DateTime   @default(now())
+
+  pagamentos   PagamentoAssinatura[]
+  agendamentos Agendamento[]
+
+  @@index([barbeariaId])
+  @@index([clienteId])
+  @@map("assinaturas_plano")
+}
+
+enum StatusPagamentoAssinatura {
+  PENDENTE
+  PAGO
+  EXPIRADO
+}
+
+// Cada mês pago de uma assinatura: pelo Pix da página de agendamento
+// (Mercado Pago da barbearia) ou registrado pelo dono no balcão.
+model PagamentoAssinatura {
+  id             String                    @id @default(cuid())
+  barbeariaId    String
+  barbearia      Barbearia                 @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  assinaturaId   String
+  assinatura     AssinaturaPlano           @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  valor          Decimal                   @db.Decimal(10, 2)
+  formaPagamento FormaPagamento
+  // Pago pelo Pix online (Mercado Pago); falso quando registrado no balcão.
+  online         Boolean                   @default(false)
+  mpPagamentoId  String?                   @unique
+  status         StatusPagamentoAssinatura @default(PENDENTE)
+  expiraEm       DateTime?
+  pagoEm         DateTime?
+  criadoEm       DateTime                  @default(now())
+
+  caixaLancamento CaixaLancamento?
+
+  @@index([assinaturaId, criadoEm])
+  @@map("assinatura_pagamentos")
 }

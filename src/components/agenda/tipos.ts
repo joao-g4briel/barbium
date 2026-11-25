@@ -16,8 +16,10 @@ export interface AgendamentoVM {
   sinalNoCaixa: number;
   // Lançamento da conclusão: o restante recebido na hora e como foi pago.
   pagamento: { valor: number; forma: FormaPagamento | null } | null;
-  // Comissão guardada na conclusão.
-  comissao: { percentual: number; valor: number } | null;
+  // Comissão guardada na conclusão (sem percentual: valor fixo do plano de corte).
+  comissao: { percentual: number | null; valor: number } | null;
+  // Agendado pelo plano de corte do cliente: nada a receber na conclusão.
+  plano: { nome: string } | null;
   // Quem fez o quê, do mais recente pro mais antigo.
   historico: HistoricoVM[];
 }

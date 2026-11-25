@@ -22,7 +22,9 @@ export async function restanteAReceber(tx: Tx, agendamentoId: string, preco: num
 }
 
 // Concluir: entra no caixa o restante, com a forma de pagamento, e a comissão
-// do profissional fica guardada no agendamento.
+// do profissional fica guardada no agendamento. Atendimento de plano de corte
+// não tem o que receber (o plano é pago à parte) e a comissão é o valor fixo
+// do plano.
 export async function registrarConclusao(
   tx: Tx,
   agendamento: {
@@ -30,9 +32,20 @@ export async function registrarConclusao(
     barbeariaId: string;
     servico: { nome: string; preco: Prisma.Decimal | number; comissaoPercentual: Prisma.Decimal | number | null };
     barbeiro: { comissaoPercentual: Prisma.Decimal | number | null };
+    assinatura?: { plano: { comissaoValor: Prisma.Decimal | number } } | null;
   },
   formaPagamento: FormaPagamento | null,
 ): Promise<void> {
+  if (agendamento.assinatura) {
+    await tx.caixaLancamento.deleteMany({ where: { agendamentoId: agendamento.id, origem: "ATENDIMENTO" } });
+    const valor = Number(agendamento.assinatura.plano.comissaoValor);
+    await tx.agendamento.update({
+      where: { id: agendamento.id },
+      data: { comissaoPercentual: null, comissaoValor: valor > 0 ? valor : null },
+    });
+    return;
+  }
+
   const preco = Number(agendamento.servico.preco);
   const restante = await restanteAReceber(tx, agendamento.id, preco);
 

@@ -10,6 +10,9 @@ import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
 import { notificarAgendamento } from "@/lib/notificacoes";
 import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
+import { codigoDoAgendamento } from "@/lib/link-cliente";
+import { assinaturaDoCliente, travarCliente, usosNoMes } from "@/lib/planos-corte";
+import { mesDoPlano, motivoParaNaoUsarPlano, situacaoAssinatura } from "@/lib/planos-corte-regras";
 import {
   SINAL_RESERVA_MINUTOS,
   calcularSinal,
@@ -22,9 +25,13 @@ const corpoSchema = z.object({
   servicoId: z.string().min(1),
   profissionalId: z.string().min(1),
   inicio: z.string().datetime(),
-  nome: z.string().min(2, "Informe seu nome."),
+  // Assinante do plano de corte já é cliente: o nome vem do cadastro.
+  nome: z.string().trim().optional(),
   telefone: z.string().min(8, "Informe um telefone válido."),
+  usarPlano: z.boolean().optional(),
 });
+
+class ErroPlano extends Error {}
 
 export async function POST(
   request: Request,
@@ -61,6 +68,11 @@ export async function POST(
     (profissional.role !== "DONO" && profissional.role !== "BARBEIRO")
   ) {
     return NextResponse.json({ erro: "Profissional não encontrado." }, { status: 404 });
+  }
+
+  const usarPlano = dados.data.usarPlano === true;
+  if (!usarPlano && (dados.data.nome ?? "").length < 2) {
+    return NextResponse.json({ erro: "Informe seu nome." }, { status: 400 });
   }
 
   const inicio = new Date(dados.data.inicio);
@@ -104,7 +116,8 @@ export async function POST(
 
   // Com sinal ativo, o agendamento nasce aguardando o Pix e só vira
   // confirmado quando o Mercado Pago aprovar o pagamento.
-  const sinal = await obterSinalPublico(barbearia.id);
+  // Pelo plano de corte não há sinal: o mês já foi pago.
+  const sinal = usarPlano ? null : await obterSinalPublico(barbearia.id);
   const sinalValor = sinal ? calcularSinal(Number(servico.preco), sinal.percentual) : null;
   const sinalExpiraEm = sinal ? new Date(Date.now() + SINAL_RESERVA_MINUTOS * 60 * 1000) : null;
 
@@ -129,13 +142,38 @@ export async function POST(
         throw new Error("HORARIO_INDISPONIVEL");
       }
 
-      // Telefone já cadastrado: mantém o nome que a barbearia conhece. Senão
-      // qualquer um renomeia um cliente só digitando o telefone dele.
-      const cliente = await obterOuCriarCliente(tx, {
-        barbeariaId: barbearia.id,
-        telefone: telefoneNormalizado,
-        nome: dados.data.nome,
-      });
+      let assinaturaId: string | null = null;
+      let cliente;
+      if (usarPlano) {
+        cliente = await tx.cliente.findUnique({
+          where: { barbeariaId_telefone: { barbeariaId: barbearia.id, telefone: telefoneNormalizado } },
+        });
+        if (!cliente || cliente.removidoEm) throw new ErroPlano("Não encontramos um plano para esse WhatsApp.");
+        // Um pedido de cada vez por cliente: o limite do mês não estoura com
+        // dois agendamentos feitos juntos.
+        await travarCliente(tx, cliente.id);
+        const assinatura = await assinaturaDoCliente(tx, cliente.id);
+        if (!assinatura) throw new ErroPlano("Não encontramos um plano para esse WhatsApp.");
+        const mes = assinatura.validaAte ? mesDoPlano(assinatura.validaAte, inicio) : null;
+        const motivo = motivoParaNaoUsarPlano({
+          situacao: situacaoAssinatura(assinatura),
+          validaAte: assinatura.validaAte,
+          servicoNoPlano: assinatura.plano.servicos.some((s) => s.servicoId === servico.id),
+          inicio,
+          usosPorMes: assinatura.plano.usosPorMes,
+          usosNoMes: mes ? await usosNoMes(tx, assinatura.id, mes) : 0,
+        });
+        if (motivo) throw new ErroPlano(motivo);
+        assinaturaId = assinatura.id;
+      } else {
+        // Telefone já cadastrado: mantém o nome que a barbearia conhece. Senão
+        // qualquer um renomeia um cliente só digitando o telefone dele.
+        cliente = await obterOuCriarCliente(tx, {
+          barbeariaId: barbearia.id,
+          telefone: telefoneNormalizado,
+          nome: dados.data.nome ?? "",
+        });
+      }
 
       const criado = await tx.agendamento.create({
         data: {
@@ -146,6 +184,7 @@ export async function POST(
           clienteId: cliente.id,
           servicoId: servico.id,
           barbeiroId: profissional.id,
+          assinaturaId,
           ...(sinal ? { sinalValor, sinalStatus: "PENDENTE" as const, sinalExpiraEm } : {}),
         },
       });
@@ -153,6 +192,7 @@ export async function POST(
       return criado;
     });
   } catch (erro) {
+    if (erro instanceof ErroPlano) return NextResponse.json({ erro: erro.message }, { status: 409 });
     if ((erro instanceof Error && erro.message === "HORARIO_INDISPONIVEL") || ehConflitoDeHorario(erro)) {
       return NextResponse.json(
         { erro: "Esse horário acabou de ser preenchido. Escolha outro." },
@@ -164,7 +204,10 @@ export async function POST(
 
   if (!sinal || sinalValor === null || sinalExpiraEm === null) {
     notificarAgendamento("agendamento.confirmado", agendamento.id);
-    return NextResponse.json({ agendamento });
+    return NextResponse.json({
+      agendamento: { id: agendamento.id, status: agendamento.status },
+      codigo: codigoDoAgendamento(agendamento.id),
+    });
   }
 
   try {
@@ -191,6 +234,7 @@ export async function POST(
 
     return NextResponse.json({
       agendamento: { id: agendamento.id, status: agendamento.status },
+      codigo: codigoDoAgendamento(agendamento.id),
       pagamento: {
         valor: sinalValor,
         expiraEm: sinalExpiraEm.toISOString(),

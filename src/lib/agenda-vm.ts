@@ -8,6 +8,7 @@ export type AgendamentoCompleto = Agendamento & {
   barbeiro: Usuario;
   caixaLancamentos: Pick<CaixaLancamento, "origem" | "valor" | "formaPagamento">[];
   historico: Pick<AgendamentoHistorico, "id" | "criadoEm" | "acao" | "statusDe" | "statusPara" | "detalhe" | "autor">[];
+  assinatura: { plano: { nome: string } } | null;
 };
 
 export const INCLUIR_AGENDAMENTO_COMPLETO = {
@@ -15,6 +16,7 @@ export const INCLUIR_AGENDAMENTO_COMPLETO = {
   servico: true,
   barbeiro: true,
   caixaLancamentos: { select: { origem: true, valor: true, formaPagamento: true } },
+  assinatura: { select: { plano: { select: { nome: true } } } },
   historico: {
     orderBy: { criadoEm: "desc" },
     take: 20,
@@ -49,9 +51,13 @@ export function paraAgendamentoVM(agendamento: AgendamentoCompleto): Agendamento
     sinalNoCaixa: Number(sinalNoCaixa?.valor ?? 0),
     pagamento: atendimento ? { valor: Number(atendimento.valor), forma: atendimento.formaPagamento } : null,
     comissao:
-      agendamento.comissaoPercentual !== null && agendamento.comissaoValor !== null
-        ? { percentual: Number(agendamento.comissaoPercentual), valor: Number(agendamento.comissaoValor) }
+      agendamento.comissaoValor !== null
+        ? {
+            percentual: agendamento.comissaoPercentual === null ? null : Number(agendamento.comissaoPercentual),
+            valor: Number(agendamento.comissaoValor),
+          }
         : null,
+    plano: agendamento.assinatura ? { nome: agendamento.assinatura.plano.nome } : null,
     historico: agendamento.historico.map((h) => ({
       id: h.id,
       quando: h.criadoEm.toISOString(),

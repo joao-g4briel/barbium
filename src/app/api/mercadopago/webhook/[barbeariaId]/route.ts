@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buscarPagamento, ErroMercadoPago } from "@/lib/mercadopago";
 import { aplicarPagamento, obterTokenMercadoPago } from "@/lib/sinal";
+import { PREFIXO_REFERENCIA_ASSINATURA, aplicarPagamentoAssinatura } from "@/lib/planos-corte";
 
 // Notificação do Mercado Pago sobre um pagamento. O corpo só diz QUAL
 // pagamento mudou; o estado de verdade é lido da API com o token da própria
@@ -22,7 +23,10 @@ export async function POST(
 
   try {
     const pagamento = await buscarPagamento(token, String(pagamentoId));
-    const resultado = await aplicarPagamento(barbeariaId, pagamento);
+    // Mês de plano de corte ou sinal de agendamento, pela referência.
+    const resultado = pagamento.external_reference?.startsWith(PREFIXO_REFERENCIA_ASSINATURA)
+      ? await aplicarPagamentoAssinatura(barbeariaId, pagamento)
+      : await aplicarPagamento(barbeariaId, pagamento);
     return NextResponse.json({ ok: true, resultado });
   } catch (erro) {
     // Pagamento que não é desta conta: nada a fazer. Outras falhas devolvem

@@ -67,6 +67,7 @@ export const INCLUIR_NOTIFICACAO = {
   cliente: { select: { nome: true, telefone: true, aceitaMensagens: true } },
   servico: { select: { nome: true, preco: true } },
   barbeiro: { select: { nome: true } },
+  assinatura: { select: { plano: { select: { nome: true } } } },
   barbearia: {
     select: {
       id: true,
@@ -105,6 +106,7 @@ export function dadosDaMensagem(ag: AgendamentoNotificacao, anterior?: Date): Da
     servico: ag.servico.nome,
     profissional: ag.barbeiro.nome,
     sinalPago: ag.sinalStatus === "PAGO" && ag.sinalValor !== null ? Number(ag.sinalValor) : null,
+    plano: ag.assinatura?.plano.nome ?? null,
     barbearia: ag.barbearia.nome,
     telefoneBarbearia: ag.barbearia.telefone ? formatarTelefone(ag.barbearia.telefone) : null,
   };
@@ -198,6 +200,8 @@ export interface DadosMensagem {
   servico: string;
   profissional: string;
   sinalPago: number | null;
+  // Agendado pelo plano de corte do cliente (nome do plano).
+  plano?: string | null;
   barbearia: string;
   telefoneBarbearia: string | null;
   // Página do cliente pra ver, mudar ou cancelar (null sem APP_URL).
@@ -232,6 +236,7 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
     `*Serviço:* ${d.servico}`,
     `*Profissional:* ${d.profissional}`,
     ...(d.quandoAnterior ? [`*Antes:* ${d.quandoAnterior}`, `*Agora:* ${d.quando}`] : [`*Quando:* ${d.quando}`]),
+    ...(d.plano ? [`*Plano:* ${d.plano}`] : []),
     ...(d.sinalPago !== null
       ? [
           cancelado

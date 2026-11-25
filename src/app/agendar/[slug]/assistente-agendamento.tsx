@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { CalendarCheck, CheckCircle2, ChevronRight, Clock, Hourglass, Scissors, User } from "lucide-react";
-import { CopiarTexto } from "@/components/ui/copiar-texto";
+import Link from "next/link";
+import { BadgeCheck, CalendarCheck, CalendarPlus, CheckCircle2, ChevronRight, Clock, Hourglass, Scissors, User } from "lucide-react";
+import { QrPix, formatarContagem } from "@/components/publico/qr-pix";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { linkArquivoIcs, linkGoogleAgenda } from "@/lib/agenda-celular";
+import { EtapaPlano, type AssinanteVM, type PlanoPublicoVM } from "./etapa-plano";
 import {
   capitalizar,
   formatarDataInstante,
@@ -11,6 +14,7 @@ import {
   formatarDuracao,
   formatarHora,
   formatarMoeda,
+  formatarTelefone,
   apenasDigitos,
 } from "@/lib/formatar";
 import { Avatar } from "@/components/ui/avatar";
@@ -33,10 +37,42 @@ interface Profissional {
 
 interface Props {
   slug: string;
+  barbearia: { nome: string; endereco: string | null };
   servicos: Servico[];
   profissionais: Profissional[];
   // Presente quando a barbearia cobra sinal antecipado por Pix.
   sinal: { percentual: number } | null;
+  // Planos de corte à venda (vazio: a etapa do plano nem aparece).
+  planos: PlanoPublicoVM[];
+  assinaturaOnline: boolean;
+  whatsappBarbearia: string | null;
+}
+
+// Nome e WhatsApp de quem já agendou neste aparelho, pra não digitar de novo.
+const CHAVE_CLIENTE = "barbium:cliente";
+
+function lerClienteLembrado(): { nome: string; telefone: string } {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_CLIENTE) ?? "null");
+    return {
+      nome: typeof salvo?.nome === "string" ? salvo.nome : "",
+      telefone: typeof salvo?.telefone === "string" ? salvo.telefone : "",
+    };
+  } catch {
+    return { nome: "", telefone: "" };
+  }
+}
+
+function lembrarCliente(dados: { nome?: string; telefone: string }) {
+  try {
+    const atual = lerClienteLembrado();
+    localStorage.setItem(
+      CHAVE_CLIENTE,
+      JSON.stringify({ nome: dados.nome?.trim() || atual.nome, telefone: dados.telefone.trim() }),
+    );
+  } catch {
+    // Sem armazenamento (aba anônima, bloqueado): só não lembra.
+  }
 }
 
 interface PagamentoPix {
@@ -54,11 +90,6 @@ function valorSinal(preco: number, percentual: number): number {
   return Math.round((Math.round(preco * 100) * percentual) / 100) / 100;
 }
 
-function formatarContagem(ms: number): string {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-}
-
 // Dias de calendário em Brasília (meia-noite UTC que representa o dia) —
 // o mesmo formato que a rota de horários espera em `data`.
 function chaveDia(dia: Date): string {
@@ -70,19 +101,17 @@ function proximosDias(quantidade: number, fuso: string): Date[] {
   return Array.from({ length: quantidade }, (_, i) => new Date(hoje.getTime() + i * 24 * 60 * 60 * 1000));
 }
 
-const PASSOS = ["Serviço", "Profissional", "Horário", "Seus dados"] as const;
-
-function Passos({ atual }: { atual: number }) {
+function Passos({ passos, atual }: { passos: string[]; atual: number }) {
   return (
-    <ol className="passos" aria-label="Etapas do agendamento">
-      {PASSOS.map((passo, indice) => (
+    <ol className="passos" aria-label="Etapas do agendamento" data-muitos={passos.length > 4 || undefined}>
+      {passos.map((passo, indice) => (
         <li
           key={passo}
           className="passo"
           data-estado={indice < atual ? "feito" : indice === atual ? "atual" : "pendente"}
           aria-current={indice === atual ? "step" : undefined}
         >
-          {passo}
+          <span className="passo-rotulo">{passo}</span>
         </li>
       ))}
     </ol>
@@ -116,10 +145,25 @@ function Escolha({
   );
 }
 
-export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: Props) {
+export function AssistenteAgendamento({
+  slug,
+  barbearia,
+  servicos,
+  profissionais,
+  sinal,
+  planos,
+  assinaturaOnline,
+  whatsappBarbearia,
+}: Props) {
   const fuso = useFuso();
+  const temPlanos = planos.length > 0;
+  // Um profissional só: ele já vem escolhido e a etapa some.
+  const unicoProfissional = profissionais.length === 1 ? profissionais[0] : null;
+  // Com planos, primeiro o cliente diz como vai agendar.
+  const [modo, setModo] = useState<"escolher" | "avulso" | "assinante">(temPlanos ? "escolher" : "avulso");
+  const [assinante, setAssinante] = useState<AssinanteVM | null>(null);
   const [servico, setServico] = useState<Servico | null>(null);
-  const [profissional, setProfissional] = useState<Profissional | null>(null);
+  const [profissional, setProfissional] = useState<Profissional | null>(unicoProfissional);
   const [dia, setDia] = useState<Date | null>(null);
   const [horario, setHorario] = useState<Date | null>(null);
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<Date[]>([]);
@@ -131,10 +175,20 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
   const [confirmando, setConfirmando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
+  const [codigo, setCodigo] = useState<string | null>(null);
+  const [lembrado, setLembrado] = useState({ nome: "", telefone: "" });
   const [pagamento, setPagamento] = useState<PagamentoPix | null>(null);
   const [sinalPago, setSinalPago] = useState(false);
   const [pixExpirado, setPixExpirado] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
+
+  // Quem já agendou neste aparelho não digita nome e WhatsApp de novo.
+  useEffect(() => {
+    const salvo = lerClienteLembrado();
+    setLembrado(salvo);
+    setNome((atual) => atual || salvo.nome);
+    setTelefone((atual) => atual || salvo.telefone);
+  }, []);
 
   // Enquanto o Pix não é pago: relógio da contagem e consulta periódica do
   // status (o servidor confere no Mercado Pago e confirma o agendamento).
@@ -171,17 +225,43 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
   }, [pagamento, confirmado, pixExpirado, slug]);
 
   const dias = proximosDias(7, fuso);
-  const passoAtual = !servico ? 0 : !profissional ? 1 : !horario ? 2 : 3;
+  const passos = [
+    ...(temPlanos ? ["Plano"] : []),
+    "Serviço",
+    ...(unicoProfissional ? [] : ["Profissional"]),
+    "Horário",
+    "Seus dados",
+  ];
+  const etapa =
+    modo === "escolher"
+      ? "Plano"
+      : !servico
+        ? "Serviço"
+        : !profissional
+          ? "Profissional"
+          : !horario
+            ? "Horário"
+            : "Seus dados";
+  const passoAtual = passos.indexOf(etapa);
+  const peloPlano = modo === "assinante" && assinante !== null;
+  // Assinante só vê os serviços do plano.
+  const servicosVisiveis = peloPlano ? servicos.filter((s) => assinante.plano.servicoIds.includes(s.id)) : servicos;
 
   function trocarServico() {
     setServico(null);
-    setProfissional(null);
+    setProfissional(unicoProfissional);
     trocarHorario();
   }
 
   function trocarProfissional() {
     setProfissional(null);
     trocarHorario();
+  }
+
+  function trocarModo() {
+    trocarServico();
+    setAssinante(null);
+    setModo("escolher");
   }
 
   function trocarHorario() {
@@ -193,9 +273,14 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
 
   function recomecar() {
     trocarServico();
-    setNome("");
-    setTelefone("");
+    setModo(temPlanos ? "escolher" : "avulso");
+    setAssinante(null);
+    const salvo = lerClienteLembrado();
+    setLembrado(salvo);
+    setNome(salvo.nome);
+    setTelefone(salvo.telefone);
     setErrosCampos({});
+    setCodigo(null);
     setConfirmado(false);
     setConfirmando(false);
     setPagamento(null);
@@ -237,9 +322,10 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
     evento.preventDefault();
     if (!servico || !profissional || !horario) return;
 
+    const telefoneEnvio = peloPlano ? assinante.telefone : telefone;
     const validacao: { nome?: string; telefone?: string } = {};
-    if (nome.trim().length < 2) validacao.nome = "Informe seu nome.";
-    if (apenasDigitos(telefone).length < 8) validacao.telefone = "Informe um telefone válido, com DDD.";
+    if (!peloPlano && nome.trim().length < 2) validacao.nome = "Informe seu nome.";
+    if (apenasDigitos(telefoneEnvio).length < 8) validacao.telefone = "Informe um telefone válido, com DDD.";
     setErrosCampos(validacao);
     if (Object.keys(validacao).length > 0) return;
 
@@ -254,8 +340,8 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
           servicoId: servico.id,
           profissionalId: profissional.id,
           inicio: horario.toISOString(),
-          nome,
-          telefone,
+          telefone: telefoneEnvio,
+          ...(peloPlano ? { usarPlano: true } : { nome }),
         }),
       });
       const dados = await resposta.json().catch(() => null);
@@ -266,6 +352,8 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
         return;
       }
 
+      lembrarCliente({ telefone: telefoneEnvio, ...(peloPlano ? {} : { nome }) });
+      setCodigo(dados?.codigo ?? null);
       if (dados?.pagamento) {
         setAgora(Date.now());
         setPagamento({ agendamentoId: dados.agendamento.id, ...dados.pagamento });
@@ -279,6 +367,19 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
   }
 
   if (confirmado && servico && profissional && horario) {
+    const evento = {
+      id: codigo?.split(".")[0] ?? horario.toISOString(),
+      titulo: `${servico.nome} · ${barbearia.nome}`,
+      inicio: horario,
+      fim: new Date(horario.getTime() + servico.duracaoMinutos * 60 * 1000),
+      local: barbearia.endereco,
+      descricao: [
+        `Com ${profissional.nome}.`,
+        codigo && typeof window !== "undefined" ? `Ver, remarcar ou cancelar: ${window.location.origin}/meu-horario/${codigo}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    };
     return (
       <section className="card confirmacao" aria-live="polite">
         <span className="confirmacao-icone" aria-hidden="true">
@@ -302,6 +403,12 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
             <dt>Horário</dt>
             <dd>{formatarHora(horario, fuso)}</dd>
           </div>
+          {peloPlano && (
+            <div>
+              <dt>Pagamento</dt>
+              <dd>Incluído no seu plano</dd>
+            </div>
+          )}
           {pagamento && sinalPago && (
             <>
               <div>
@@ -315,7 +422,28 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
             </>
           )}
         </dl>
-        <Botao onClick={recomecar}>Fazer outro agendamento</Botao>
+        <div className="confirmacao-acoes">
+          <a href={linkArquivoIcs(evento)} download="agendamento.ics" className="btn btn-primary btn-bloco">
+            <CalendarPlus size={18} aria-hidden="true" />
+            Adicionar à agenda do celular
+          </a>
+          <a href={linkGoogleAgenda(evento)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+            Prefere o Google Agenda? Adicionar por lá
+          </a>
+          {codigo && (
+            <Link href={`/meu-horario/${codigo}`} className="btn btn-secondary btn-bloco">
+              Ver, remarcar ou cancelar
+            </Link>
+          )}
+          <Botao onClick={recomecar} bloco>
+            Fazer outro agendamento
+          </Botao>
+        </div>
+        {codigo && (
+          <p className="texto-pequeno texto-secundario">
+            Guarde o link de remarcar: ele vale até 2 horas antes do horário.
+          </p>
+        )}
       </section>
     );
   }
@@ -351,20 +479,7 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
         <p className="num valor-destaque">
           {formatarMoeda(pagamento.valor)}
         </p>
-        {pagamento.qrCodeBase64 && (
-          // QR gerado pelo Mercado Pago, já em base64 — não passa por otimização de imagem.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            className="pix-qr"
-            src={`data:image/png;base64,${pagamento.qrCodeBase64}`}
-            alt="QR code do Pix do sinal"
-          />
-        )}
-        <p className="texto-pequeno texto-secundario">
-          Abra o app do seu banco, escolha pagar com Pix e leia o QR code ou use o código abaixo.
-        </p>
-        <p className="pix-codigo num">{pagamento.qrCode}</p>
-        <CopiarTexto texto={pagamento.qrCode} rotulo="Copiar código Pix" mensagemCopiado="Código Pix copiado." />
+        <QrPix qrCode={pagamento.qrCode} qrCodeBase64={pagamento.qrCodeBase64} alt="QR code do Pix do sinal" />
         <p className="pix-espera">
           <span className="spinner" aria-hidden="true" />
           <span role="status">{restanteMs > 0 ? "Aguardando pagamento" : "Conferindo o pagamento…"}</span>
@@ -379,17 +494,43 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
 
   return (
     <div className="pilha">
-      <Passos atual={passoAtual} />
+      <Passos passos={passos} atual={passoAtual} />
+
+      {modo === "escolher" && (
+        <EtapaPlano
+          slug={slug}
+          planos={planos}
+          assinaturaOnline={assinaturaOnline}
+          whatsappBarbearia={whatsappBarbearia}
+          telefoneInicial={lembrado.telefone}
+          nomeInicial={lembrado.nome}
+          onAvulso={() => setModo("avulso")}
+          onAssinante={(dados) => {
+            setAssinante(dados);
+            setModo("assinante");
+          }}
+          onLembrar={lembrarCliente}
+        />
+      )}
+
+      {temPlanos && modo !== "escolher" && (
+        <Escolha
+          icone={peloPlano ? <BadgeCheck size={20} /> : <Scissors size={20} />}
+          rotulo="Plano"
+          valor={peloPlano ? assinante.plano.nome : "Sem plano"}
+          onTrocar={trocarModo}
+        />
+      )}
 
       {servico && (
         <Escolha
           icone={<Scissors size={20} />}
           rotulo="Serviço"
-          valor={`${servico.nome} · ${formatarMoeda(servico.preco)}`}
+          valor={`${servico.nome} · ${peloPlano ? "incluído no plano" : formatarMoeda(servico.preco)}`}
           onTrocar={trocarServico}
         />
       )}
-      {profissional && (
+      {profissional && !unicoProfissional && (
         <Escolha icone={<User size={20} />} rotulo="Profissional" valor={profissional.nome} onTrocar={trocarProfissional} />
       )}
       {horario && dia && (
@@ -401,13 +542,20 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
         />
       )}
 
-      {!servico && (
+      {modo !== "escolher" && !servico && (
         <section className="etapa" aria-labelledby="etapa-servico">
           <h2 id="etapa-servico" className="etapa-titulo">
             Escolha o serviço
           </h2>
+          {peloPlano && assinante.usosRestantes !== null && (
+            <p className="texto-secundario texto-pequeno">
+              {assinante.usosRestantes === 1
+                ? "Resta 1 atendimento do plano neste mês."
+                : `Restam ${assinante.usosRestantes} atendimentos do plano neste mês.`}
+            </p>
+          )}
           <div className="opcoes">
-            {servicos.map((s) => (
+            {servicosVisiveis.map((s) => (
               <button key={s.id} type="button" onClick={() => setServico(s)} className="opcao">
                 <span className="opcao-texto">
                   <span className="opcao-titulo">{s.nome}</span>
@@ -416,7 +564,13 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
                     {formatarDuracao(s.duracaoMinutos)}
                   </span>
                 </span>
-                <span className="opcao-valor">{formatarMoeda(s.preco)}</span>
+                {peloPlano ? (
+                  <span className="badge" data-tom="sucesso">
+                    Incluído no plano
+                  </span>
+                ) : (
+                  <span className="opcao-valor">{formatarMoeda(s.preco)}</span>
+                )}
                 <ChevronRight size={18} className="texto-secundario" aria-hidden="true" />
               </button>
             ))}
@@ -507,6 +661,13 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
           </h2>
           <form onSubmit={confirmar} className="card form" noValidate>
             {erro && <Alerta tom="perigo">{erro}</Alerta>}
+            {peloPlano ? (
+              <p>
+                Pelo seu plano, sem pagar nada agora. WhatsApp do plano:{" "}
+                <span className="num">{formatarTelefone(assinante.telefone)}</span>.
+              </p>
+            ) : (
+            <>
             <Campo id="nome" rotulo="Nome" erro={errosCampos.nome}>
               <input
                 {...ariaCampo("nome", { erro: errosCampos.nome })}
@@ -535,7 +696,9 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
                 required
               />
             </Campo>
-            {sinal && (
+            </>
+            )}
+            {sinal && !peloPlano && (
               <Alerta tom="info">
                 Para garantir o horário, pague agora um sinal de{" "}
                 <strong>{formatarMoeda(valorSinal(servico.preco, sinal.percentual))}</strong> ({sinal.percentual}%) por
@@ -547,9 +710,9 @@ export function AssistenteAgendamento({ slug, servicos, profissionais, sinal }: 
               variante="primary"
               bloco
               carregando={confirmando}
-              textoCarregando={sinal ? "Gerando Pix…" : "Confirmando…"}
+              textoCarregando={sinal && !peloPlano ? "Gerando Pix…" : "Confirmando…"}
             >
-              {sinal ? "Continuar para o Pix" : "Confirmar agendamento"}
+              {sinal && !peloPlano ? "Continuar para o Pix" : "Confirmar agendamento"}
             </Botao>
           </form>
         </section>

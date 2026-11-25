@@ -6,6 +6,8 @@ import { ChevronLeft, Scissors, UserX } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
 import { obterSinalPublico } from "@/lib/sinal";
+import { obterPlanosPublicos } from "@/lib/planos-corte";
+import { linkWhatsApp } from "@/lib/formatar";
 import { SimboloBarbium } from "@/components/ui/marca";
 import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
 import { estiloDaMarca } from "@/lib/cor-marca";
@@ -40,7 +42,18 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
   // Barbearia suspensa ou com o acesso vencido não recebe agendamento novo.
   if (!barbearia || !barbearia.ativo || acessoVencido(barbearia)) notFound();
 
-  const sinal = await obterSinalPublico(barbearia.id);
+  const [sinal, planos, pagamento] = await Promise.all([
+    obterSinalPublico(barbearia.id),
+    obterPlanosPublicos(barbearia.id),
+    prisma.configuracaoPagamento.findUnique({
+      where: { barbeariaId: barbearia.id },
+      select: { mpAccessTokenCifrado: true },
+    }),
+  ]);
+  const contato = barbearia.telefone ? linkWhatsApp(barbearia.telefone) : null;
+  const whatsappPlanos = contato
+    ? `${contato}?text=${encodeURIComponent("Olá! Quero assinar um plano de corte.")}`
+    : null;
 
   // O "Novo agendamento" do painel traz a equipe pra cá; esse atalho leva de volta.
   const ehDaEquipe = sessao?.barbeariaId === barbearia.id;
@@ -85,6 +98,10 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
           <ProvedorFuso fuso={ianaDoFuso(barbearia.fuso)}>
             <AssistenteAgendamento
               slug={slug}
+              barbearia={{ nome: barbearia.nome, endereco: barbearia.endereco }}
+              planos={planos}
+              assinaturaOnline={Boolean(pagamento?.mpAccessTokenCifrado)}
+              whatsappBarbearia={whatsappPlanos}
               servicos={barbearia.servicos.map((s) => ({
                 id: s.id,
                 nome: s.nome,
@@ -99,8 +116,12 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
       </main>
 
       <footer className="publico-rodape">
-        <SimboloBarbium tamanho={16} />
-        Agendamento pelo barbium
+        {/* Quem agenda também pode ter uma barbearia: o rodapé leva à landing,
+            marcado como vindo do link de agendamento. */}
+        <Link href="/?utm_source=agendamento&utm_medium=rodape" className="publico-rodape-marca">
+          <SimboloBarbium tamanho={16} />
+          Agendamento pelo barbium
+        </Link>
         <span aria-hidden="true">·</span>
         <Link href="/privacidade" className="publico-rodape-link">
           Privacidade

@@ -4,6 +4,7 @@ export const ROTULO_ORIGEM: Record<OrigemLancamento, string> = {
   MANUAL: "Lançamento manual",
   ATENDIMENTO: "Atendimento concluído",
   SINAL: "Sinal do agendamento",
+  ASSINATURA: "Plano de corte",
 };
 
 export const FORMAS_PAGAMENTO: FormaPagamento[] = ["PIX", "DINHEIRO", "DEBITO", "CREDITO"];

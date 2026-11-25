@@ -17,6 +17,7 @@ import { StatusBadge } from "@/components/ui/badge";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { FormularioEditarCliente } from "./formulario-editar-cliente";
 import { SecaoAssinatura } from "./secao-assinatura";
+import { SecaoPlanoCorte } from "./secao-plano-corte";
 import { BotaoExcluirCliente } from "./botao-excluir-cliente";
 import { PreferenciaMensagens } from "./preferencia-mensagens";
 import { FUSO_PADRAO } from "@/lib/fusos";
@@ -183,7 +184,11 @@ export default async function DetalheCliente({ params }: { params: Promise<{ id:
               <PreferenciaMensagens clienteId={cliente.id} aceitaInicial={cliente.aceitaMensagens} />
             </section>
 
-            {souDono && (
+            {souDono && !removido && <SecaoPlanoCorte clienteId={cliente.id} barbeariaId={sessao.barbeariaId} fuso={fuso} />}
+
+            {/* Assinatura registrada à mão, de antes dos planos de corte: só
+                para quem já tem uma. */}
+            {souDono && cliente.assinaturaVencimento !== null && (
               <SecaoAssinatura
                 clienteId={cliente.id}
                 tipoAtual={cliente.assinaturaTipo}

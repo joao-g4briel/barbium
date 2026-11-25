@@ -2600,7 +2600,9 @@ a.lista-item:hover {
 
 .passos {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* 3 a 5 etapas: com plano de corte, sem escolha de profissional etc. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -2628,6 +2630,21 @@ a.lista-item:hover {
 }
 .passo[data-estado="feito"] {
   color: var(--color-text-muted);
+}
+/* Cinco etapas não cabem com nome no celular: só a atual mostra o nome
+   (os outros continuam para leitores de tela). */
+@media (max-width: 479px) {
+  .passos[data-muitos] .passo:not([data-estado="atual"]) .passo-rotulo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .passos[data-muitos] .passo[data-estado="atual"] .passo-rotulo {
+    white-space: nowrap;
+  }
 }
 
 .etapa {
@@ -4479,6 +4496,124 @@ button.horario:hover {
 }
 .publico-rodape-link:hover {
   color: var(--color-text);
+}
+.publico-rodape-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  color: var(--color-text-subtle);
+}
+.publico-rodape-marca:hover {
+  color: var(--color-text);
+}
+
+/* Agendamento: etapa do plano de corte e confirmação */
+.etapa-voltar {
+  justify-self: start;
+  margin-left: calc(var(--space-2) * -1);
+}
+.opcao-icone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-raised);
+  color: var(--color-accent-text);
+}
+.pilha-acoes {
+  display: grid;
+  gap: var(--space-2);
+}
+.planos-publicos {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plano-publico {
+  display: grid;
+  gap: var(--space-3);
+}
+.plano-publico-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.plano-publico-nome {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.plano-publico-valor {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+.plano-publico-servicos {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plano-publico-servicos li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.plano-publico-servicos svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+.confirmacao-acoes {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+/* Planos de corte no painel */
+.plano-servicos {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.plano-servicos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  column-gap: var(--space-4);
+}
+.plano-usos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+}
+.plano-usos .radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  cursor: pointer;
+}
+.plano-usos .radio input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+.plano-usos-numero {
+  width: 80px;
+}
+.acoes-linha {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* Cadastro pelo site */

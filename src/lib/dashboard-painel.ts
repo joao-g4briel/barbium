@@ -83,7 +83,7 @@ export async function obterAssinaturasAVencer(
     take: limite,
   });
 
-  return clientes.flatMap((cliente) =>
+  const manuais = clientes.flatMap((cliente) =>
     cliente.assinaturaVencimento
       ? [
           {
@@ -95,4 +95,25 @@ export async function obterAssinaturasAVencer(
         ]
       : [],
   );
+
+  // Planos de corte: vencendo, ou vencidos há até 30 dias (depois disso a
+  // lista ficaria cheia de quem não volta; eles seguem na página de planos).
+  const agora = new Date();
+  const planos = await prisma.assinaturaPlano.findMany({
+    where: {
+      barbeariaId,
+      canceladaEm: null,
+      validaAte: { lte: limiteData, gte: new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000) },
+    },
+    select: { validaAte: true, cliente: { select: { id: true, nome: true } } },
+    orderBy: { validaAte: "asc" },
+    take: limite,
+  });
+  const deplanos = planos.flatMap((a) =>
+    a.validaAte ? [{ id: a.cliente.id, nome: a.cliente.nome, vencimento: a.validaAte, vencida: a.validaAte <= agora }] : [],
+  );
+
+  return [...manuais, ...deplanos]
+    .sort((a, b) => a.vencimento.getTime() - b.vencimento.getTime())
+    .slice(0, limite);
 }

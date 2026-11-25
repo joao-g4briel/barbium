@@ -119,6 +119,7 @@ function descreverSinal(ag: AgendamentoVM): string {
 
 // O que falta receber na hora: preço menos o sinal que está no caixa.
 function restanteNaHora(ag: AgendamentoVM): number {
+  if (ag.plano) return 0;
   return Math.max(0, Math.round((ag.servico.preco - ag.sinalNoCaixa) * 100) / 100);
 }
 
@@ -1050,7 +1051,7 @@ function PainelAgendamento({
           </div>
           <div>
             <dt>Valor</dt>
-            <dd>{formatarMoeda(ag.servico.preco)}</dd>
+            <dd>{ag.plano ? `Incluído no plano (${ag.plano.nome})` : formatarMoeda(ag.servico.preco)}</dd>
           </div>
           {ag.sinal && (
             <div>
@@ -1079,7 +1080,8 @@ function PainelAgendamento({
             <div>
               <dt>Comissão</dt>
               <dd>
-                {formatarMoeda(ag.comissao.valor)} · {ag.comissao.percentual.toLocaleString("pt-BR")}%
+                {formatarMoeda(ag.comissao.valor)} ·{" "}
+                {ag.comissao.percentual === null ? "valor fixo do plano" : `${ag.comissao.percentual.toLocaleString("pt-BR")}%`}
               </dd>
             </div>
           )}

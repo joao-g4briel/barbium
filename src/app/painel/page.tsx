@@ -373,7 +373,7 @@ export default async function VisaoGeral({
                 </div>
                 <div className="lista">
                   {assinaturas.map((a) => (
-                    <Link key={a.id} href={`/painel/clientes/${a.id}`} className="lista-item">
+                    <Link key={`${a.id}-${a.vencimento.toISOString()}`} href={`/painel/clientes/${a.id}`} className="lista-item">
                       <div className="lista-item-principal">
                         <p className="lista-item-titulo">{a.nome}</p>
                         <p className="lista-item-sub">

@@ -51,6 +51,8 @@ export async function criarPagamentoPix(
     valor: number;
     descricao: string;
     referencia: string;
+    // Sem ela, vale a do sinal (sinal-<id do agendamento>).
+    chaveIdempotencia?: string;
     emailPagador: string;
     expiraEm: Date;
     urlNotificacao: string | null;
@@ -60,7 +62,7 @@ export async function criarPagamentoPix(
     method: "POST",
     // A referência (id do agendamento) é estável: repetir a chamada não cria
     // um segundo Pix pro mesmo agendamento.
-    headers: { "X-Idempotency-Key": `sinal-${dados.referencia}` },
+    headers: { "X-Idempotency-Key": dados.chaveIdempotencia ?? `sinal-${dados.referencia}` },
     body: JSON.stringify({
       transaction_amount: dados.valor,
       description: dados.descricao,

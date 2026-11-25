@@ -23,6 +23,7 @@ export default async function LayoutPainel({ children }: { children: React.React
   const clientes: ItemNav = { href: "/painel/clientes", rotulo: "Clientes", icone: "clientes" };
   const equipe: ItemNav = { href: "/painel/equipe", rotulo: "Equipe", icone: "equipe" };
   const servicos: ItemNav = { href: "/painel/servicos", rotulo: "Serviços", icone: "servicos" };
+  const planos: ItemNav = { href: "/painel/planos", rotulo: "Planos de corte", icone: "planos" };
   const financeiro: ItemNav = { href: "/painel/caixa", rotulo: "Financeiro", icone: "financeiro" };
   const indicadores: ItemNav = { href: "/painel/indicadores", rotulo: "Indicadores", icone: "indicadores" };
   // O barbeiro não vê o caixa, só a própria comissão.
@@ -33,14 +34,14 @@ export default async function LayoutPainel({ children }: { children: React.React
 
   const grupos: GrupoNav[] = [
     { itens: [visaoGeral, agenda, clientes] },
-    { titulo: "Barbearia", itens: souDono ? [equipe, servicos, financeiro, indicadores] : [servicos, minhasComissoes] },
+    { titulo: "Barbearia", itens: souDono ? [equipe, servicos, planos, financeiro, indicadores] : [servicos, minhasComissoes] },
     { titulo: "Conta", itens: souDono ? [horarios, assinatura, configuracoes] : [horarios, configuracoes] },
   ];
 
   const inicio = { ...visaoGeral, rotulo: "Início" };
   const principais = souDono ? [inicio, agenda, clientes, financeiro] : [inicio, agenda, clientes, horarios];
   const demais = souDono
-    ? [indicadores, servicos, equipe, horarios, assinatura, configuracoes]
+    ? [indicadores, servicos, planos, equipe, horarios, assinatura, configuracoes]
     : [minhasComissoes, servicos, configuracoes];
 
   return (
