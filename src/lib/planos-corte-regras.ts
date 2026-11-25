@@ -47,26 +47,72 @@ export function descreverUsos(usosPorMes: number | null): string {
   return usosPorMes === 1 ? "1 atendimento por mês" : `${usosPorMes} atendimentos por mês`;
 }
 
-// Pode agendar este horário pelo plano? Devolve o motivo quando não pode.
-export function motivoParaNaoUsarPlano(dados: {
-  situacao: SituacaoAssinatura;
-  validaAte: Date | null;
-  servicoNoPlano: boolean;
-  inicio: Date;
-  usosPorMes: number | null;
-  usosNoMes: number;
-}): string | null {
-  if (dados.situacao === "CANCELADA") return "Este plano foi cancelado.";
-  if (dados.situacao === "AGUARDANDO_PAGAMENTO") return "O primeiro mês do plano ainda não foi pago.";
-  if (dados.situacao === "VENCIDA" || !dados.validaAte) return "O plano venceu. Renove para agendar por ele.";
-  if (!dados.servicoNoPlano) return "Este serviço não faz parte do seu plano.";
-  if (dados.inicio >= dados.validaAte) {
-    return "Esse horário é depois do vencimento do plano. Renove antes ou escolha uma data até o vencimento.";
-  }
-  if (dados.usosPorMes !== null && dados.usosNoMes >= dados.usosPorMes) {
-    return dados.usosPorMes === 1
-      ? "Você já usou o atendimento do plano neste mês."
-      : `Você já usou os ${dados.usosPorMes} atendimentos do plano neste mês.`;
-  }
+const MOTIVOS = {
+  cliente: {
+    cancelada: "Este plano foi cancelado.",
+    aguardando: "O primeiro mês do plano ainda não foi pago.",
+    vencida: "O plano venceu. Renove para agendar por ele.",
+    servico: "Este serviço não faz parte do seu plano.",
+    depois: "Esse horário é depois do vencimento do plano. Renove antes ou escolha uma data até o vencimento.",
+    limite: (usos: number) =>
+      usos === 1
+        ? "Você já usou o atendimento do plano neste mês."
+        : `Você já usou os ${usos} atendimentos do plano neste mês.`,
+  },
+  equipe: {
+    cancelada: "O plano deste cliente foi encerrado.",
+    aguardando: "O primeiro mês do plano deste cliente ainda não foi pago.",
+    vencida: "O plano deste cliente venceu.",
+    servico: "Este serviço não faz parte do plano do cliente.",
+    depois: "Esse horário é depois do vencimento do plano do cliente.",
+    limite: (usos: number) =>
+      usos === 1
+        ? "O cliente já usou o atendimento do plano no mês desse horário."
+        : `O cliente já usou os ${usos} atendimentos do plano no mês desse horário.`,
+  },
+};
+
+// Pode agendar este horário pelo plano? Devolve o motivo quando não pode,
+// escrito pra quem está agendando (o cliente pelo link, ou a equipe).
+export function motivoParaNaoUsarPlano(
+  dados: {
+    situacao: SituacaoAssinatura;
+    validaAte: Date | null;
+    servicoNoPlano: boolean;
+    inicio: Date;
+    usosPorMes: number | null;
+    usosNoMes: number;
+  },
+  pessoa: "cliente" | "equipe" = "cliente",
+): string | null {
+  const m = MOTIVOS[pessoa];
+  if (dados.situacao === "CANCELADA") return m.cancelada;
+  if (dados.situacao === "AGUARDANDO_PAGAMENTO") return m.aguardando;
+  if (dados.situacao === "VENCIDA" || !dados.validaAte) return m.vencida;
+  if (!dados.servicoNoPlano) return m.servico;
+  if (dados.inicio >= dados.validaAte) return m.depois;
+  if (dados.usosPorMes !== null && dados.usosNoMes >= dados.usosPorMes) return m.limite(dados.usosPorMes);
   return null;
+}
+
+// Folga depois de cada mês pago no cartão: a cobrança seguinte pode sair um
+// ou dois dias depois (fim de semana, nova tentativa), sem cortar o plano.
+export const FOLGA_CARTAO_DIAS = 3;
+
+// Mesmo dia do mês seguinte, em UTC; 31/01 vira 28 (ou 29)/02.
+export function somarUmMes(data: Date): Date {
+  const ano = data.getUTCFullYear();
+  const mes = data.getUTCMonth() + 1;
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const resultado = new Date(data);
+  resultado.setUTCFullYear(ano, mes, Math.min(data.getUTCDate(), ultimoDia));
+  return resultado;
+}
+
+// Cobrança do cartão aprovada: o cartão cobra por mês do calendário, então a
+// validade vai até um mês depois da cobrança (com a folga), sem somar em
+// cima do que já valia. Nunca encurta uma validade maior.
+export function validadeDoCartao(validaAte: Date | null, dataCobranca: Date): Date {
+  const nova = new Date(somarUmMes(dataCobranca).getTime() + FOLGA_CARTAO_DIAS * MS_DIA);
+  return validaAte && validaAte > nova ? validaAte : nova;
 }

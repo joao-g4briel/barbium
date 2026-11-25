@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { cancelarPagamento } from "@/lib/mercadopago";
 import { obterTokenMercadoPago } from "@/lib/sinal";
-import { registrarPagamentoNoBalcao } from "@/lib/planos-corte";
+import { cancelarRenovacaoCartao, registrarPagamentoNoBalcao } from "@/lib/planos-corte";
 
 // Numa assinatura: registrar mais um mês pago no balcão, ou encerrar.
 const corpoSchema = z.union([
@@ -61,6 +61,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       data: { status: "EXPIRADO" },
     }),
   ]);
+  // Cartão: para a cobrança mensal no Mercado Pago. Se falhar, a assinatura
+  // já está encerrada aqui e a falha é registrada para conferir.
+  if (assinatura.mpPreapprovalId && assinatura.cartaoStatus !== "cancelled") {
+    await cancelarRenovacaoCartao(assinatura.id).catch((erro) => {
+      console.error("Encerrar assinatura (cartão):", erro instanceof Error ? erro.message : erro);
+    });
+  }
   // Pix ainda aberto deixa de valer. Se for pago mesmo assim, o webhook
   // registra o mês e a assinatura volta (lib/planos-corte).
   const token = pendentes.some((p) => p.mpPagamentoId) ? await obterTokenMercadoPago(assinatura.barbeariaId).catch(() => null) : null;

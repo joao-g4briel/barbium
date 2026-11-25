@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alerta } from "@/components/ui/alerta";
 import { AcessoRestrito } from "@/components/ui/acesso-restrito";
 import { usosNoMes } from "@/lib/planos-corte";
+import { linkDaAssinatura } from "@/lib/link-cliente";
 import {
   ROTULO_SITUACAO_ASSINATURA,
   descreverUsos,
@@ -69,7 +70,7 @@ export default async function PaginaPlanos() {
       const situacao = situacaoAssinatura(a, agora);
       const mes = situacao === "ATIVA" && a.validaAte ? mesDoPlano(a.validaAte, agora) : null;
       const usados = mes ? await usosNoMes(prisma, a.id, mes) : null;
-      return { ...a, situacao, usados };
+      return { ...a, situacao, usados, link: linkDaAssinatura(a.id) };
     }),
   );
   const mpConectado = Boolean(pagamento?.mpAccessTokenCifrado);
@@ -233,7 +234,20 @@ export default async function PaginaPlanos() {
                           {formatarTelefone(a.cliente.telefone)}
                         </span>
                       </td>
-                      <td data-rotulo="Plano">{a.plano.nome}</td>
+                      <td data-rotulo="Plano">
+                        <span>
+                          {a.plano.nome}
+                          {a.mpPreapprovalId && (
+                            <span className="texto-secundario texto-pequeno" style={{ display: "block" }}>
+                              {a.cartaoStatus === "authorized"
+                                ? "Cartão · renova sozinho"
+                                : a.cartaoStatus === "cancelled"
+                                  ? "Cartão · renovação cancelada"
+                                  : "Cartão · aguardando o cliente"}
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td data-rotulo="Situação">
                         <Badge tom={TOM_SITUACAO[a.situacao]}>{ROTULO_SITUACAO_ASSINATURA[a.situacao]}</Badge>
                       </td>
@@ -253,6 +267,8 @@ export default async function PaginaPlanos() {
                           cliente={a.cliente.nome}
                           plano={a.plano.nome}
                           valor={Number(a.plano.valor)}
+                          link={a.link}
+                          renovaNoCartao={a.cartaoStatus === "authorized"}
                         />
                       </td>
                     </tr>

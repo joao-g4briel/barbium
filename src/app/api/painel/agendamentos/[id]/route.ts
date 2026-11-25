@@ -57,7 +57,9 @@ export async function PATCH(
     include: {
       servico: true,
       barbeiro: { select: { comissaoPercentual: true } },
-      assinatura: { select: { plano: { select: { comissaoValor: true } } } },
+      assinatura: {
+        select: { plano: { select: { nome: true, comissaoValor: true, servicos: { select: { servicoId: true } } } } },
+      },
     },
   });
 
@@ -188,6 +190,7 @@ async function reagendar(
     validado.profissional.id,
     autorDaSessao(sessao),
     opcoesHorarioPainel(),
+    "equipe",
   );
   if (!resultado.ok) return NextResponse.json({ erro: resultado.erro }, { status: resultado.status });
 
@@ -231,7 +234,7 @@ async function trocarServico(
   agendamento: Agendamento & {
     servico: { nome: string };
     barbeiro: { comissaoPercentual: Prisma.Decimal | null };
-    assinatura: { plano: { comissaoValor: Prisma.Decimal } } | null;
+    assinatura: { plano: { nome: string; comissaoValor: Prisma.Decimal; servicos: { servicoId: string }[] } } | null;
   },
   sessao: SessaoPayload,
   servicoId: string,
@@ -251,6 +254,17 @@ async function trocarServico(
 
   if (servico.id === agendamento.servicoId) {
     return NextResponse.json({ erro: "Esse já é o serviço do agendamento." }, { status: 400 });
+  }
+
+  // Agendamento do plano de corte só troca por outro serviço do plano: um
+  // serviço fora dele teria que ser cobrado, e aí é outro agendamento.
+  if (agendamento.assinatura && !agendamento.assinatura.plano.servicos.some((s) => s.servicoId === servico.id)) {
+    return NextResponse.json(
+      {
+        erro: `${servico.nome} não faz parte do plano ${agendamento.assinatura.plano.nome} do cliente. Para esse serviço, cancele este horário e marque um sem plano.`,
+      },
+      { status: 409 },
+    );
   }
 
   const novoFim = new Date(agendamento.inicio.getTime() + servico.duracaoMinutos * 60 * 1000);

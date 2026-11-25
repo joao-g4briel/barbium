@@ -5,6 +5,8 @@ import {
   mesDoPlano,
   motivoParaNaoUsarPlano,
   situacaoAssinatura,
+  somarUmMes,
+  validadeDoCartao,
 } from "./planos-corte-regras";
 
 const d = (iso: string) => new Date(iso);
@@ -81,6 +83,17 @@ describe("motivoParaNaoUsarPlano", () => {
   it("bloqueia horário depois do vencimento", () => {
     expect(motivoParaNaoUsarPlano({ ...base, inicio: d("2027-01-02T15:00:00Z") })).toMatch(/vencimento/);
   });
+  it("para a equipe, fala do cliente em terceira pessoa", () => {
+    expect(motivoParaNaoUsarPlano({ ...base, usosNoMes: 4 }, "equipe")).toBe(
+      "O cliente já usou os 4 atendimentos do plano no mês desse horário.",
+    );
+    expect(motivoParaNaoUsarPlano({ ...base, usosPorMes: 1, usosNoMes: 1 }, "equipe")).toMatch(/o atendimento do plano/);
+    expect(motivoParaNaoUsarPlano({ ...base, inicio: d("2027-01-02T15:00:00Z") }, "equipe")).toMatch(/plano do cliente/);
+    expect(motivoParaNaoUsarPlano({ ...base, situacao: "CANCELADA" }, "equipe")).toMatch(/encerrado/);
+  });
+  it("no singular, sem 'os 1 atendimentos'", () => {
+    expect(motivoParaNaoUsarPlano({ ...base, usosPorMes: 1, usosNoMes: 1 })).toBe("Você já usou o atendimento do plano neste mês.");
+  });
   it("bloqueia vencida, cancelada e sem pagamento", () => {
     expect(motivoParaNaoUsarPlano({ ...base, situacao: "VENCIDA" })).toMatch(/venceu/);
     expect(motivoParaNaoUsarPlano({ ...base, situacao: "CANCELADA" })).toMatch(/cancelado/);
@@ -93,5 +106,25 @@ describe("descreverUsos", () => {
     expect(descreverUsos(null)).toBe("Atendimentos ilimitados");
     expect(descreverUsos(1)).toBe("1 atendimento por mês");
     expect(descreverUsos(4)).toBe("4 atendimentos por mês");
+  });
+});
+
+describe("cartão", () => {
+  it("somarUmMes mantém o dia e ajusta o fim do mês", () => {
+    expect(somarUmMes(d("2026-11-25T15:00:00Z"))).toEqual(d("2026-12-25T15:00:00Z"));
+    expect(somarUmMes(d("2027-01-31T10:00:00Z"))).toEqual(d("2027-02-28T10:00:00Z"));
+    expect(somarUmMes(d("2026-12-15T10:00:00Z"))).toEqual(d("2027-01-15T10:00:00Z"));
+  });
+  it("validade vai a um mês da cobrança, mais a folga", () => {
+    expect(validadeDoCartao(null, d("2026-11-25T15:00:00Z"))).toEqual(d("2026-12-28T15:00:00Z"));
+  });
+  it("cobranças mensais não acumulam dias", () => {
+    const primeira = validadeDoCartao(null, d("2026-11-25T15:00:00Z"));
+    const segunda = validadeDoCartao(primeira, d("2026-12-25T15:00:00Z"));
+    expect(segunda).toEqual(d("2027-01-28T15:00:00Z"));
+  });
+  it("nunca encurta uma validade maior (ex.: Pix pago antes)", () => {
+    const longe = d("2027-03-01T00:00:00Z");
+    expect(validadeDoCartao(longe, d("2026-11-25T15:00:00Z"))).toEqual(longe);
   });
 });

@@ -478,6 +478,14 @@ model AssinaturaPlano {
   canceladaEm DateTime?
   criadoEm    DateTime   @default(now())
 
+  // Assinatura no cartão (Mercado Pago cobra todo mês sozinho). Vazio: Pix
+  // ou balcão, mês a mês. cartaoStatus é o do Mercado Pago: pending (cliente
+  // ainda não pôs o cartão), authorized (renovando), paused ou cancelled.
+  mpPreapprovalId  String?   @unique
+  cartaoStatus     String?
+  // Aviso de "seu plano vence em breve" já mandado neste mês (zera a cada mês pago).
+  avisoRenovacaoEm DateTime?
+
   pagamentos   PagamentoAssinatura[]
   agendamentos Agendamento[]
 

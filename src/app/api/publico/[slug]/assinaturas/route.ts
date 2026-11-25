@@ -4,18 +4,24 @@ import { prisma } from "@/lib/prisma";
 import { acessoVencido } from "@/lib/acesso";
 import { apenasDigitos, formatarDataInstante } from "@/lib/formatar";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
-import { criarPixDaAssinatura, prepararAssinatura } from "@/lib/planos-corte";
+import { ErroCartao, assinarNoCartao, criarPixDaAssinatura, prepararAssinatura } from "@/lib/planos-corte";
 import { obterTokenMercadoPago } from "@/lib/sinal";
 import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
 
-// Assinar (ou renovar) um plano pela página de agendamento: gera o Pix de um
-// mês na conta do Mercado Pago da barbearia. O plano só passa a valer quando
-// o Pix é pago (webhook ou a consulta da tela do Pix).
+// Assinar (ou renovar) um plano pela página de agendamento, na conta do
+// Mercado Pago da barbearia:
+// - pix: gera o Pix de um mês; vale quando o Pix é pago (webhook ou a
+//   consulta da tela do Pix);
+// - cartao: cria a assinatura no cartão e devolve a página do Mercado Pago
+//   onde o cliente põe o cartão; ele volta para /minha-assinatura.
 const corpoSchema = z.object({
   planoId: z.string().min(1),
   telefone: z.string(),
   // Obrigatório só pra quem ainda não é cliente da barbearia.
   nome: z.string().trim().optional(),
+  forma: z.enum(["pix", "cartao"]).default("pix"),
+  // O Mercado Pago exige o e-mail de quem assina no cartão.
+  email: z.string().trim().optional(),
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -24,6 +30,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   if (!dados.success) return NextResponse.json({ erro: "Dados inválidos." }, { status: 400 });
   const telefone = apenasDigitos(dados.data.telefone);
   if (telefone.length < 10) return NextResponse.json({ erro: "Informe o WhatsApp com DDD." }, { status: 400 });
+  const cartao = dados.data.forma === "cartao";
+  const email = (dados.data.email ?? "").toLowerCase();
+  if (cartao && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ erro: "Informe um e-mail válido.", campo: "email" }, { status: 400 });
+  }
 
   const barbearia = await prisma.barbearia.findUnique({ where: { slug } });
   if (!barbearia || !barbearia.ativo || acessoVencido(barbearia)) {
@@ -63,6 +74,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       },
       { status: 409 },
     );
+  }
+
+  if (cartao) {
+    try {
+      const pagina = await assinarNoCartao({
+        barbearia: { id: barbearia.id, nome: barbearia.nome },
+        assinaturaId: preparo.assinaturaId,
+        plano: { nome: plano.nome, valor: Number(plano.valor) },
+        email,
+        origem: new URL(request.url).origin,
+      });
+      return NextResponse.json({ redirecionar: pagina });
+    } catch (erro) {
+      if (erro instanceof ErroCartao) return NextResponse.json({ erro: erro.message }, { status: 409 });
+      console.error("Falha ao criar assinatura no cartão:", erro instanceof Error ? erro.message : erro);
+      return NextResponse.json({ erro: "Não foi possível abrir o pagamento no cartão agora. Tente de novo em instantes." }, { status: 502 });
+    }
   }
 
   try {

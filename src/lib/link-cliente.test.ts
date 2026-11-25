@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   agendamentoDoCodigo,
+  assinaturaDoCodigo,
+  codigoDaAssinatura,
   codigoDoAgendamento,
+  linkDaAssinatura,
   linkDoCliente,
   podeAlterarPeloLink,
   urlPublicaDoApp,
@@ -24,6 +27,21 @@ describe("link do cliente", () => {
 
   it("o código abre o próprio agendamento", () => {
     expect(agendamentoDoCodigo(codigoDoAgendamento(ID))).toBe(ID);
+  });
+
+  it("link da assinatura abre só a assinatura, e não serve como link de horário", () => {
+    const codigo = codigoDaAssinatura(ID);
+    expect(assinaturaDoCodigo(codigo)).toBe(ID);
+    expect(agendamentoDoCodigo(codigo)).toBeNull();
+    expect(assinaturaDoCodigo(codigoDoAgendamento(ID))).toBeNull();
+    const [, assinatura] = codigo.split(".");
+    expect(assinaturaDoCodigo(`cmwtq5mjh0002vkzspv4lhayd.${assinatura}`)).toBeNull();
+  });
+
+  it("monta o link da assinatura só com APP_URL", () => {
+    expect(linkDaAssinatura(ID)).toBeNull();
+    process.env.APP_URL = "https://barbium.example/";
+    expect(linkDaAssinatura(ID)).toBe(`https://barbium.example/minha-assinatura/${codigoDaAssinatura(ID)}`);
   });
 
   it("trocar o id ou a assinatura não abre nada", () => {

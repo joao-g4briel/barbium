@@ -1,9 +1,24 @@
 import "server-only";
 import type { FormaPagamento, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { buscarPagamento, criarPagamentoPix, type PagamentoMP } from "./mercadopago";
+import {
+  buscarAssinaturaCartao,
+  buscarPagamento,
+  cancelarAssinaturaCartao,
+  criarAssinaturaCartao,
+  criarPagamentoPix,
+  listarCobrancasCartao,
+  type PagamentoMP,
+} from "./mercadopago";
 import { SINAL_RESERVA_MINUTOS, obterTokenMercadoPago } from "./sinal";
-import { estenderValidade, mesDoPlano, situacaoAssinatura, type SituacaoAssinatura } from "./planos-corte-regras";
+import {
+  estenderValidade,
+  mesDoPlano,
+  situacaoAssinatura,
+  validadeDoCartao,
+  type SituacaoAssinatura,
+} from "./planos-corte-regras";
+import { codigoDaAssinatura, urlPublicaDoApp } from "./link-cliente";
 
 type Tx = Prisma.TransactionClient;
 type Banco = Tx | typeof prisma;
@@ -11,6 +26,8 @@ type Banco = Tx | typeof prisma;
 // Referência do Pix de um mês de plano no Mercado Pago. O sinal usa o id do
 // agendamento puro; o prefixo separa os dois no webhook.
 export const PREFIXO_REFERENCIA_ASSINATURA = "assinatura:";
+// Referência da assinatura no cartão (e das cobranças que ela gera).
+export const PREFIXO_REFERENCIA_CARTAO = "plano-cartao:";
 
 // Status que contam como uso do plano: cancelado devolve o uso.
 const STATUS_QUE_NAO_CONTAM = ["CANCELADO", "AGUARDANDO_PAGAMENTO"] as const;
@@ -55,10 +72,17 @@ export function assinaturaDoCliente(db: Banco, clienteId: string) {
   });
 }
 
-export async function usosNoMes(db: Banco, assinaturaId: string, mes: { inicio: Date; fim: Date }): Promise<number> {
+// ignorarId: o próprio agendamento que está mudando de horário não conta.
+export async function usosNoMes(
+  db: Banco,
+  assinaturaId: string,
+  mes: { inicio: Date; fim: Date },
+  ignorarId?: string,
+): Promise<number> {
   return db.agendamento.count({
     where: {
       assinaturaId,
+      ...(ignorarId ? { id: { not: ignorarId } } : {}),
       status: { notIn: [...STATUS_QUE_NAO_CONTAM] },
       inicio: { gte: mes.inicio, lt: mes.fim },
     },
@@ -75,7 +99,14 @@ export async function travarCliente(tx: Tx, clienteId: string): Promise<void> {
 // Mês pago (Pix aprovado ou pagamento no balcão): a assinatura ganha 30 dias
 // e o valor entra no caixa. Idempotente: o mesmo pagamento aplicado de novo
 // devolve null e não muda nada.
-export async function registrarMesPago(tx: Tx, pagamentoId: string, agora: Date = new Date()): Promise<Date | null> {
+// Cobrança do cartão: passe a data da cobrança (a validade segue o mês do
+// calendário, ver validadeDoCartao). Pix e balcão: somam 30 dias.
+export async function registrarMesPago(
+  tx: Tx,
+  pagamentoId: string,
+  agora: Date = new Date(),
+  dataCobrancaCartao?: Date,
+): Promise<Date | null> {
   const marcado = await tx.pagamentoAssinatura.updateMany({
     where: { id: pagamentoId, status: { not: "PAGO" } },
     data: { status: "PAGO", pagoEm: agora },
@@ -104,10 +135,13 @@ export async function registrarMesPago(tx: Tx, pagamentoId: string, agora: Date 
     reativar = !outra;
   }
 
-  const validaAte = estenderValidade(assinatura.validaAte, agora);
+  const validaAte = dataCobrancaCartao
+    ? validadeDoCartao(assinatura.validaAte, dataCobrancaCartao)
+    : estenderValidade(assinatura.validaAte, agora);
   await tx.assinaturaPlano.update({
     where: { id: assinatura.id },
-    data: { validaAte, ...(reativar ? { canceladaEm: null } : {}) },
+    // Mês novo: o aviso de "vence em breve" pode sair de novo no fim dele.
+    data: { validaAte, avisoRenovacaoEm: null, ...(reativar ? { canceladaEm: null } : {}) },
   });
   await tx.caixaLancamento.create({
     data: {
@@ -241,10 +275,23 @@ export async function situacaoPorTelefone(barbeariaId: string, telefone: string)
     select: { id: true, removidoEm: true },
   });
   if (!cliente || cliente.removidoEm) return { situacao: "NENHUMA" };
-  const assinatura = await assinaturaDoCliente(prisma, cliente.id);
+  let assinatura = await assinaturaDoCliente(prisma, cliente.id);
   if (!assinatura) return { situacao: "NENHUMA" };
 
   const agora = new Date();
+  // Cartão vencendo ou vencido: a cobrança do mês pode ter saído e ainda não
+  // ter sido lida. Confere antes de dizer ao cliente que venceu.
+  const umDia = 24 * 60 * 60 * 1000;
+  if (
+    assinatura.mpPreapprovalId &&
+    assinatura.cartaoStatus !== "cancelled" &&
+    (!assinatura.validaAte || assinatura.validaAte.getTime() < agora.getTime() + umDia)
+  ) {
+    await sincronizarCartao(assinatura.id).catch((erro) => {
+      console.error("Consulta do assinante (cartão):", erro instanceof Error ? erro.message : erro);
+    });
+    assinatura = (await assinaturaDoCliente(prisma, cliente.id)) ?? assinatura;
+  }
   const situacao = situacaoAssinatura(assinatura, agora);
   let usosRestantes: number | null = null;
   if (situacao === "ATIVA" && assinatura.validaAte && assinatura.plano.usosPorMes !== null) {
@@ -310,4 +357,142 @@ export async function registrarPagamentoNoBalcao(
     },
   });
   return registrarMesPago(tx, pagamento.id);
+}
+
+// --- Assinatura no cartão --------------------------------------------------
+// O Mercado Pago cobra todo mês sozinho. O Barbium não depende do aviso dele
+// (que só chega se a barbearia configurar no painel do Mercado Pago): consulta
+// as cobranças quando o cliente volta do pagamento, quando abre a página da
+// assinatura e a cada chamada dos lembretes (a cada 15 minutos).
+
+export class ErroCartao extends Error {}
+
+// Cria a assinatura no cartão e devolve o endereço da página do Mercado Pago
+// onde o cliente põe o cartão.
+export async function assinarNoCartao(dados: {
+  barbearia: { id: string; nome: string };
+  assinaturaId: string;
+  plano: { nome: string; valor: number };
+  email: string;
+  origem: string;
+}): Promise<string> {
+  const token = await obterTokenMercadoPago(dados.barbearia.id);
+  if (!token) throw new ErroCartao("Esta barbearia ainda não recebe pagamentos online.");
+
+  const atual = await prisma.assinaturaPlano.findUniqueOrThrow({
+    where: { id: dados.assinaturaId },
+    select: { mpPreapprovalId: true, cartaoStatus: true },
+  });
+  if (atual.mpPreapprovalId && atual.cartaoStatus === "authorized") {
+    throw new ErroCartao("Seu plano já renova sozinho no cartão.");
+  }
+  // Tentativa anterior que o cliente não concluiu: sai do caminho.
+  if (atual.mpPreapprovalId) {
+    await cancelarAssinaturaCartao(token, atual.mpPreapprovalId).catch(() => {});
+  }
+
+  const base = urlPublicaDoApp() ?? dados.origem;
+  const mp = await criarAssinaturaCartao(token, {
+    valor: dados.plano.valor,
+    descricao: `Plano ${dados.plano.nome} · ${dados.barbearia.nome}`,
+    referencia: `${PREFIXO_REFERENCIA_CARTAO}${dados.assinaturaId}`,
+    emailPagador: dados.email,
+    urlRetorno: `${base}/minha-assinatura/${codigoDaAssinatura(dados.assinaturaId)}?retorno=1`,
+  });
+  if (!mp.init_point) throw new Error("Assinatura do Mercado Pago sem página de pagamento.");
+  await prisma.assinaturaPlano.update({
+    where: { id: dados.assinaturaId },
+    data: { mpPreapprovalId: mp.id, cartaoStatus: mp.status ?? "pending" },
+  });
+  return mp.init_point;
+}
+
+// Lê a assinatura e as cobranças no Mercado Pago e registra cada cobrança
+// aprovada uma vez só (o id do pagamento é único).
+export async function sincronizarCartao(assinaturaId: string): Promise<void> {
+  const assinatura = await prisma.assinaturaPlano.findUnique({
+    where: { id: assinaturaId },
+    select: { id: true, barbeariaId: true, mpPreapprovalId: true, cartaoStatus: true },
+  });
+  if (!assinatura?.mpPreapprovalId) return;
+  const token = await obterTokenMercadoPago(assinatura.barbeariaId);
+  if (!token) return;
+
+  const mp = await buscarAssinaturaCartao(token, assinatura.mpPreapprovalId);
+  if (mp.status && mp.status !== assinatura.cartaoStatus) {
+    await prisma.assinaturaPlano.update({ where: { id: assinatura.id }, data: { cartaoStatus: mp.status } });
+  }
+
+  const cobrancas = await listarCobrancasCartao(token, assinatura.mpPreapprovalId);
+  for (const cobranca of cobrancas) {
+    const pagamentoMp = cobranca.payment?.id ? String(cobranca.payment.id) : null;
+    if (!pagamentoMp || cobranca.payment?.status !== "approved") continue;
+    const ja = await prisma.pagamentoAssinatura.findUnique({ where: { mpPagamentoId: pagamentoMp }, select: { id: true } });
+    if (ja) continue;
+    const lida = new Date(cobranca.debit_date ?? cobranca.date_created ?? Date.now());
+    const data = Number.isNaN(lida.getTime()) ? new Date() : lida;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const pagamento = await tx.pagamentoAssinatura.create({
+          data: {
+            barbeariaId: assinatura.barbeariaId,
+            assinaturaId: assinatura.id,
+            valor: Number(cobranca.transaction_amount),
+            formaPagamento: "CREDITO",
+            online: true,
+            mpPagamentoId: pagamentoMp,
+          },
+        });
+        await registrarMesPago(tx, pagamento.id, new Date(), data);
+      });
+    } catch (erro) {
+      // Outra consulta registrou a mesma cobrança ao mesmo tempo.
+      if ((erro as { code?: string }).code !== "P2002") throw erro;
+    }
+  }
+}
+
+// Para os lembretes: assinaturas no cartão que podem ter cobrança nova
+// (vencendo, recém-vencidas ou esperando a primeira cobrança).
+const MAXIMO_SINCRONIZACOES = 30;
+export async function sincronizarCartoesPendentes(agora = new Date()): Promise<{ consultadas: number; falhas: number }> {
+  const dia = 24 * 60 * 60 * 1000;
+  const assinaturas = await prisma.assinaturaPlano.findMany({
+    where: {
+      mpPreapprovalId: { not: null },
+      canceladaEm: null,
+      AND: [{ OR: [{ cartaoStatus: null }, { cartaoStatus: { not: "cancelled" } }] }],
+      OR: [
+        { validaAte: null, criadoEm: { gt: new Date(agora.getTime() - 3 * dia) } },
+        { validaAte: { lt: new Date(agora.getTime() + 2 * dia), gt: new Date(agora.getTime() - 15 * dia) } },
+      ],
+    },
+    select: { id: true },
+    orderBy: { validaAte: "asc" },
+    take: MAXIMO_SINCRONIZACOES,
+  });
+  let falhas = 0;
+  for (const { id } of assinaturas) {
+    try {
+      await sincronizarCartao(id);
+    } catch (erro) {
+      falhas++;
+      console.error("Sincronizar cartão:", erro instanceof Error ? erro.message : erro);
+    }
+  }
+  return { consultadas: assinaturas.length, falhas };
+}
+
+// Para a renovação automática no Mercado Pago. O plano continua valendo até o
+// fim do que já foi pago.
+export async function cancelarRenovacaoCartao(assinaturaId: string): Promise<void> {
+  const assinatura = await prisma.assinaturaPlano.findUnique({
+    where: { id: assinaturaId },
+    select: { barbeariaId: true, mpPreapprovalId: true },
+  });
+  if (!assinatura?.mpPreapprovalId) return;
+  const token = await obterTokenMercadoPago(assinatura.barbeariaId);
+  if (!token) throw new ErroCartao("Não foi possível falar com o Mercado Pago agora.");
+  const mp = await cancelarAssinaturaCartao(token, assinatura.mpPreapprovalId);
+  await prisma.assinaturaPlano.update({ where: { id: assinaturaId }, data: { cartaoStatus: mp.status ?? "cancelled" } });
 }

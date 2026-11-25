@@ -6,6 +6,8 @@ import { inicioDoDiaBrasil } from "./fuso-brasil";
 import { ehConflitoDeHorario } from "./conflito-horario";
 import { dentroDaJanelaDeLembrete } from "./lembrete-opcoes";
 import { horarioCurto, registrarHistorico, type Autor } from "./historico";
+import { travarCliente, usosNoMes } from "./planos-corte";
+import { mesDoPlano, motivoParaNaoUsarPlano, situacaoAssinatura } from "./planos-corte-regras";
 
 // Muda o dia, o horário e/ou o profissional de um agendamento confirmado.
 // Usado pelo painel (equipe) e pelo link do cliente. Mesmas regras de um
@@ -13,12 +15,15 @@ import { horarioCurto, registrarHistorico, type Autor } from "./historico";
 // agendamento ocupa hoje conta como livre. Mantém duração, sinal e cliente.
 //
 // Quem chama confere permissão e o profissional; aqui ficam as regras da agenda.
+// Agendamento feito pelo plano de corte continua valendo as regras do plano:
+// a data nova precisa estar antes do vencimento e caber no limite do mês.
 
 export type ResultadoMudanca =
   | { ok: true; agendamento: Agendamento }
   | { ok: false; erro: string; status: 400 | 409 };
 
 class HorarioOcupado extends Error {}
+class ForaDoPlano extends Error {}
 
 export async function mudarHorario(
   agendamento: Agendamento,
@@ -26,6 +31,7 @@ export async function mudarHorario(
   profissionalId: string,
   autor: Autor,
   grade: { passoMinutos?: number; aceitarDesde?: Date } = {},
+  pessoa: "cliente" | "equipe" = "cliente",
 ): Promise<ResultadoMudanca> {
   if (agendamento.status !== "CONFIRMADO") {
     return { ok: false, erro: "Só dá para mudar o horário de agendamentos confirmados.", status: 409 };
@@ -84,6 +90,30 @@ export async function mudarHorario(
       });
       if (conflito) throw new HorarioOcupado();
 
+      if (agendamento.assinaturaId) {
+        // Um pedido de cada vez por cliente: o limite do mês não estoura.
+        await travarCliente(tx, agendamento.clienteId);
+        const assinatura = await tx.assinaturaPlano.findUnique({
+          where: { id: agendamento.assinaturaId },
+          include: { plano: { select: { usosPorMes: true } } },
+        });
+        if (assinatura) {
+          const mes = assinatura.validaAte ? mesDoPlano(assinatura.validaAte, inicio) : null;
+          const motivo = motivoParaNaoUsarPlano(
+            {
+              situacao: situacaoAssinatura(assinatura),
+              validaAte: assinatura.validaAte,
+              servicoNoPlano: true,
+              inicio,
+              usosPorMes: assinatura.plano.usosPorMes,
+              usosNoMes: mes ? await usosNoMes(tx, assinatura.id, mes, agendamento.id) : 0,
+            },
+            pessoa,
+          );
+          if (motivo) throw new ForaDoPlano(motivo);
+        }
+      }
+
       // Só muda se continua confirmado (o cliente pode ter cancelado pelo
       // link enquanto a equipe mexia, ou o contrário).
       const mudou = await tx.agendamento.updateMany({
@@ -99,6 +129,7 @@ export async function mudarHorario(
     }
     return { ok: true, agendamento: atualizado };
   } catch (erro) {
+    if (erro instanceof ForaDoPlano) return { ok: false, erro: erro.message, status: 409 };
     if (erro instanceof HorarioOcupado || ehConflitoDeHorario(erro)) {
       return { ok: false, erro: "Esse horário acabou de ser preenchido. Escolha outro.", status: 409 };
     }

@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Pasta do build. Só muda quando NEXT_DIST_DIR é passada: permite rodar um
+  // segundo servidor de testes sem disputar a .next do servidor em uso (dois
+  // servidores na mesma pasta corrompem os arquivos um do outro). Com outra
+  // pasta, o Next acrescenta ela ao tsconfig.json e ao next-env.d.ts:
+  // desfaça essas mudanças depois (git checkout -- tsconfig.json next-env.d.ts).
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Sem isso, o Next reaproveita em cache páginas que só mudam por
   // parâmetro de URL (?data=..., ?visualizacao=...) — clicar em
   // "Próximo"/"Anterior" muda a URL e o servidor recalcula certinho, mas a

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { BadgeCheck, CalendarPlus, ChevronLeft, ChevronRight, MessageCircle, Repeat, Scissors } from "lucide-react";
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
@@ -81,7 +82,10 @@ export function EtapaPlano({
   const [tela, setTela] = useState<Tela>("inicio");
   const [telefone, setTelefone] = useState(telefoneInicial);
   const [nome, setNome] = useState(nomeInicial);
-  const [erroCampo, setErroCampo] = useState<{ nome?: string; telefone?: string }>({});
+  const [email, setEmail] = useState("");
+  const [forma, setForma] = useState<"pix" | "cartao">("pix");
+  const [codigoAssinatura, setCodigoAssinatura] = useState<string | null>(null);
+  const [erroCampo, setErroCampo] = useState<{ nome?: string; telefone?: string; email?: string }>({});
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [resultado, setResultado] = useState<RespostaAssinante | null>(null);
@@ -110,6 +114,7 @@ export function EtapaPlano({
         if (!ativo) return;
         if (dados.status === "PAGO") {
           setValidaAte(dados.validaAte ?? null);
+          setCodigoAssinatura(dados.codigo ?? null);
           setTela("ativo");
         } else if (dados.status === "EXPIRADO") {
           setPixExpirado(true);
@@ -216,12 +221,40 @@ export function EtapaPlano({
   async function aoAssinar(evento: FormEvent) {
     evento.preventDefault();
     if (!escolhido) return;
-    const validacao: { nome?: string; telefone?: string } = {};
+    const validacao: { nome?: string; telefone?: string; email?: string } = {};
     if (nome.trim().length < 2) validacao.nome = "Informe seu nome.";
     if (apenasDigitos(telefone).length < 10) validacao.telefone = "Informe o WhatsApp com DDD.";
+    if (forma === "cartao" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) validacao.email = "Informe um e-mail válido.";
     setErroCampo(validacao);
     if (Object.keys(validacao).length > 0) return;
-    await gerarPix(escolhido.id, escolhido.nome, true);
+    if (forma === "pix") {
+      await gerarPix(escolhido.id, escolhido.nome, true);
+      return;
+    }
+
+    // Cartão: o cliente vai pra página do Mercado Pago e volta pra página
+    // da assinatura dele.
+    setErro(null);
+    setCarregando(true);
+    try {
+      const resposta = await fetch(`/api/publico/${slug}/assinaturas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planoId: escolhido.id, telefone, nome, forma: "cartao", email: email.trim() }),
+      });
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok || !dados?.redirecionar) {
+        if (dados?.campo === "email") setErroCampo({ email: dados.erro });
+        else setErro(dados?.erro ?? "Não foi possível abrir o pagamento no cartão agora.");
+        setCarregando(false);
+        return;
+      }
+      onLembrar({ telefone, nome });
+      window.location.href = dados.redirecionar;
+    } catch {
+      setErro("Falha de conexão. Tente novamente.");
+      setCarregando(false);
+    }
   }
 
   async function agendarAgora() {
@@ -463,9 +496,52 @@ export function EtapaPlano({
               onChange={(e) => setTelefone(e.target.value)}
             />
           </Campo>
-          <Botao type="submit" variante="primary" bloco carregando={carregando} textoCarregando="Gerando Pix…">
-            Pagar {formatarMoeda(escolhido.valor)} no Pix
+          <fieldset className="campo forma-plano">
+            <legend className="campo-rotulo">Como pagar</legend>
+            <label className="forma-plano-opcao">
+              <input type="radio" name="forma-plano" checked={forma === "pix"} onChange={() => setForma("pix")} />
+              <span>
+                <span className="forma-plano-titulo">Pix</span>
+                <span className="forma-plano-sub">Paga agora e renova a cada mês, quando quiser</span>
+              </span>
+            </label>
+            <label className="forma-plano-opcao">
+              <input type="radio" name="forma-plano" checked={forma === "cartao"} onChange={() => setForma("cartao")} />
+              <span>
+                <span className="forma-plano-titulo">Cartão de crédito</span>
+                <span className="forma-plano-sub">Renova sozinho todo mês. Cancele quando quiser</span>
+              </span>
+            </label>
+          </fieldset>
+          {forma === "cartao" && (
+            <Campo id="plano-email" rotulo="E-mail" dica="O Mercado Pago pede para a assinatura no cartão." erro={erroCampo.email}>
+              <input
+                {...ariaCampo("plano-email", { dica: true, erro: erroCampo.email })}
+                className="input"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Campo>
+          )}
+          <Botao
+            type="submit"
+            variante="primary"
+            bloco
+            carregando={carregando}
+            textoCarregando={forma === "pix" ? "Gerando Pix…" : "Abrindo o Mercado Pago…"}
+          >
+            {forma === "pix"
+              ? `Pagar ${formatarMoeda(escolhido.valor)} no Pix`
+              : `Assinar no cartão por ${formatarMoeda(escolhido.valor)}/mês`}
           </Botao>
+          {forma === "cartao" && (
+            <p className="texto-pequeno texto-secundario">
+              Você põe o cartão na página do Mercado Pago e volta para cá. A primeira cobrança sai na hora.
+            </p>
+          )}
         </form>
       </section>
     );
@@ -534,6 +610,16 @@ export function EtapaPlano({
         >
           Agendar agora
         </Botao>
+        {codigoAssinatura && (
+          <>
+            <Link href={`/minha-assinatura/${codigoAssinatura}`} className="btn btn-ghost btn-sm">
+              Ver minha assinatura
+            </Link>
+            <p className="texto-pequeno texto-secundario">
+              Guarde o link da assinatura: é por ele que você vê a validade e renova.
+            </p>
+          </>
+        )}
       </section>
     );
   }

@@ -32,11 +32,39 @@ export function codigoDoAgendamento(agendamentoId: string): string {
 
 // Devolve o id do agendamento se o código é legítimo, ou null.
 export function agendamentoDoCodigo(codigo: string): string | null {
+  return idDoCodigo(codigo, assinar);
+}
+
+function idDoCodigo(codigo: string, assinarCom: (id: string) => string): string | null {
   const [id, assinatura, ...resto] = codigo.split(".");
   if (!id || !assinatura || resto.length > 0 || !/^[a-z0-9]{10,40}$/.test(id)) return null;
-  const esperada = Buffer.from(assinar(id));
+  const esperada = Buffer.from(assinarCom(id));
   const recebida = Buffer.from(assinatura);
   return esperada.length === recebida.length && timingSafeEqual(esperada, recebida) ? id : null;
+}
+
+// Link da "minha assinatura" (plano de corte): /minha-assinatura/<id>.<assinatura>.
+// Mesmo esquema do link do horário, com outro prefixo: um código de horário
+// não abre assinatura, nem o contrário. Só chega a quem é o cliente (depois
+// de pagar, ou no WhatsApp dele), nunca a quem só digitou um telefone.
+function assinarAssinatura(assinaturaId: string): string {
+  return createHmac("sha256", segredo())
+    .update(`minha-assinatura:${assinaturaId}`)
+    .digest("base64url")
+    .slice(0, TAMANHO_ASSINATURA);
+}
+
+export function codigoDaAssinatura(assinaturaId: string): string {
+  return `${assinaturaId}.${assinarAssinatura(assinaturaId)}`;
+}
+
+export function assinaturaDoCodigo(codigo: string): string | null {
+  return idDoCodigo(codigo, assinarAssinatura);
+}
+
+export function linkDaAssinatura(assinaturaId: string): string | null {
+  const base = urlPublicaDoApp();
+  return base ? `${base}/minha-assinatura/${codigoDaAssinatura(assinaturaId)}` : null;
 }
 
 // Endereço público do app pros links das mensagens. Nunca vem do cabeçalho

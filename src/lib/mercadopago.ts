@@ -85,3 +85,70 @@ export async function cancelarPagamento(token: string, id: string): Promise<void
     body: JSON.stringify({ status: "cancelled" }),
   });
 }
+
+// --- Assinatura no cartão (Mercado Pago cobra todo mês sozinho) -----------
+
+export interface AssinaturaCartaoMP {
+  id: string;
+  status: string; // pending | authorized | paused | cancelled
+  init_point?: string;
+  external_reference?: string | null;
+  next_payment_date?: string | null;
+}
+
+export interface CobrancaCartaoMP {
+  id: number;
+  preapproval_id: string;
+  transaction_amount: number | string;
+  debit_date?: string | null;
+  date_created?: string | null;
+  status?: string;
+  payment?: { id?: number | null; status?: string | null } | null;
+}
+
+// Cria a assinatura "pendente": o cliente põe o cartão na página do Mercado
+// Pago (init_point) e a primeira cobrança sai na hora.
+export async function criarAssinaturaCartao(
+  token: string,
+  dados: { valor: number; descricao: string; referencia: string; emailPagador: string; urlRetorno: string },
+): Promise<AssinaturaCartaoMP> {
+  return chamar<AssinaturaCartaoMP>(token, "/preapproval", {
+    method: "POST",
+    body: JSON.stringify({
+      reason: dados.descricao,
+      external_reference: dados.referencia,
+      payer_email: dados.emailPagador,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: dados.valor,
+        currency_id: "BRL",
+      },
+      back_url: dados.urlRetorno,
+      status: "pending",
+    }),
+  });
+}
+
+export async function buscarAssinaturaCartao(token: string, id: string): Promise<AssinaturaCartaoMP> {
+  return chamar<AssinaturaCartaoMP>(token, `/preapproval/${encodeURIComponent(id)}`);
+}
+
+export async function cancelarAssinaturaCartao(token: string, id: string): Promise<AssinaturaCartaoMP> {
+  return chamar<AssinaturaCartaoMP>(token, `/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({ status: "cancelled" }),
+  });
+}
+
+// Cobranças mensais de uma assinatura (as mais recentes bastam: quem chama
+// só procura as aprovadas que ainda não foram registradas).
+export async function listarCobrancasCartao(token: string, preapprovalId: string): Promise<CobrancaCartaoMP[]> {
+  const parametros = new URLSearchParams({ preapproval_id: preapprovalId, limit: "50" });
+  const resposta = await chamar<{ results?: CobrancaCartaoMP[] }>(token, `/authorized_payments/search?${parametros}`);
+  return resposta.results ?? [];
+}
+
+export async function buscarCobrancaCartao(token: string, id: string): Promise<CobrancaCartaoMP> {
+  return chamar<CobrancaCartaoMP>(token, `/authorized_payments/${encodeURIComponent(id)}`);
+}

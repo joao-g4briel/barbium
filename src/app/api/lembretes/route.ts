@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { notificacoesConfiguradas } from "@/lib/notificacoes";
 import { enviarLembretesPendentes } from "@/lib/lembretes";
+import { sincronizarCartoesPendentes } from "@/lib/planos-corte";
+import { enviarAvisosDeRenovacao } from "@/lib/avisos-plano";
 
 // Chamada pelo n8n a cada 15 minutos (fluxo em docs/n8n/barbium-lembretes.json)
 // para mandar os lembretes que estão na hora. Protegida pelo mesmo segredo do
@@ -27,5 +29,17 @@ export async function POST(request: Request) {
   }
 
   const resultado = await enviarLembretesPendentes();
-  return NextResponse.json(resultado);
+
+  // Planos de corte: primeiro confere as cobranças do cartão (quem já renovou
+  // não recebe aviso), depois o "seu plano vence em breve". Uma falha aqui
+  // não derruba os lembretes, que já saíram.
+  const cartoes = await sincronizarCartoesPendentes().catch((erro) => {
+    console.error("Planos (cartão):", erro instanceof Error ? erro.message : erro);
+    return null;
+  });
+  const renovacao = await enviarAvisosDeRenovacao().catch((erro) => {
+    console.error("Planos (aviso de renovação):", erro instanceof Error ? erro.message : erro);
+    return null;
+  });
+  return NextResponse.json({ ...resultado, planos: { cartoes, renovacao } });
 }

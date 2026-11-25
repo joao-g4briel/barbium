@@ -7,6 +7,7 @@ import { Dialogo } from "@/components/ui/dialogo";
 import { DialogoConfirmacao } from "@/components/ui/dialogo-confirmacao";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
+import { CopiarTexto } from "@/components/ui/copiar-texto";
 import { FORMAS_PAGAMENTO, ROTULO_FORMA_PAGAMENTO } from "@/lib/forma-pagamento";
 import { formatarMoeda } from "@/lib/formatar";
 
@@ -42,11 +43,16 @@ export function AcoesAssinante({
   cliente,
   plano,
   valor,
+  link,
+  renovaNoCartao,
 }: {
   assinaturaId: string;
   cliente: string;
   plano: string;
   valor: number;
+  // Link da "minha assinatura" do cliente, pra mandar a ele (vazio sem APP_URL).
+  link: string | null;
+  renovaNoCartao: boolean;
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState<"pagamento" | "encerrar" | null>(null);
@@ -85,9 +91,12 @@ export function AcoesAssinante({
 
   return (
     <div className="acoes-linha">
-      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAberto("pagamento")}>
-        Registrar mês pago<span className="sr-only"> de {cliente}</span>
-      </button>
+      {!renovaNoCartao && (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAberto("pagamento")}>
+          Registrar mês pago<span className="sr-only"> de {cliente}</span>
+        </button>
+      )}
+      {link && <CopiarTexto texto={link} rotulo="Copiar link do cliente" mensagemCopiado="Link da assinatura copiado." />}
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAberto("encerrar")}>
         Encerrar<span className="sr-only"> assinatura de {cliente}</span>
       </button>
@@ -122,7 +131,7 @@ export function AcoesAssinante({
       <DialogoConfirmacao
         aberto={aberto === "encerrar"}
         titulo="Encerrar assinatura?"
-        descricao={`${cliente} deixa de agendar pelo plano ${plano} a partir de agora. Horários já marcados pelo plano continuam na agenda. O que já foi pago continua no caixa.`}
+        descricao={`${cliente} deixa de agendar pelo plano ${plano} a partir de agora.${renovaNoCartao ? " A cobrança mensal no cartão também é cancelada." : ""} Horários já marcados pelo plano continuam na agenda. O que já foi pago continua no caixa.`}
         rotuloConfirmar="Encerrar assinatura"
         textoCarregando="Encerrando…"
         perigo

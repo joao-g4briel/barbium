@@ -4569,6 +4569,50 @@ button.horario:hover {
   flex-shrink: 0;
   color: var(--color-accent);
 }
+.forma-plano {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.forma-plano-opcao {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-input);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+.forma-plano-opcao:hover {
+  border-color: var(--color-accent);
+}
+.forma-plano-opcao:has(input:checked) {
+  border-color: var(--color-selected-border);
+  background: var(--color-selected);
+}
+.forma-plano-opcao input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+.forma-plano-opcao > span {
+  display: grid;
+  gap: 2px;
+}
+.forma-plano-titulo {
+  font-weight: 700;
+}
+.forma-plano-sub {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
 .confirmacao-acoes {
   display: grid;
   justify-items: center;
