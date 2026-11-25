@@ -78,7 +78,7 @@ export function linkAdicionalWhatsapp(): string {
   return `https://wa.me/${WHATSAPP_VENDAS}?text=${encodeURIComponent(texto)}`;
 }
 
-export const WHATSAPP_VENDAS = "5581989479982";
+export const WHATSAPP_VENDAS = "558131973711";
 
 // barbeariaId vai no "sck" do checkout e volta no webhook da Cakto, que assim
 // sabe qual barbearia pagou (lib/cakto.ts).

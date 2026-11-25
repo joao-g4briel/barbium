@@ -11,6 +11,7 @@ import { TrilhoDoDia } from "./trilho-do-dia";
 import { DemoAgenda } from "./demo-agenda";
 import { CarrosselPrevias } from "./carrossel-previas";
 import { RevelarSecoes } from "./revelar-secoes";
+import { WhatsappFlutuante } from "./whatsapp-flutuante";
 
 // Landing do Barbium. A abertura demonstra o mecanismo (o cliente marca pelo
 // link e a agenda recebe o horário); depois vêm as prévias ilustrativas, três
@@ -140,18 +141,20 @@ export function Landing() {
         <section className="landing-abertura landing-largura" aria-labelledby="titulo-landing">
           <div className="landing-abertura-texto">
             <h1 id="titulo-landing" className="landing-titulo">
-              Agenda, caixa e comissões em um só lugar.
+              O cliente marca sozinho. Você segue no corte.
             </h1>
             <p className="landing-subtitulo">
-              Seu cliente agenda pelo link. Você acompanha os atendimentos e fecha o caixa com as comissões calculadas.
+              Ele marca pelo link, sem te chamar no WhatsApp, e pode garantir o horário com um sinal no Pix. Menos horário vago por
+              cliente que falta.
             </p>
             <div className="landing-acoes">
               <Link href="/cadastro" className="btn btn-primary landing-cta">
                 {CTA_TESTE}
                 <ArrowRight size={18} aria-hidden="true" />
               </Link>
-              <a href="#planos" className="btn btn-secondary landing-cta-secundario">
-                Ver planos
+              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary landing-cta-secundario">
+                <MessageCircle size={18} aria-hidden="true" />
+                Falar no WhatsApp
               </a>
             </div>
             <p className="landing-nota">
@@ -462,6 +465,7 @@ export function Landing() {
           </nav>
         </div>
       </footer>
+      <WhatsappFlutuante href={whatsapp} />
     </div>
   );
 }

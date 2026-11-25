@@ -3075,6 +3075,40 @@ button.horario:hover {
   color: var(--color-accent);
 }
 
+/* Botão fixo de WhatsApp (some onde a página já tem um) */
+.landing-whatsapp {
+  position: fixed;
+  right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  min-height: 48px;
+  padding: 0 var(--space-5) 0 var(--space-4);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-overlay);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out),
+    visibility 0s linear var(--motion-normal);
+}
+.landing-whatsapp[data-visivel] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+    opacity var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-whatsapp {
+    transform: none;
+  }
+}
+
 /* Demonstração da abertura: link de agendamento + agenda de hoje */
 .demo {
   display: grid;
@@ -4457,65 +4491,6 @@ button.horario:hover {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
-.cadastro-planos {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-.cadastro-planos-opcoes {
-  display: grid;
-  gap: var(--space-2);
-}
-.cadastro-plano {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border-control);
-  border-radius: var(--radius-md);
-  background: var(--color-input);
-  cursor: pointer;
-  transition:
-    border-color var(--motion-normal) var(--ease-out),
-    background-color var(--motion-normal) var(--ease-out);
-}
-.cadastro-plano:hover {
-  border-color: var(--color-accent);
-}
-.cadastro-plano:has(input:checked) {
-  border-color: var(--color-selected-border);
-  background: var(--color-selected);
-  box-shadow: inset 0 0 0 1px var(--color-selected-border);
-}
-.cadastro-plano:has(input:checked) .cadastro-plano-nome {
-  color: var(--color-accent-text);
-}
-.cadastro-plano:has(input:focus-visible) {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-.cadastro-plano input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.cadastro-plano-nome {
-  font-weight: 700;
-}
-.cadastro-plano-detalhe {
-  grid-column: 1;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-.cadastro-plano-preco {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  font-weight: 700;
-}
-
 /* Faixa do teste grátis, no topo do painel */
 .faixa-teste {
   display: flex;

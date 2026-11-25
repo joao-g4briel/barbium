@@ -8,18 +8,18 @@ import type { Plano } from "@prisma/client";
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Alerta } from "@/components/ui/alerta";
-import { PLANOS, ROTULO_PLANO, descreverLimite } from "@/lib/planos";
 import { PRECOS } from "@/lib/precos";
-import { formatarMoeda, numeroWhatsApp } from "@/lib/formatar";
+import { numeroWhatsApp } from "@/lib/formatar";
 import { SENHA_MINIMO } from "@/lib/senha";
 import { rastrearMeta } from "@/components/meta-pixel";
 
 type Campos = "nomeBarbearia" | "nome" | "email" | "whatsapp" | "senha";
 type Erros = Partial<Record<Campos | "aceite" | "geral", string>>;
 
-export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
+// O plano chega pronto da página (ver planoValido em page.tsx); a pessoa
+// escolhe de verdade ao assinar.
+export function FormularioCadastro({ plano }: { plano: Plano }) {
   const router = useRouter();
-  const [plano, setPlano] = useState<Plano>(planoInicial);
   const [valores, setValores] = useState<Record<Campos, string>>({
     nomeBarbearia: "",
     nome: "",
@@ -84,21 +84,6 @@ export function FormularioCadastro({ planoInicial }: { planoInicial: Plano }) {
   return (
     <form onSubmit={enviar} className="form" noValidate>
       {erros.geral && <Alerta tom="perigo">{erros.geral}</Alerta>}
-
-      <fieldset className="campo cadastro-planos">
-        <legend className="campo-rotulo">Plano</legend>
-        <div className="cadastro-planos-opcoes">
-          {PLANOS.map((p) => (
-            <label key={p} className="cadastro-plano">
-              <input type="radio" name="plano" value={p} checked={plano === p} onChange={() => setPlano(p)} />
-              <span className="cadastro-plano-nome">{ROTULO_PLANO[p]}</span>
-              <span className="cadastro-plano-detalhe">{descreverLimite(p)}</span>
-              <span className="cadastro-plano-preco num">{formatarMoeda(PRECOS[p].MENSAL)}/mês</span>
-            </label>
-          ))}
-        </div>
-        <p className="campo-dica">Dá para trocar depois. Semestral e anual saem mais baratos; você escolhe ao assinar.</p>
-      </fieldset>
 
       <Campo id="cad-barbearia" rotulo="Nome da barbearia" erro={erros.nomeBarbearia}>
         <input

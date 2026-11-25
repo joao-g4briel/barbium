@@ -12,8 +12,11 @@ export const metadata: Metadata = {
   description: `Cadastre sua barbearia no Barbium e use tudo por ${DIAS_TESTE} dias grátis, sem cartão.`,
 };
 
+// O plano não é escolhido no cadastro: vem do botão da tabela de preços ou,
+// sem ele, fica o Barbearia, que no teste deixa cadastrar até 5 profissionais.
+// A escolha de verdade é feita ao assinar.
 function planoValido(valor: string | undefined): Plano {
-  return valor === "BARBEARIA" || valor === "REDE" ? valor : "SOLO";
+  return valor === "SOLO" || valor === "REDE" ? valor : "BARBEARIA";
 }
 
 export default async function PaginaCadastro({ searchParams }: { searchParams: Promise<{ plano?: string }> }) {
@@ -37,7 +40,7 @@ export default async function PaginaCadastro({ searchParams }: { searchParams: P
           </div>
         </div>
         <div className="card" style={{ padding: 24 }}>
-          <FormularioCadastro planoInicial={planoValido(plano)} />
+          <FormularioCadastro plano={planoValido(plano)} />
         </div>
         <p className="auth-rodape">
           Já tem conta?{" "}
