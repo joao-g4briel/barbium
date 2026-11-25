@@ -51,6 +51,7 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
             }}
             podeAlterar={podeAlterarPeloLink(ag)}
             antecedenciaHoras={ANTECEDENCIA_LINK_HORAS}
+            diasAFrente={ag.barbearia.diasAFrente}
             whatsappBarbearia={ag.barbearia.telefone ? linkWhatsApp(ag.barbearia.telefone) : null}
             linkAgendar={`/agendar/${ag.barbearia.slug}`}
           />

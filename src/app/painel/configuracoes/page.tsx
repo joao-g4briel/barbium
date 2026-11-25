@@ -154,6 +154,12 @@ export default async function PaginaConfiguracoes() {
               slug={barbearia.slug}
               enderecoInicial={barbearia.endereco ?? ""}
               corInicial={barbearia.corMarca}
+              regrasIniciais={{
+                mensagem: barbearia.mensagemAgendamento ?? "",
+                mostrarPrecos: barbearia.mostrarPrecos,
+                antecedenciaMinimaMin: barbearia.antecedenciaMinimaMin,
+                diasAFrente: barbearia.diasAFrente,
+              }}
               logoUrl={urlDoLogo(barbearia.slug, barbearia.logoAtualizadoEm)}
             />
           )}

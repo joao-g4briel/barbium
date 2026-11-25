@@ -3,6 +3,9 @@ import { acessoVencido } from "@/lib/acesso";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
+import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { ianaDoFuso } from "@/lib/fusos";
+import { diaDentroDoPeriodo, primeiroHorarioAceito } from "@/lib/pagina-agendamento";
 
 const querySchema = z.object({
   servicoId: z.string().min(1),
@@ -54,11 +57,17 @@ export async function GET(
   const [ano, mes, dia] = dados.data.data.split("-").map(Number);
   const dataAlvo = new Date(Date.UTC(ano, mes - 1, dia));
 
+  // Regras da barbearia pro link: até quantos dias à frente e com quanta
+  // antecedência (lib/pagina-agendamento).
+  const hoje = inicioDoDiaBrasil(new Date(), ianaDoFuso(barbearia.fuso));
+  if (!diaDentroDoPeriodo(dataAlvo, hoje, barbearia)) return NextResponse.json({ horarios: [] });
+
   const livres = await horariosLivres({
     barbeariaId: barbearia.id,
     profissionalId: profissional.id,
     data: dataAlvo,
     duracaoMinutos: servico.duracaoMinutos,
+    aceitarDesde: primeiroHorarioAceito(barbearia),
   });
 
   return NextResponse.json({

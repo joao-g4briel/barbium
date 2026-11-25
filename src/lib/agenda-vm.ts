@@ -84,7 +84,7 @@ export async function obterServicosAtivos(barbeariaId: string): Promise<ServicoO
   const servicos = await prisma.servico.findMany({
     where: { barbeariaId, ativo: true },
     select: { id: true, nome: true, duracaoMinutos: true, preco: true },
-    orderBy: { nome: "asc" },
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
   });
   return servicos.map(paraServicoOpcaoVM);
 }

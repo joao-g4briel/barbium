@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { horariosLivres } from "@/lib/agenda";
 import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { motivoForaDasRegras, primeiroHorarioAceito } from "@/lib/pagina-agendamento";
 import { criarPagamentoPix } from "@/lib/mercadopago";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
@@ -76,9 +77,13 @@ export async function POST(
   }
 
   const inicio = new Date(dados.data.inicio);
-  if (inicio.getTime() < Date.now()) {
-    return NextResponse.json({ erro: "Esse horário já passou." }, { status: 400 });
-  }
+  const foraDasRegras = motivoForaDasRegras(
+    inicio,
+    inicioDoDiaBrasil(inicio, barbearia.fuso),
+    inicioDoDiaBrasil(new Date(), barbearia.fuso),
+    barbearia,
+  );
+  if (foraDasRegras) return NextResponse.json({ erro: foraDasRegras }, { status: 400 });
   const fim = new Date(inicio.getTime() + servico.duracaoMinutos * 60 * 1000);
 
   const telefoneNormalizado = dados.data.telefone.replace(/\D/g, "");
@@ -105,6 +110,7 @@ export async function POST(
     data: inicioDoDia,
     fuso: barbearia.fuso,
     duracaoMinutos: servico.duracaoMinutos,
+    aceitarDesde: primeiroHorarioAceito(barbearia),
   });
   const aindaDisponivel = disponiveis.some((h) => h.getTime() === inicio.getTime());
   if (!aindaDisponivel) {

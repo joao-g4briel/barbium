@@ -15,7 +15,7 @@ export default async function NovoPlano() {
     sessao.role === "DONO"
       ? await prisma.servico.findMany({
           where: { barbeariaId: sessao.barbeariaId, ativo: true },
-          orderBy: { nome: "asc" },
+          orderBy: [{ ordem: "asc" }, { nome: "asc" }],
           select: { id: true, nome: true, preco: true, ativo: true },
         })
       : [];

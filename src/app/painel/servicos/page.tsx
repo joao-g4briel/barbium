@@ -7,6 +7,7 @@ import { formatarDuracao, formatarMoeda } from "@/lib/formatar";
 import { CabecalhoPagina } from "@/components/ui/cabecalho-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Badge } from "@/components/ui/badge";
+import { OrdenarServicos } from "./ordenar-servicos";
 
 export const metadata: Metadata = { title: "Serviços" };
 
@@ -16,7 +17,7 @@ export default async function PaginaServicos() {
 
   const servicos = await prisma.servico.findMany({
     where: { barbeariaId: sessao.barbeariaId },
-    orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+    orderBy: [{ ativo: "desc" }, { ordem: "asc" }, { nome: "asc" }],
   });
 
   const souDono = sessao.role === "DONO";
@@ -84,7 +85,14 @@ export default async function PaginaServicos() {
               <tbody>
                 {servicos.map((servico) => (
                   <tr key={servico.id}>
-                    <td className="tabela-td-principal tabela-celula-principal">{servico.nome}</td>
+                    <td className="tabela-td-principal tabela-celula-principal">
+                      {servico.nome}
+                      {servico.descricao && (
+                        <span className="texto-secundario texto-pequeno" style={{ display: "block", fontWeight: 400 }}>
+                          {servico.descricao}
+                        </span>
+                      )}
+                    </td>
                     <td data-rotulo="Duração">{formatarDuracao(servico.duracaoMinutos)}</td>
                     <td data-rotulo="Preço" className="alinhar-direita">
                       {formatarMoeda(Number(servico.preco))}
@@ -120,6 +128,10 @@ export default async function PaginaServicos() {
           </div>
         )}
       </section>
+
+      {souDono && ativos >= 2 && (
+        <OrdenarServicos servicos={servicos.filter((s) => s.ativo).map((s) => ({ id: s.id, nome: s.nome }))} />
+      )}
     </>
   );
 }

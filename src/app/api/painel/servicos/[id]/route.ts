@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
+import { DESCRICAO_SERVICO_MAXIMO } from "@/lib/pagina-agendamento";
 
 const editarServicoSchema = z.object({
   nome: z.string().min(2).optional(),
@@ -9,6 +10,14 @@ const editarServicoSchema = z.object({
   preco: z.coerce.number().min(0).optional(),
   comissaoPercentual: z.coerce.number().min(0).max(100).optional().nullable(),
   ativo: z.boolean().optional(),
+  // Texto curto que o cliente vê no link de agendamento. Vazio apaga.
+  descricao: z
+    .string()
+    .trim()
+    .max(DESCRICAO_SERVICO_MAXIMO, `Descrição muito longa (até ${DESCRICAO_SERVICO_MAXIMO} caracteres).`)
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v || null)),
 });
 
 export async function PATCH(

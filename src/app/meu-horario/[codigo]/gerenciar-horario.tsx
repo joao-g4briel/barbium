@@ -22,17 +22,15 @@ interface HorarioVM {
 
 type Modo = "ver" | "mudar" | "cancelar";
 
-const DIAS_OFERECIDOS = 14;
-
 // Dia (meia-noite UTC que representa o dia em Brasília) → AAAA-MM-DD, o
 // formato que a rota de horários espera.
 function chaveDia(dia: Date): string {
   return `${dia.getUTCFullYear()}-${String(dia.getUTCMonth() + 1).padStart(2, "0")}-${String(dia.getUTCDate()).padStart(2, "0")}`;
 }
 
-function proximosDias(fuso: string): Date[] {
+function proximosDias(fuso: string, quantidade: number): Date[] {
   const hoje = inicioDoDiaBrasil(new Date(), fuso);
-  return Array.from({ length: DIAS_OFERECIDOS }, (_, i) => new Date(hoje.getTime() + i * 24 * 60 * 60 * 1000));
+  return Array.from({ length: quantidade }, (_, i) => new Date(hoje.getTime() + i * 24 * 60 * 60 * 1000));
 }
 
 function quando(iso: string, fuso: string): string {
@@ -45,6 +43,7 @@ export function GerenciarHorario({
   agendamento: ag,
   podeAlterar,
   antecedenciaHoras,
+  diasAFrente,
   whatsappBarbearia,
   linkAgendar,
 }: {
@@ -52,6 +51,8 @@ export function GerenciarHorario({
   agendamento: HorarioVM;
   podeAlterar: boolean;
   antecedenciaHoras: number;
+  // Até quantos dias à frente a barbearia aceita (Configurações).
+  diasAFrente: number;
   whatsappBarbearia: string | null;
   linkAgendar: string;
 }) {
@@ -282,7 +283,7 @@ export function GerenciarHorario({
             Com {ag.profissional}, {ag.servico.toLowerCase()}.
           </p>
           <div className="dias-rolagem" role="group" aria-label="Dias">
-            {proximosDias(fuso).map((d) => (
+            {proximosDias(fuso, diasAFrente).map((d) => (
               <button
                 key={chaveDia(d)}
                 type="button"

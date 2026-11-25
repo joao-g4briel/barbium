@@ -26,6 +26,7 @@ import { useFuso } from "@/components/fuso-contexto";
 interface Servico {
   id: string;
   nome: string;
+  descricao: string | null;
   duracaoMinutos: number;
   preco: number;
 }
@@ -46,6 +47,10 @@ interface Props {
   planos: PlanoPublicoVM[];
   assinaturaOnline: boolean;
   whatsappBarbearia: string | null;
+  // Personalização da barbearia (Configurações > Página de agendamento).
+  recado: string | null;
+  mostrarPrecos: boolean;
+  diasAFrente: number;
 }
 
 // Nome e WhatsApp de quem já agendou neste aparelho, pra não digitar de novo.
@@ -154,6 +159,9 @@ export function AssistenteAgendamento({
   planos,
   assinaturaOnline,
   whatsappBarbearia,
+  recado,
+  mostrarPrecos,
+  diasAFrente,
 }: Props) {
   const fuso = useFuso();
   const temPlanos = planos.length > 0;
@@ -224,7 +232,7 @@ export function AssistenteAgendamento({
     };
   }, [pagamento, confirmado, pixExpirado, slug]);
 
-  const dias = proximosDias(7, fuso);
+  const dias = proximosDias(diasAFrente, fuso);
   const passos = [
     ...(temPlanos ? ["Plano"] : []),
     "Serviço",
@@ -494,6 +502,7 @@ export function AssistenteAgendamento({
 
   return (
     <div className="pilha">
+      {recado && <p className="publico-recado">{recado}</p>}
       <Passos passos={passos} atual={passoAtual} />
 
       {modo === "escolher" && (
@@ -526,7 +535,9 @@ export function AssistenteAgendamento({
         <Escolha
           icone={<Scissors size={20} />}
           rotulo="Serviço"
-          valor={`${servico.nome} · ${peloPlano ? "incluído no plano" : formatarMoeda(servico.preco)}`}
+          valor={
+            peloPlano ? `${servico.nome} · incluído no plano` : mostrarPrecos ? `${servico.nome} · ${formatarMoeda(servico.preco)}` : servico.nome
+          }
           onTrocar={trocarServico}
         />
       )}
@@ -559,6 +570,7 @@ export function AssistenteAgendamento({
               <button key={s.id} type="button" onClick={() => setServico(s)} className="opcao">
                 <span className="opcao-texto">
                   <span className="opcao-titulo">{s.nome}</span>
+                  {s.descricao && <span className="opcao-descricao">{s.descricao}</span>}
                   <span className="opcao-sub">
                     <Clock size={13} aria-hidden="true" style={{ display: "inline", verticalAlign: "-2px", marginRight: 4 }} />
                     {formatarDuracao(s.duracaoMinutos)}
@@ -568,9 +580,9 @@ export function AssistenteAgendamento({
                   <span className="badge" data-tom="sucesso">
                     Incluído no plano
                   </span>
-                ) : (
+                ) : mostrarPrecos ? (
                   <span className="opcao-valor">{formatarMoeda(s.preco)}</span>
-                )}
+                ) : null}
                 <ChevronRight size={18} className="texto-secundario" aria-hidden="true" />
               </button>
             ))}

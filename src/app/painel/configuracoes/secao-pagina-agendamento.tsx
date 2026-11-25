@@ -8,6 +8,14 @@ import { Alerta } from "@/components/ui/alerta";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { COR_PADRAO, CORES_SUGERIDAS, corValida, estiloDaMarca } from "@/lib/cor-marca";
 import { iniciais } from "@/lib/formatar";
+import { ANTECEDENCIA_OPCOES, DIAS_A_FRENTE_OPCOES, MENSAGEM_AGENDAMENTO_MAXIMO } from "@/lib/pagina-agendamento";
+
+interface RegrasPagina {
+  mensagem: string;
+  mostrarPrecos: boolean;
+  antecedenciaMinimaMin: number;
+  diasAFrente: number;
+}
 
 const LADO_MAXIMO = 512;
 const BYTES_MAXIMO = 200 * 1024;
@@ -43,18 +51,21 @@ export function SecaoPaginaAgendamento({
   slug,
   enderecoInicial,
   corInicial,
+  regrasIniciais,
   logoUrl,
 }: {
   nome: string;
   slug: string;
   enderecoInicial: string;
   corInicial: string | null;
+  regrasIniciais: RegrasPagina;
   logoUrl: string | null;
 }) {
   const router = useRouter();
   const entradaArquivo = useRef<HTMLInputElement>(null);
   const [endereco, setEndereco] = useState(enderecoInicial);
   const [cor, setCor] = useState<string>(corInicial ?? COR_PADRAO);
+  const [regras, setRegras] = useState<RegrasPagina>(regrasIniciais);
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -69,7 +80,14 @@ export function SecaoPaginaAgendamento({
       const resposta = await fetch("/api/painel/barbearia/pagina", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endereco: endereco.trim() || null, corMarca: cor === COR_PADRAO ? null : cor }),
+        body: JSON.stringify({
+          endereco: endereco.trim() || null,
+          corMarca: cor === COR_PADRAO ? null : cor,
+          mensagemAgendamento: regras.mensagem.trim() || null,
+          mostrarPrecos: regras.mostrarPrecos,
+          antecedenciaMinimaMin: regras.antecedenciaMinimaMin,
+          diasAFrente: regras.diasAFrente,
+        }),
       });
       const dados = await resposta.json().catch(() => null);
       if (!resposta.ok) {
@@ -138,7 +156,7 @@ export function SecaoPaginaAgendamento({
           <h2 id="titulo-pagina-agendamento" className="card-titulo">
             Página de agendamento
           </h2>
-          <p className="card-descricao">Logo, cor e endereço que os clientes veem no link de agendamento.</p>
+          <p className="card-descricao">Logo, cor, endereço, recado e regras do link de agendamento.</p>
         </div>
         <a href={`/agendar/${slug}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
           <ExternalLink size={16} aria-hidden="true" />
@@ -210,6 +228,67 @@ export function SecaoPaginaAgendamento({
             onChange={(e) => setEndereco(e.target.value)}
           />
         </Campo>
+
+        <div className="form-secao">
+          <h3 className="form-secao-titulo">Recado e regras do link</h3>
+          <Campo
+            id="pagina-mensagem"
+            rotulo="Recado no topo da página"
+            dica={`Ex.: "Chegue 5 minutos antes" ou "Aceitamos Pix e cartão". Até ${MENSAGEM_AGENDAMENTO_MAXIMO} caracteres.`}
+            opcional
+          >
+            <textarea
+              {...ariaCampo("pagina-mensagem", { dica: true })}
+              className="input"
+              rows={2}
+              maxLength={MENSAGEM_AGENDAMENTO_MAXIMO}
+              value={regras.mensagem}
+              onChange={(e) => setRegras((r) => ({ ...r, mensagem: e.target.value }))}
+            />
+          </Campo>
+          <div className="form-grade form-grade-2">
+            <Campo id="pagina-antecedencia" rotulo="Antecedência mínima" dica="Quanto antes o cliente precisa marcar.">
+              <select
+                {...ariaCampo("pagina-antecedencia", { dica: true })}
+                className="input"
+                value={regras.antecedenciaMinimaMin}
+                onChange={(e) => setRegras((r) => ({ ...r, antecedenciaMinimaMin: Number(e.target.value) }))}
+              >
+                {ANTECEDENCIA_OPCOES.map((o) => (
+                  <option key={o.minutos} value={o.minutos}>
+                    {o.rotulo}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo id="pagina-dias" rotulo="Agendar até" dica="Até quantos dias à frente o cliente pode marcar.">
+              <select
+                {...ariaCampo("pagina-dias", { dica: true })}
+                className="input"
+                value={regras.diasAFrente}
+                onChange={(e) => setRegras((r) => ({ ...r, diasAFrente: Number(e.target.value) }))}
+              >
+                {DIAS_A_FRENTE_OPCOES.map((o) => (
+                  <option key={o.dias} value={o.dias}>
+                    {o.rotulo}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          </div>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={regras.mostrarPrecos}
+              onChange={(e) => setRegras((r) => ({ ...r, mostrarPrecos: e.target.checked }))}
+            />
+            <span className="checkbox-texto">
+              <span className="checkbox-rotulo">Mostrar os preços dos serviços</span>
+              <span className="campo-dica">Desligado, o cliente escolhe o serviço sem ver o valor. Planos e sinal continuam com valor.</span>
+            </span>
+          </label>
+          <p className="campo-dica">As regras valem para o link e para o cliente remarcar. No painel, a equipe marca a qualquer hora.</p>
+        </div>
 
         <div className="pagina-previa" style={estiloDaMarca(cor)} aria-label="Prévia da página de agendamento">
           <p className="pagina-previa-rotulo">Prévia</p>

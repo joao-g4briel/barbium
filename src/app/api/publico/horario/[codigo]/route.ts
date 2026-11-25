@@ -7,6 +7,9 @@ import { mudarHorario } from "@/lib/mudar-horario";
 import { notificarAgendamento } from "@/lib/notificacoes";
 import { consumirTentativa } from "@/lib/limite-tentativas";
 import { AUTOR_CLIENTE_LINK, registrarHistorico } from "@/lib/historico";
+import { inicioDoDiaBrasil } from "@/lib/fuso-brasil";
+import { ianaDoFuso } from "@/lib/fusos";
+import { motivoForaDasRegras } from "@/lib/pagina-agendamento";
 
 // O cliente muda ou cancela o próprio horário pelo link da mensagem. Mesmo
 // profissional e serviço; só horários livres; até ANTECEDENCIA_LINK_HORAS
@@ -66,6 +69,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
   if (inicio.getTime() - Date.now() < ANTECEDENCIA_LINK_HORAS * 60 * 60 * 1000) {
     return NextResponse.json({ erro: "Escolha um horário com pelo menos 2 horas de antecedência." }, { status: 409 });
   }
+  const fuso = ianaDoFuso(agendamento.barbearia.fuso);
+  const foraDasRegras = motivoForaDasRegras(
+    inicio,
+    inicioDoDiaBrasil(inicio, fuso),
+    inicioDoDiaBrasil(new Date(), fuso),
+    agendamento.barbearia,
+  );
+  if (foraDasRegras) return NextResponse.json({ erro: foraDasRegras }, { status: 409 });
   const resultado = await mudarHorario(agendamento, inicio, agendamento.barbeiroId, AUTOR_CLIENTE_LINK);
   if (!resultado.ok) return NextResponse.json({ erro: resultado.erro }, { status: resultado.status });
 

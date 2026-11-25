@@ -29,7 +29,8 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
     prisma.barbearia.findUnique({
       where: { slug },
       include: {
-        servicos: { where: { ativo: true }, orderBy: { nome: "asc" } },
+        // Na ordem que a barbearia escolheu (empate vai por nome).
+        servicos: { where: { ativo: true }, orderBy: [{ ordem: "asc" }, { nome: "asc" }] },
         usuarios: {
           where: { ativo: true, role: { in: ["DONO", "BARBEIRO"] } },
           orderBy: { nome: "asc" },
@@ -102,9 +103,13 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
               planos={planos}
               assinaturaOnline={Boolean(pagamento?.mpAccessTokenCifrado)}
               whatsappBarbearia={whatsappPlanos}
+              recado={barbearia.mensagemAgendamento}
+              mostrarPrecos={barbearia.mostrarPrecos}
+              diasAFrente={barbearia.diasAFrente}
               servicos={barbearia.servicos.map((s) => ({
                 id: s.id,
                 nome: s.nome,
+                descricao: s.descricao,
                 duracaoMinutos: s.duracaoMinutos,
                 preco: Number(s.preco),
               }))}

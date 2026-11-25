@@ -3,15 +3,27 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirDono } from "@/lib/equipe";
 import { corValida } from "@/lib/cor-marca";
+import { MENSAGEM_AGENDAMENTO_MAXIMO, antecedenciaValida, diasAFrenteValido } from "@/lib/pagina-agendamento";
 
-// Página de agendamento: endereço e cor da marca (o logo tem rota própria).
+// Página de agendamento: endereço, cor da marca (o logo tem rota própria) e
+// as regras e o recado do link. Cada campo é opcional: só muda o que vier.
 const corpoSchema = z.object({
-  endereco: z.string().trim().max(200, "Endereço muito longo (até 200 caracteres).").nullable(),
+  endereco: z.string().trim().max(200, "Endereço muito longo (até 200 caracteres).").nullable().optional(),
   corMarca: z
     .string()
     .trim()
     .refine((c) => corValida(c), "Cor inválida.")
-    .nullable(),
+    .nullable()
+    .optional(),
+  mensagemAgendamento: z
+    .string()
+    .trim()
+    .max(MENSAGEM_AGENDAMENTO_MAXIMO, `Recado muito longo (até ${MENSAGEM_AGENDAMENTO_MAXIMO} caracteres).`)
+    .nullable()
+    .optional(),
+  mostrarPrecos: z.boolean().optional(),
+  antecedenciaMinimaMin: z.number().int().refine(antecedenciaValida, "Antecedência inválida.").optional(),
+  diasAFrente: z.number().int().refine(diasAFrenteValido, "Período inválido.").optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -20,12 +32,17 @@ export async function PATCH(request: Request) {
 
   const dados = corpoSchema.safeParse(await request.json().catch(() => null));
   if (!dados.success) return NextResponse.json({ erro: dados.error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });
+  const d = dados.data;
 
   await prisma.barbearia.update({
     where: { id: sessao.barbeariaId! },
     data: {
-      endereco: dados.data.endereco || null,
-      corMarca: dados.data.corMarca ? dados.data.corMarca.toLowerCase() : null,
+      ...(d.endereco !== undefined ? { endereco: d.endereco || null } : {}),
+      ...(d.corMarca !== undefined ? { corMarca: d.corMarca ? d.corMarca.toLowerCase() : null } : {}),
+      ...(d.mensagemAgendamento !== undefined ? { mensagemAgendamento: d.mensagemAgendamento || null } : {}),
+      ...(d.mostrarPrecos !== undefined ? { mostrarPrecos: d.mostrarPrecos } : {}),
+      ...(d.antecedenciaMinimaMin !== undefined ? { antecedenciaMinimaMin: d.antecedenciaMinimaMin } : {}),
+      ...(d.diasAFrente !== undefined ? { diasAFrente: d.diasAFrente } : {}),
     },
   });
   return NextResponse.json({ ok: true });

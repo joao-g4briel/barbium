@@ -6,9 +6,11 @@ import Link from "next/link";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
+import { DESCRICAO_SERVICO_MAXIMO } from "@/lib/pagina-agendamento";
 
 interface Valores {
   nome: string;
+  descricao: string;
   duracaoMinutos: string;
   preco: string;
   comissaoPercentual: string;
@@ -50,7 +52,7 @@ export function FormularioServico({
   const router = useRouter();
   const editando = Boolean(servicoId);
   const [valores, setValores] = useState<Valores>(
-    valoresIniciais ?? { nome: "", duracaoMinutos: "30", preco: "", comissaoPercentual: "", ativo: true },
+    valoresIniciais ?? { nome: "", descricao: "", duracaoMinutos: "30", preco: "", comissaoPercentual: "", ativo: true },
   );
   const [erros, setErros] = useState<Erros>({});
   const [salvando, setSalvando] = useState(false);
@@ -69,6 +71,7 @@ export function FormularioServico({
     const comissao = valores.comissaoPercentual.trim() === "" ? null : numero(valores.comissaoPercentual);
     const corpo = {
       nome: valores.nome,
+      descricao: valores.descricao.trim() || null,
       duracaoMinutos: numero(valores.duracaoMinutos),
       preco: numero(valores.preco),
       comissaoPercentual: editando ? comissao : (comissao ?? undefined),
@@ -108,6 +111,21 @@ export function FormularioServico({
             value={valores.nome}
             onChange={(e) => atualizar("nome", e.target.value)}
             placeholder="Ex.: Corte + barba"
+          />
+        </Campo>
+        <Campo
+          id="descricao"
+          rotulo="Descrição"
+          opcional
+          dica={`Aparece embaixo do nome no link de agendamento. Até ${DESCRICAO_SERVICO_MAXIMO} caracteres.`}
+        >
+          <input
+            {...ariaCampo("descricao", { dica: true })}
+            className="input"
+            value={valores.descricao}
+            maxLength={DESCRICAO_SERVICO_MAXIMO}
+            onChange={(e) => atualizar("descricao", e.target.value)}
+            placeholder="Ex.: Máquina e tesoura, com lavagem"
           />
         </Campo>
         <div className="form-grade form-grade-2">

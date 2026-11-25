@@ -27,6 +27,7 @@ export default async function EditarServico({ params }: { params: Promise<{ id: 
           servicoId={servico.id}
           valoresIniciais={{
             nome: servico.nome,
+            descricao: servico.descricao ?? "",
             duracaoMinutos: String(servico.duracaoMinutos),
             preco: String(Number(servico.preco)).replace(".", ","),
             comissaoPercentual:

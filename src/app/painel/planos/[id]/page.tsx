@@ -31,7 +31,7 @@ export default async function EditarPlano({ params }: { params: Promise<{ id: st
 
   const servicos = await prisma.servico.findMany({
     where: { barbeariaId: sessao.barbeariaId },
-    orderBy: { nome: "asc" },
+    orderBy: [{ ordem: "asc" }, { nome: "asc" }],
     select: { id: true, nome: true, preco: true, ativo: true },
   });
   const comissao = Number(plano.comissaoValor);
