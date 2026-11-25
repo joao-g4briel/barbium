@@ -256,7 +256,7 @@ The world refuses neon, glow, decorative gradients, glass, green shadows, partic
 A sober, green-tinted dark field with one action green, one accent green and four semantic tones held in reserve.
 
 ### Primary
-- **Workshop Emerald** (`brand-primary`): the fill of primary buttons (the main action of a view, "Começar 7 dias grátis", "Novo agendamento", "Confirmar horário") with **White** (`on-primary`) text, and the text-selection highlight. Hover deepens to `brand-primary-hover`, press to `brand-primary-pressed`. White on this fill is about 5.5:1.
+- **Workshop Emerald** (`brand-primary`): the fill of primary buttons (the main action of a view, "Começar 30 dias grátis", "Novo agendamento", "Confirmar horário") with **White** (`on-primary`) text, and the text-selection highlight. Hover deepens to `brand-primary-hover`, press to `brand-primary-pressed`. White on this fill is about 5.5:1.
 
 ### Secondary
 - **Signal Emerald** (`brand-accent`): non-text signals — the logo stripes, confirming icons (check marks in plan lists, guarantees, the "Sem cartão no teste" note), the progress bar fill, the rail's lit nodes and its 2px progress line, the agenda "now" line, the borders of selected options and the "Agora" card, the checked toggle track, the text caret and checkbox accent. Never a fill under small white text.

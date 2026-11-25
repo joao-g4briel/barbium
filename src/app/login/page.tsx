@@ -4,6 +4,7 @@ import { Marca } from "@/components/ui/marca";
 import { Alerta } from "@/components/ui/alerta";
 import { emailConfigurado } from "@/lib/email";
 import { FormularioLogin } from "./formulario-login";
+import { DIAS_TESTE } from "@/lib/precos";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -43,7 +44,7 @@ export default async function PaginaLogin({
         <p className="auth-rodape">
           Ainda não usa o Barbium?{" "}
           <Link href="/cadastro" className="link">
-            Teste 7 dias grátis
+            Teste {DIAS_TESTE} dias grátis
           </Link>
         </p>
       </div>

@@ -6,6 +6,7 @@ import { Check, MessageCircle } from "lucide-react";
 import type { Plano } from "@prisma/client";
 import { ROTULO_PLANO, PLANOS, descreverLimite } from "@/lib/planos";
 import {
+  DIAS_TESTE,
   MESES_DO_PERIODO,
   PERIODOS,
   PRECOS,
@@ -96,7 +97,7 @@ export function TabelaPrecos({
                   href={`/cadastro?plano=${plano}&periodo=${periodo}`}
                   className={`btn btn-bloco ${destaque ? "btn-primary" : "btn-secondary"}`}
                 >
-                  Começar 7 dias grátis
+                  Começar {DIAS_TESTE} dias grátis
                 </Link>
               ) : (
                 <a

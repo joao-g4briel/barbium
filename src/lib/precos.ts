@@ -48,7 +48,7 @@ export function vantagemDoPeriodo(plano: Plano, periodo: Periodo): string | null
   return pct > 0 ? `${pct}% a menos que o mensal` : null;
 }
 
-export const DIAS_TESTE = 7;
+export const DIAS_TESTE = 30;
 
 // Adicional de WhatsApp (order bump no checkout da Cakto), por mês.
 export const PRECO_ADICIONAL_WHATSAPP = 60;

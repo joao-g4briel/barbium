@@ -25,7 +25,7 @@ da barbearia e a página pública de agendamento.
   comissão entram ao concluir o atendimento.
 
 - **Landing e cadastro** (`/` e `/cadastro`): quem não está logado vê a
-  landing com os preços; o cadastro cria a barbearia em **teste grátis de 7
+  landing com os preços; o cadastro cria a barbearia em **teste grátis de 30
   dias**. No fim do teste (ou da assinatura) o painel, as rotas da equipe, o
   link público e os lembretes param, e o dono vê os planos para assinar.
 

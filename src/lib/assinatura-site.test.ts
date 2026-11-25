@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { DIAS_TESTE } from "./precos";
 
 vi.mock("./prisma", () => ({ prisma: {} }));
 
@@ -56,7 +57,7 @@ describe("prazo de acesso", () => {
   });
   it("conta os dias que faltam arredondando pra cima", () => {
     expect(diasRestantes({ acessoAte: new Date("2026-11-24T13:00:00Z") }, agora)).toBe(1);
-    expect(diasRestantes({ acessoAte: fimDoTeste(agora) }, agora)).toBe(7);
+    expect(diasRestantes({ acessoAte: fimDoTeste(agora) }, agora)).toBe(DIAS_TESTE);
   });
 });
 
