@@ -110,6 +110,10 @@ model Barbearia {
   endereco              String?
   corMarca              String?
   logoAtualizadoEm      DateTime?
+  // Cor de fundo (#rrggbb) do tema, junto com corMarca (lib/tema.ts). Vazio:
+  // o escuro do Barbium. temaNoPainel: as cores valem também no painel.
+  corFundo              String?
+  temaNoPainel          Boolean        @default(false)
   // Personalização do link de agendamento (lib/pagina-agendamento.ts):
   // recado no topo, preços à mostra, antecedência mínima (em minutos) e até
   // quantos dias à frente o cliente pode marcar. Não valem para o painel.

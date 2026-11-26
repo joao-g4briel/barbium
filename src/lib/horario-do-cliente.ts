@@ -21,6 +21,7 @@ export async function agendamentoDoLink(codigo: string) {
           ativo: true,
           endereco: true,
           corMarca: true,
+          corFundo: true,
           logoAtualizadoEm: true,
           fuso: true,
           antecedenciaMinimaMin: true,

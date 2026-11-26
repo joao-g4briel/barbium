@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
+import { calcularComissao } from "./forma-pagamento";
+import { horarioBrasil, inicioDoMesBrasil } from "./fuso-brasil";
 
 // Comissões a partir dos atendimentos concluídos. A comissão de cada um foi
 // calculada e guardada na conclusão (ver caixa-agendamento): mudar o
@@ -97,5 +99,60 @@ export function totalizar(atendimentos: AtendimentoComissao[]) {
     faturamento: centavos(atendimentos.reduce((s, a) => s + a.recebido, 0)),
     comissao: centavos(atendimentos.reduce((s, a) => s + (a.comissao ?? 0), 0)),
     semPercentual: atendimentos.filter((a) => a.comissao === null).length,
+  };
+}
+
+// Comissão do profissional no mês corrente (no fuso da barbearia): o que já
+// ganhou (atendimentos concluídos, valor guardado na conclusão) e o que está
+// previsto pelos horários ainda em aberto no mês. A previsão usa a mesma regra
+// da conclusão (percentual do profissional, senão do serviço; no plano de
+// corte, o valor fixo do plano); é estimativa, pode mudar até concluir.
+export async function comissaoDoMes(
+  barbeariaId: string,
+  profissionalId: string,
+  fuso: string,
+  agora: Date = new Date(),
+): Promise<{ ganha: number; prevista: number; concluidos: number; emAberto: number }> {
+  const primeiroDia = inicioDoMesBrasil(agora, fuso);
+  const inicio = horarioBrasil(primeiroDia, 0, fuso);
+  const proximoMes = new Date(Date.UTC(primeiroDia.getUTCFullYear(), primeiroDia.getUTCMonth() + 1, 1));
+  const fim = new Date(horarioBrasil(proximoMes, 0, fuso).getTime() - 1);
+
+  const [concluidos, abertos] = await Promise.all([
+    prisma.agendamento.aggregate({
+      where: { barbeariaId, barbeiroId: profissionalId, status: "CONCLUIDO", inicio: { gte: inicio, lte: fim } },
+      _sum: { comissaoValor: true },
+      _count: true,
+    }),
+    prisma.agendamento.findMany({
+      where: {
+        barbeariaId,
+        barbeiroId: profissionalId,
+        status: { in: ["CONFIRMADO", "CHEGOU", "EM_ATENDIMENTO"] },
+        inicio: { gte: inicio, lte: fim },
+      },
+      select: {
+        servico: { select: { preco: true, comissaoPercentual: true } },
+        barbeiro: { select: { comissaoPercentual: true } },
+        assinatura: { select: { plano: { select: { comissaoValor: true } } } },
+      },
+    }),
+  ]);
+
+  const prevista = abertos.reduce((soma, a) => {
+    if (a.assinatura) return soma + Number(a.assinatura.plano.comissaoValor);
+    const c = calcularComissao(
+      Number(a.servico.preco),
+      a.barbeiro.comissaoPercentual === null ? null : Number(a.barbeiro.comissaoPercentual),
+      a.servico.comissaoPercentual === null ? null : Number(a.servico.comissaoPercentual),
+    );
+    return soma + (c?.valor ?? 0);
+  }, 0);
+
+  return {
+    ganha: centavos(Number(concluidos._sum.comissaoValor ?? 0)),
+    prevista: centavos(prevista),
+    concluidos: concluidos._count,
+    emAberto: abertos.length,
   };
 }

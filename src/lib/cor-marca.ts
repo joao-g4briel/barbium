@@ -23,7 +23,7 @@ function rgb(hex: string): [number, number, number] {
 function hexDe([r, g, b]: [number, number, number]): string {
   return "#" + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("");
 }
-function luminancia(hex: string): number {
+export function luminancia(hex: string): number {
   const [r, g, b] = rgb(hex).map((v) => {
     const c = v / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -35,17 +35,24 @@ export function contraste(a: string, b: string): number {
   return (x + 0.05) / (y + 0.05);
 }
 // Mistura `a` com `b` (t = 0 → a, t = 1 → b).
-function misturar(a: string, b: string, t: number): string {
+export function misturar(a: string, b: string, t: number): string {
   const [x, y] = [rgb(a), rgb(b)];
   return hexDe([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]);
 }
-// Clareia até atingir o contraste pedido contra `sobre`.
-function clarearAte(cor: string, sobre: string, minimo: number): string {
+// Fundo claro pede texto escuro (e o contrário).
+export function ehClaro(hex: string): boolean {
+  return luminancia(hex) > 0.35;
+}
+
+// Afasta a cor de `sobre` (clareia sobre fundo escuro, escurece sobre fundo
+// claro) até atingir o contraste pedido.
+export function ajustarAte(cor: string, sobre: string, minimo: number): string {
+  const alvo = ehClaro(sobre) ? "#000000" : BRANCO;
   for (let t = 0; t <= 1.0001; t += 0.05) {
-    const c = misturar(cor, BRANCO, Math.min(1, t));
+    const c = misturar(cor, alvo, Math.min(1, t));
     if (contraste(c, sobre) >= minimo) return c;
   }
-  return BRANCO;
+  return alvo;
 }
 
 export interface PaletaMarca {
@@ -58,7 +65,12 @@ export interface PaletaMarca {
   selecionado: string;
 }
 
-export function paletaDaMarca(corBruta: string | null | undefined): PaletaMarca | null {
+// Sobre qual fundo a marca vai aparecer: o escuro padrão, ou o fundo que a
+// barbearia escolheu (lib/tema.ts).
+export function paletaDaMarca(
+  corBruta: string | null | undefined,
+  base: { fundo: string; superficie: string } = { fundo: FUNDO, superficie: SUPERFICIE },
+): PaletaMarca | null {
   if (!corValida(corBruta)) return null;
   const cor = corBruta.toLowerCase();
   // Botão: escolhe o texto (branco ou escuro) com mais contraste; se nenhum
@@ -71,10 +83,10 @@ export function paletaDaMarca(corBruta: string | null | undefined): PaletaMarca 
   const escurecer = sobrePrimaria === BRANCO;
   const primariaHover = misturar(primaria, escurecer ? "#000000" : BRANCO, 0.12);
   const primariaPress = misturar(primaria, escurecer ? "#000000" : BRANCO, 0.22);
-  const destaque = clarearAte(cor, FUNDO, 3);
-  const selecionado = misturar(FUNDO, cor, 0.28);
+  const destaque = ajustarAte(cor, base.fundo, 3);
+  const selecionado = misturar(base.fundo, cor, ehClaro(base.fundo) ? 0.14 : 0.28);
   // O texto de destaque aparece sobre a superfície e sobre a seleção.
-  const destaqueTexto = clarearAte(clarearAte(cor, SUPERFICIE, 4.5), selecionado, 4.5);
+  const destaqueTexto = ajustarAte(ajustarAte(cor, base.superficie, 4.5), selecionado, 4.5);
   return { primaria, primariaHover, primariaPress, sobrePrimaria, destaque, destaqueTexto, selecionado };
 }
 

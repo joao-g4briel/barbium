@@ -10,7 +10,7 @@ import { obterPlanosPublicos } from "@/lib/planos-corte";
 import { linkWhatsApp } from "@/lib/formatar";
 import { SimboloBarbium } from "@/components/ui/marca";
 import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
-import { estiloDaMarca } from "@/lib/cor-marca";
+import { TemaDaBarbearia } from "@/components/tema-barbearia";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { AssistenteAgendamento } from "./assistente-agendamento";
 import { ProvedorFuso } from "@/components/fuso-contexto";
@@ -22,8 +22,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: barbearia ? `Agendar em ${barbearia.nome}` : "Agendamento" };
 }
 
-export default async function AgendamentoPublico({ params }: { params: Promise<{ slug: string }> }) {
+export default async function AgendamentoPublico({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  // ?profissional=<id>: link do próprio barbeiro, que já chega com ele escolhido.
+  searchParams: Promise<{ profissional?: string }>;
+}) {
   const { slug } = await params;
+  const { profissional: profissionalDoLink } = await searchParams;
 
   const [barbearia, sessao] = await Promise.all([
     prisma.barbearia.findUnique({
@@ -60,7 +68,8 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
   const ehDaEquipe = sessao?.barbeariaId === barbearia.id;
 
   return (
-    <div className="publico" style={estiloDaMarca(barbearia.corMarca)}>
+    <div className="publico">
+      <TemaDaBarbearia corMarca={barbearia.corMarca} corFundo={barbearia.corFundo} />
       <CabecalhoBarbearia
         nome={barbearia.nome}
         slug={barbearia.slug}
@@ -106,6 +115,9 @@ export default async function AgendamentoPublico({ params }: { params: Promise<{
               recado={barbearia.mensagemAgendamento}
               mostrarPrecos={barbearia.mostrarPrecos}
               diasAFrente={barbearia.diasAFrente}
+              profissionalInicialId={
+                barbearia.usuarios.some((u) => u.id === profissionalDoLink) ? (profissionalDoLink ?? null) : null
+              }
               servicos={barbearia.servicos.map((s) => ({
                 id: s.id,
                 nome: s.nome,

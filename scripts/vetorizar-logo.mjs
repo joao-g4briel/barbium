@@ -1,7 +1,7 @@
-// Vetoriza a logo aprovada (PNG com fundo claro) em contornos.
-// Uso: node scripts/vetorizar-logo.mjs "docs/images/Barbium green barber pole logo.png" <saida.json> [tolerancia]
-// Depois: node scripts/gerar-marca.mjs <saida.json> .
-// Separa a tinta escura (tampas + nome) das faixas esmeralda e contorna cada
+// Vetoriza uma logo (PNG com tinta escura sobre fundo branco) em contornos.
+// Uso: node scripts/vetorizar-logo.mjs <png> <saida.json> [tolerancia]
+// Depois: ver os passos no topo de scripts/gerar-marca.mjs.
+// Separa a tinta escura (faixas claras + nome) da faixa esmeralda e contorna cada
 // uma com marching squares + simplificação Ramer–Douglas–Peucker.
 import fs from "node:fs";
 import zlib from "node:zlib";

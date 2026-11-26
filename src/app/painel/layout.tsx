@@ -8,6 +8,7 @@ import type { GrupoNav, ItemNav } from "@/components/app/navegacao";
 import { AcessoVencido, FaixaTeste } from "@/components/app/aviso-acesso";
 import { diasRestantes } from "@/lib/acesso";
 import { ProvedorFuso } from "@/components/fuso-contexto";
+import { TemaDaBarbearia } from "@/components/tema-barbearia";
 
 export default async function LayoutPainel({ children }: { children: React.ReactNode }) {
   const sessao = await obterSessao();
@@ -46,6 +47,8 @@ export default async function LayoutPainel({ children }: { children: React.React
 
   return (
     <ProvedorFuso fuso={sessao.fuso}>
+      {/* Cores da barbearia no painel, se o dono ligou (Configurações). */}
+      {barbearia?.temaNoPainel && <TemaDaBarbearia corMarca={barbearia.corMarca} corFundo={barbearia.corFundo} />}
       <Shell
         variante="barbearia"
         contexto={{

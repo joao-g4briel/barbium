@@ -1,0 +1,7 @@
+{
+  "prompt": "A mobile landing page for Barbium, a scheduling and cash-register app for Brazilian barbershops, rendered edge to edge at phone width as a finished screen with crisp, readable Portuguese text; no phone frame, browser or hands around it. The visitor is a barbershop owner from an Instagram ad, deciding to start a 30-day free trial. Top: a compact header with the Barbium logo (barber pole with three diagonal stripes beside \"barbium\"), \"Planos\" and \"Entrar\". The headline \"O cliente marca sozinho. Você segue no corte.\" in a condensed bold grotesque face like Archivo Condensed, the full-width primary button \"Começar 30 dias grátis\", \"Falar no WhatsApp\" and \"Sem cartão no teste\". What leads below is an enormous \"14:00\" in the same condensed face spanning the screen width, with a booking card overlapping it (\"Corte + barba · com Rafael\", 14:00 selected, \"Horário confirmado\") and the start of today's agenda underneath, where Lucas Andrade at 14:00 appears as \"Confirmado\". Caption \"Exemplo com dados fictícios\". The reference image carries Barbium's palette, type character and component style; do not copy its layout.",
+  "tool": "ChatGPT (gerado pelo usuário)",
+  "reference": "referencia-celular.png",
+  "approved": true,
+  "approvedNote": "Aprovado em 2026-11-25: A no computador + B no celular."
+}

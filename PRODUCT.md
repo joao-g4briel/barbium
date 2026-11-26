@@ -49,7 +49,7 @@ Ainda não definida. O usuário confirmou que o foco atual é terminar o MVP fun
 - Interface inteira em português do Brasil, com datas e valores no formato brasileiro e horários no fuso de Brasília.
 - Linguagem simples, voltada à operação do dia a dia; o produto deve transmitir organização, confiança e qualidade.
 - Referências conceituais citadas pelo usuário (não para copiar): SQUIRE (organização da operação), Booksy (clareza de agendamento), dashboards profissionais (hierarquia e densidade equilibrada).
-- Símbolo: o poste de barbeiro estilizado (mantido pelo usuário ao longo dos redesenhos). Logo aprovada em `docs/images` (horizontal e compacta), vetorizada para o site e o app; no tema escuro, tampas e nome na cor do texto e faixas no verde de destaque.
+- Símbolo: três faixas inclinadas, herança do poste de barbeiro; a do meio, verde e mais longa, é o horário marcado na régua do dia. Logo escolhida pelo usuário em 2026-11-25, em `docs/logo`, vetorizada para o site e o app; faixas claras e nome na cor do texto, faixa do meio no verde de destaque. A logo anterior (poste com tampas) segue em `docs/images` só como histórico.
 - Identidade visual definida em `docs/Prompt_Implementacao_Barbium_Design_System.md`: verdes sóbrios sobre fundo escuro esverdeado, Manrope, movimento discreto; um só design system para landing, painel e páginas públicas (detalhes em DESIGN.md).
 - Prévias ilustrativas da landing (`docs/images`) são sempre identificadas como "Prévia ilustrativa", nunca como capturas reais.
 

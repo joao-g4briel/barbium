@@ -38,6 +38,9 @@ import { linkParaAgendar } from "@/lib/link-cliente";
 import { whatsappLigado } from "@/lib/whatsapp-adicional";
 import { COOKIE_PASSOS_OCULTOS, montarPassos, type Passo } from "@/lib/primeiros-passos";
 import { FUSO_PADRAO } from "@/lib/fusos";
+import { comissaoDoMes } from "@/lib/comissoes";
+import { ProximoCliente } from "@/components/app/proximo-cliente";
+import { CopiarTexto } from "@/components/ui/copiar-texto";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -125,6 +128,22 @@ export default async function VisaoGeral({
   const proximos = confirmados.filter((a) => a.fim > agora).slice(0, 4);
   const mostrarGrade = souDono && profissionais.length >= 2;
 
+  // Barbeiro: quem ele atende agora (ou o próximo), a comissão do mês e o
+  // link de agendamento já com ele escolhido.
+  const destaque = souDono ? null : (confirmados.find((a) => a.status === "EM_ATENDIMENTO") ?? proximos[0] ?? null);
+  const comissao = souDono ? null : await comissaoDoMes(barbeariaId, sessao.sub, fuso, agora);
+  let linkDoProfissional: string | null = null;
+  if (!souDono) {
+    const barbearia = await obterBarbearia(barbeariaId);
+    if (barbearia) {
+      const cabecalhos = await headers();
+      const host = cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host") ?? "";
+      const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+      const base = linkParaAgendar(barbearia.slug) ?? `${protocolo}://${host}/agendar/${barbearia.slug}`;
+      linkDoProfissional = `${base}?profissional=${sessao.sub}`;
+    }
+  }
+
   // Primeiros passos: só para o dono de barbearia nova (em teste ou criada há
   // até 30 dias), enquanto faltar algum passo e ele não tiver ocultado.
   let passos: Passo[] | null = null;
@@ -169,6 +188,16 @@ export default async function VisaoGeral({
       />
 
       <div className="pilha">
+        {destaque && (
+          <ProximoCliente
+            id={destaque.id}
+            cliente={destaque.cliente.nome}
+            servico={destaque.servico.nome}
+            inicio={destaque.inicio.toISOString()}
+            status={destaque.status}
+            plano={destaque.assinatura?.plano.nome ?? null}
+          />
+        )}
         {passos && (
           <PrimeirosPassos
             passos={passos}
@@ -214,12 +243,26 @@ export default async function VisaoGeral({
             icone={<CheckCircle2 size={22} />}
             detalhe={ativos.length > 0 ? `de ${ativos.length} ${ativos.length === 1 ? "agendamento" : "agendamentos"}` : "Nenhum atendimento ainda"}
           />
-          <Indicador
-            rotulo="Cancelamentos"
-            valor={cancelados + faltas}
-            icone={<CircleSlash size={22} />}
-            detalhe={`${cancelados} ${cancelados === 1 ? "cancelado" : "cancelados"} · ${faltas} ${faltas === 1 ? "falta" : "faltas"}`}
-          />
+          {comissao ? (
+            <Indicador
+              rotulo="Comissão do mês"
+              valor={formatarMoeda(comissao.ganha)}
+              tomValor={comissao.ganha > 0 ? "positivo" : undefined}
+              icone={<Wallet size={22} />}
+              detalhe={
+                comissao.prevista > 0
+                  ? `+ ${formatarMoeda(comissao.prevista)} previstos em ${comissao.emAberto} ${comissao.emAberto === 1 ? "horário marcado" : "horários marcados"}`
+                  : `${comissao.concluidos} ${comissao.concluidos === 1 ? "atendimento concluído" : "atendimentos concluídos"}`
+              }
+            />
+          ) : (
+            <Indicador
+              rotulo="Cancelamentos"
+              valor={cancelados + faltas}
+              icone={<CircleSlash size={22} />}
+              detalhe={`${cancelados} ${cancelados === 1 ? "cancelado" : "cancelados"} · ${faltas} ${faltas === 1 ? "falta" : "faltas"}`}
+            />
+          )}
         </section>
 
         <div className="grade-painel grade-painel-2-1">
@@ -303,6 +346,28 @@ export default async function VisaoGeral({
           </section>
         </div>
 
+        {linkDoProfissional && (
+          <section className="card" aria-labelledby="titulo-link-profissional">
+            <div className="card-cabecalho">
+              <div>
+                <h2 id="titulo-link-profissional" className="card-titulo">
+                  Seu link de agendamento
+                </h2>
+                <p className="card-descricao">
+                  Quem abrir já agenda com você. Ponha no seu Instagram ou mande para os seus clientes.
+                </p>
+              </div>
+            </div>
+            <p className="link-agendamento num">{linkDoProfissional}</p>
+            <div className="form-acoes">
+              <CopiarTexto texto={linkDoProfissional} rotulo="Copiar link" mensagemCopiado="Link copiado." />
+              <a href={linkDoProfissional} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                Abrir
+              </a>
+            </div>
+          </section>
+        )}
+
         {souDono && (
           <div className={`grade-painel${assinaturas.length > 0 ? " grade-painel-2-1" : ""}`}>
             <section className="card card-sem-padding" aria-labelledby="titulo-lancamentos">
@@ -345,7 +410,7 @@ export default async function VisaoGeral({
                             </span>
                           </td>
                           <td data-rotulo="Origem" className="texto-secundario">
-                            {l.origem === "SINAL" ? "Sinal" : l.origem === "ATENDIMENTO" ? "Atendimento" : "Manual"}
+                            {l.origem === "SINAL" ? "Sinal" : l.origem === "ATENDIMENTO" ? "Atendimento" : l.origem === "ASSINATURA" ? "Plano de corte" : "Manual"}
                           </td>
                           <td data-rotulo="Valor" className="alinhar-direita tabela-celula-principal">
                             <span className={l.tipo === "ENTRADA" ? "valor-entrada" : undefined}>

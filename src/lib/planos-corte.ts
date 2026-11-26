@@ -26,6 +26,12 @@ type Banco = Tx | typeof prisma;
 // Referência do Pix de um mês de plano no Mercado Pago. O sinal usa o id do
 // agendamento puro; o prefixo separa os dois no webhook.
 export const PREFIXO_REFERENCIA_ASSINATURA = "assinatura:";
+
+// "Plano X" para o caixa e o Mercado Pago, sem repetir quando o nome já
+// começa com "Plano" (ex.: "Plano de Corte").
+export function nomeDoPlano(nome: string): string {
+  return /^plano/i.test(nome.trim()) ? nome.trim() : `Plano ${nome.trim()}`;
+}
 // Referência da assinatura no cartão (e das cobranças que ela gera).
 export const PREFIXO_REFERENCIA_CARTAO = "plano-cartao:";
 
@@ -147,7 +153,7 @@ export async function registrarMesPago(
     data: {
       tipo: "ENTRADA",
       valor: pagamento.valor,
-      descricao: `Plano ${assinatura.plano.nome} · ${assinatura.cliente.nome}`,
+      descricao: `${nomeDoPlano(assinatura.plano.nome)} · ${assinatura.cliente.nome}`,
       barbeariaId: pagamento.barbeariaId,
       origem: "ASSINATURA",
       formaPagamento: pagamento.formaPagamento,
@@ -190,7 +196,7 @@ export async function criarPixDaAssinatura(dados: {
   try {
     const mp = await criarPagamentoPix(token, {
       valor: dados.plano.valor,
-      descricao: `Plano ${dados.plano.nome} · ${dados.barbearia.nome}`,
+      descricao: `${nomeDoPlano(dados.plano.nome)} · ${dados.barbearia.nome}`,
       referencia: `${PREFIXO_REFERENCIA_ASSINATURA}${pagamento.id}`,
       chaveIdempotencia: `assinatura-${pagamento.id}`,
       emailPagador: `plano.${pagamento.id}@barbium.com.br`,
@@ -394,7 +400,7 @@ export async function assinarNoCartao(dados: {
   const base = urlPublicaDoApp() ?? dados.origem;
   const mp = await criarAssinaturaCartao(token, {
     valor: dados.plano.valor,
-    descricao: `Plano ${dados.plano.nome} · ${dados.barbearia.nome}`,
+    descricao: `${nomeDoPlano(dados.plano.nome)} · ${dados.barbearia.nome}`,
     referencia: `${PREFIXO_REFERENCIA_CARTAO}${dados.assinaturaId}`,
     emailPagador: dados.email,
     urlRetorno: `${base}/minha-assinatura/${codigoDaAssinatura(dados.assinaturaId)}?retorno=1`,

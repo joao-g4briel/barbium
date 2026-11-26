@@ -1,9 +1,10 @@
-import { CAMINHO_FAIXAS, CAMINHO_NOME, CAMINHO_TAMPAS, LARGURA_LOGO, LARGURA_SIMBOLO } from "./marca-caminhos";
+import { CAMINHO_BARRAS, CAMINHO_FAIXAS, CAMINHO_NOME, LARGURA_LOGO, LARGURA_SIMBOLO } from "./marca-caminhos";
 
-// Logo aprovada do Barbium (docs/images), vetorizada: poste com tampas
-// arredondadas e três faixas diagonais, ao lado do nome. Tampas e nome usam a
-// cor do texto (currentColor); as faixas, o verde de destaque (.marca-faixas).
-// `tamanho` é a altura da arte em pixels.
+// Logo do Barbium (docs/logo): três faixas inclinadas, a do meio verde e mais
+// longa, como o horário marcado na régua do dia, ao lado do nome em grotesca
+// condensada. Faixas claras e nome usam a cor do texto (currentColor); a faixa
+// do meio, o verde de destaque (.marca-faixas). `tamanho` é a altura da arte
+// em pixels.
 
 export function SimboloBarbium({ tamanho = 24 }: { tamanho?: number }) {
   return (
@@ -15,7 +16,7 @@ export function SimboloBarbium({ tamanho = 24 }: { tamanho?: number }) {
       aria-hidden="true"
       focusable="false"
     >
-      <path fill="currentColor" d={CAMINHO_TAMPAS} />
+      <path fill="currentColor" d={CAMINHO_BARRAS} />
       <path className="marca-faixas" d={CAMINHO_FAIXAS} />
     </svg>
   );
@@ -31,7 +32,7 @@ export function Marca({ tamanho = 28 }: { tamanho?: number }) {
         role="img"
         aria-label="Barbium"
       >
-        <path fill="currentColor" fillRule="evenodd" d={CAMINHO_TAMPAS + CAMINHO_NOME} />
+        <path fill="currentColor" fillRule="evenodd" d={CAMINHO_BARRAS + CAMINHO_NOME} />
         <path className="marca-faixas" d={CAMINHO_FAIXAS} />
       </svg>
     </span>

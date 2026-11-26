@@ -154,6 +154,8 @@ export default async function PaginaConfiguracoes() {
               slug={barbearia.slug}
               enderecoInicial={barbearia.endereco ?? ""}
               corInicial={barbearia.corMarca}
+              fundoInicial={barbearia.corFundo}
+              temaNoPainelInicial={barbearia.temaNoPainel}
               regrasIniciais={{
                 mensagem: barbearia.mensagemAgendamento ?? "",
                 mostrarPrecos: barbearia.mostrarPrecos,

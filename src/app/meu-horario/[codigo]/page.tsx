@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SimboloBarbium } from "@/components/ui/marca";
 import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
-import { estiloDaMarca } from "@/lib/cor-marca";
+import { TemaDaBarbearia } from "@/components/tema-barbearia";
 import { agendamentoDoLink } from "@/lib/horario-do-cliente";
 import { ANTECEDENCIA_LINK_HORAS, podeAlterarPeloLink } from "@/lib/link-cliente";
 import { linkWhatsApp } from "@/lib/formatar";
@@ -27,7 +27,8 @@ export default async function MeuHorario({ params }: { params: Promise<{ codigo:
   if (!ag) notFound();
 
   return (
-    <div className="publico" style={estiloDaMarca(ag.barbearia.corMarca)}>
+    <div className="publico">
+      <TemaDaBarbearia corMarca={ag.barbearia.corMarca} corFundo={ag.barbearia.corFundo} />
       <CabecalhoBarbearia
         nome={ag.barbearia.nome}
         slug={ag.barbearia.slug}

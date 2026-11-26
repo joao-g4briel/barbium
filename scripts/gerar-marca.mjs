@@ -1,6 +1,9 @@
-// Gera os ativos da marca a partir da logo aprovada vetorizada (horizontal.json):
-// caminhos para o componente React, SVGs em public/brand e os ícones PNG do app.
-// Uso: node scripts/gerar-marca.mjs <logo.json de scripts/vetorizar-logo.mjs> <raiz do projeto>
+// Gera os ativos da marca a partir da logo vetorizada: caminhos para o
+// componente React, SVGs em public/brand e os ícones PNG do app.
+// Passos (logo de 2026-11-25, docs/logo):
+//   node scripts/vetorizar-logo.mjs <docs/logo/barbium-c-logo-claro.png em RGBA, fundo branco> contorno.json
+//   node scripts/simbolo-exato.mjs contorno.json logo.json
+//   node scripts/gerar-marca.mjs logo.json .
 // Cada PNG gerado leva a origem no campo de texto "impeccable:prompt".
 import fs from "node:fs";
 import path from "node:path";
@@ -9,7 +12,7 @@ import zlib from "node:zlib";
 const [, , entrada, raiz] = process.argv;
 const v = JSON.parse(fs.readFileSync(entrada, "utf8"));
 
-// Caixa da arte toda (tampas, faixas e nome)
+// Caixa da arte toda (barras, faixa e nome)
 const todos = [...v.tinta, ...v.faixa];
 const X0 = Math.min(...todos.map((l) => l.caixa.x0));
 const Y0 = Math.min(...todos.map((l) => l.caixa.y0));
@@ -19,10 +22,11 @@ const ESCALA = 100 / (Y1 - Y0); // altura da logo = 100 unidades
 const LARGURA = +((X1 - X0) * ESCALA).toFixed(1);
 
 const limiteSimbolo = Math.max(...v.faixa.map((l) => l.caixa.x1)) + 20; // o nome começa bem depois
-const tampas = v.tinta.filter((l) => l.caixa.x1 < limiteSimbolo);
+const barras = v.tinta.filter((l) => l.caixa.x1 < limiteSimbolo);
 const nome = v.tinta.filter((l) => l.caixa.x0 > limiteSimbolo);
 const faixas = [...v.faixa].sort((a, b) => a.caixa.y0 - b.caixa.y0);
-const LARGURA_SIMBOLO = +((Math.max(...tampas.map((l) => l.caixa.x1)) - X0) * ESCALA).toFixed(1);
+// A faixa verde é a peça mais longa do símbolo.
+const LARGURA_SIMBOLO = +((Math.max(...[...barras, ...faixas].map((l) => l.caixa.x1)) - X0) * ESCALA).toFixed(1);
 
 const norm = (l) => l.pontos.map(([x, y]) => [+((x - X0) * ESCALA).toFixed(1), +((y - Y0) * ESCALA).toFixed(1)]);
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1)).replace(/^0\./, ".").replace(/^-0\./, "-.");
@@ -43,18 +47,19 @@ function caminho(laços) {
     .join("");
 }
 
-const dTampas = caminho(tampas);
+const dBarras = caminho(barras);
 const dNome = caminho(nome);
 const dFaixas = caminho(faixas);
 
 // 1) caminhos para o componente
-const ts = `// Gerado a partir da logo aprovada (docs/images/Barbium green barber pole logo.png),
-// vetorizada por contorno. Não editar à mão: rodar scripts/vetorizar-logo.mjs e
-// depois scripts/gerar-marca.mjs (instruções no topo de cada um).
+const ts = `// Logo de 2026-11-25 (docs/logo): três faixas inclinadas, a do meio verde e
+// mais longa (o horário marcado na régua do dia), ao lado do nome em grotesca
+// condensada. Faixas em geometria exata; nome vetorizado por contorno.
+// Não editar à mão: ver os passos no topo de scripts/gerar-marca.mjs.
 // Altura da arte = 100 unidades; o símbolo ocupa de x=0 a x=${LARGURA_SIMBOLO}.
 export const LARGURA_LOGO = ${LARGURA};
 export const LARGURA_SIMBOLO = ${LARGURA_SIMBOLO};
-export const CAMINHO_TAMPAS = "${dTampas}";
+export const CAMINHO_BARRAS = "${dBarras}";
 export const CAMINHO_FAIXAS = "${dFaixas}";
 export const CAMINHO_NOME = "${dNome}";
 `;
@@ -66,9 +71,9 @@ fs.mkdirSync(pastaMarca, { recursive: true });
 const svg = (vb, corpo, titulo = "Barbium") =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="${titulo}">${corpo}</svg>\n`;
 const ESCURO = { tinta: "#F4F7F5", faixa: "#10B981" };
-const CLARO = { tinta: "#064E3B", faixa: "#047857" };
+const CLARO = { tinta: "#111614", faixa: "#10B981" };
 const arte = (c, comNome = true) =>
-  `<path fill="${c.tinta}" fill-rule="evenodd" d="${dTampas}${comNome ? dNome : ""}"/><path fill="${c.faixa}" d="${dFaixas}"/>`;
+  `<path fill="${c.tinta}" fill-rule="evenodd" d="${dBarras}${comNome ? dNome : ""}"/><path fill="${c.faixa}" d="${dFaixas}"/>`;
 fs.writeFileSync(path.join(pastaMarca, "barbium-horizontal.svg"), svg(`0 0 ${LARGURA} 100`, arte(ESCURO)));
 fs.writeFileSync(path.join(pastaMarca, "barbium-horizontal-claro.svg"), svg(`0 0 ${LARGURA} 100`, arte(CLARO)));
 fs.writeFileSync(path.join(pastaMarca, "barbium-simbolo.svg"), svg(`0 0 ${LARGURA_SIMBOLO} 100`, arte(ESCURO, false)));
@@ -84,7 +89,7 @@ const larguraCompacta = +larguraNome.toFixed(1);
 const alturaCompacta = +(alturaSimbolo + vao + alturaNome).toFixed(1);
 const xSimbolo = (larguraCompacta - LARGURA_SIMBOLO * escalaSimboloCompacto) / 2;
 const compacta =
-  `<g transform="translate(${xSimbolo.toFixed(1)} 0) scale(${escalaSimboloCompacto})"><path fill="${ESCURO.tinta}" d="${dTampas}"/><path fill="${ESCURO.faixa}" d="${dFaixas}"/></g>` +
+  `<g transform="translate(${xSimbolo.toFixed(1)} 0) scale(${escalaSimboloCompacto})"><path fill="${ESCURO.tinta}" d="${dBarras}"/><path fill="${ESCURO.faixa}" d="${dFaixas}"/></g>` +
   `<g transform="translate(${(-desvioNome).toFixed(1)} ${(alturaSimbolo + vao - alturaNomeTopo).toFixed(1)})"><path fill="${ESCURO.tinta}" fill-rule="evenodd" d="${dNome}"/></g>`;
 fs.writeFileSync(path.join(pastaMarca, "barbium-compacto.svg"), svg(`0 0 ${larguraCompacta} ${alturaCompacta}`, compacta));
 // Favicon: símbolo sobre o fundo da marca, cantos arredondados
@@ -93,7 +98,7 @@ fs.writeFileSync(
   path.join(pastaMarca, "favicon.svg"),
   svg(
     `0 0 ${lado} ${lado}`,
-    `<rect width="${lado}" height="${lado}" rx="28" fill="#0D1110"/><g transform="translate(${((lado - larS) / 2).toFixed(1)} ${((lado - altS) / 2).toFixed(1)}) scale(${altS / 100})"><path fill="${ESCURO.tinta}" d="${dTampas}"/><path fill="${ESCURO.faixa}" d="${dFaixas}"/></g>`,
+    `<rect width="${lado}" height="${lado}" rx="28" fill="#0D1110"/><g transform="translate(${((lado - larS) / 2).toFixed(1)} ${((lado - altS) / 2).toFixed(1)}) scale(${altS / 100})"><path fill="${ESCURO.tinta}" d="${dBarras}"/><path fill="${ESCURO.faixa}" d="${dFaixas}"/></g>`,
   ),
 );
 
@@ -141,8 +146,8 @@ const crc32 = (buf) => {
   return (c ^ 0xffffffff) >>> 0;
 };
 const ORIGEM =
-  "Origem: rasterizado por scripts/gerar-marca.mjs a partir da logo aprovada docs/images/Barbium green barber pole logo.png, " +
-  "vetorizada por contorno em scripts/vetorizar-logo.mjs. Sem geração de imagem por IA.";
+  "Origem: rasterizado por scripts/gerar-marca.mjs a partir da logo docs/logo/barbium-c-logo-claro.png " +
+  "(imagem gerada por IA e escolhida pelo dono da marca): nome vetorizado por contorno, faixas em geometria exata.";
 function png(largura, altura, rgba) {
   const bloco = (tipo, dados) => {
     const t = Buffer.from(tipo, "ascii");
@@ -189,7 +194,7 @@ function desenhar({ largura, altura, fundo, camadas, escala, dx, dy }) {
   }
   return png(largura, altura, rgba);
 }
-const camadasSimbolo = (c) => [{ cor: c.tinta, laços: tampas }, { cor: c.faixa, laços: faixas }];
+const camadasSimbolo = (c) => [{ cor: c.tinta, laços: barras }, { cor: c.faixa, laços: faixas }];
 function icone(lado, proporcao, arquivo) {
   const alt = lado * proporcao, esc = alt / 100, lar = LARGURA_SIMBOLO * esc;
   fs.writeFileSync(
@@ -207,7 +212,7 @@ const escPNG = alturaPNG / 100;
 for (const [arq, c] of [["barbium-horizontal-claro.png", CLARO], ["barbium-horizontal.png", ESCURO]]) {
   fs.writeFileSync(
     path.join(pastaMarca, arq),
-    desenhar({ largura: larguraPNG, altura: alturaPNG, fundo: null, camadas: [{ cor: c.tinta, laços: [...tampas, ...nome] }, { cor: c.faixa, laços: faixas }], escala: escPNG, dx: 0, dy: 0 }),
+    desenhar({ largura: larguraPNG, altura: alturaPNG, fundo: null, camadas: [{ cor: c.tinta, laços: [...barras, ...nome] }, { cor: c.faixa, laços: faixas }], escala: escPNG, dx: 0, dy: 0 }),
   );
 }
-console.log({ LARGURA, LARGURA_SIMBOLO, bytesCaminhos: dTampas.length + dFaixas.length + dNome.length, tampas: tampas.length, nome: nome.length, faixas: faixas.length });
+console.log({ LARGURA, LARGURA_SIMBOLO, bytesCaminhos: dBarras.length + dFaixas.length + dNome.length, barras: barras.length, nome: nome.length, faixas: faixas.length });

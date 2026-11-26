@@ -6,7 +6,8 @@ import { Check, ExternalLink, ImagePlus, MapPin, Trash2 } from "lucide-react";
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
 import { Campo, ariaCampo } from "@/components/ui/campo";
-import { COR_PADRAO, CORES_SUGERIDAS, corValida, estiloDaMarca } from "@/lib/cor-marca";
+import { COR_PADRAO, CORES_SUGERIDAS, corValida, ehClaro } from "@/lib/cor-marca";
+import { FUNDO_PADRAO, FUNDOS_SUGERIDOS, estiloDoTema } from "@/lib/tema";
 import { iniciais } from "@/lib/formatar";
 import { ANTECEDENCIA_OPCOES, DIAS_A_FRENTE_OPCOES, MENSAGEM_AGENDAMENTO_MAXIMO } from "@/lib/pagina-agendamento";
 
@@ -51,6 +52,8 @@ export function SecaoPaginaAgendamento({
   slug,
   enderecoInicial,
   corInicial,
+  fundoInicial,
+  temaNoPainelInicial,
   regrasIniciais,
   logoUrl,
 }: {
@@ -58,6 +61,8 @@ export function SecaoPaginaAgendamento({
   slug: string;
   enderecoInicial: string;
   corInicial: string | null;
+  fundoInicial: string | null;
+  temaNoPainelInicial: boolean;
   regrasIniciais: RegrasPagina;
   logoUrl: string | null;
 }) {
@@ -66,6 +71,8 @@ export function SecaoPaginaAgendamento({
   const [endereco, setEndereco] = useState(enderecoInicial);
   const [cor, setCor] = useState<string>(corInicial ?? COR_PADRAO);
   const [regras, setRegras] = useState<RegrasPagina>(regrasIniciais);
+  const [fundo, setFundo] = useState<string>(fundoInicial ?? FUNDO_PADRAO);
+  const [temaNoPainel, setTemaNoPainel] = useState(temaNoPainelInicial);
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -83,6 +90,8 @@ export function SecaoPaginaAgendamento({
         body: JSON.stringify({
           endereco: endereco.trim() || null,
           corMarca: cor === COR_PADRAO ? null : cor,
+          corFundo: fundo === FUNDO_PADRAO ? null : fundo,
+          temaNoPainel,
           mensagemAgendamento: regras.mensagem.trim() || null,
           mostrarPrecos: regras.mostrarPrecos,
           antecedenciaMinimaMin: regras.antecedenciaMinimaMin,
@@ -218,6 +227,43 @@ export function SecaoPaginaAgendamento({
           <p className="campo-dica">Os botões e o horário escolhido usam essa cor. O contraste é ajustado para ficar legível.</p>
         </fieldset>
 
+        <fieldset className="campo pagina-cores">
+          <legend className="campo-rotulo">Cor de fundo</legend>
+          <div className="pagina-cores-opcoes" role="radiogroup" aria-label="Fundos sugeridos">
+            {FUNDOS_SUGERIDOS.map((f) => (
+              <button
+                key={f.cor}
+                type="button"
+                role="radio"
+                aria-checked={fundo === f.cor}
+                aria-label={f.cor === FUNDO_PADRAO ? `${f.nome} (padrão)` : f.nome}
+                title={f.nome}
+                className="pagina-cor pagina-fundo"
+                style={{ background: f.cor, color: ehClaro(f.cor) ? "#111614" : "#ffffff" }}
+                onClick={() => setFundo(f.cor)}
+              >
+                {fundo === f.cor && <Check size={16} strokeWidth={3} aria-hidden="true" />}
+              </button>
+            ))}
+            <label className="pagina-cor-livre">
+              <input type="color" value={corValida(fundo) ? fundo : FUNDO_PADRAO} onChange={(e) => setFundo(e.target.value)} />
+              Outra cor
+            </label>
+          </div>
+          <p className="campo-dica">
+            Fundo claro deixa a página clara, com texto escuro. Cores de tom médio são escurecidas ou clareadas para o texto
+            ficar legível.
+          </p>
+        </fieldset>
+
+        <label className="checkbox">
+          <input type="checkbox" checked={temaNoPainel} onChange={(e) => setTemaNoPainel(e.target.checked)} />
+          <span className="checkbox-texto">
+            <span className="checkbox-rotulo">Usar estas cores também no painel</span>
+            <span className="campo-dica">O painel da equipe fica com a cor dos botões e o fundo da barbearia.</span>
+          </span>
+        </label>
+
         <Campo id="pagina-endereco" rotulo="Endereço" dica="Rua, número, bairro e cidade. O cliente vê o botão Como chegar." opcional>
           <input
             {...ariaCampo("pagina-endereco", { dica: true })}
@@ -290,7 +336,11 @@ export function SecaoPaginaAgendamento({
           <p className="campo-dica">As regras valem para o link e para o cliente remarcar. No painel, a equipe marca a qualquer hora.</p>
         </div>
 
-        <div className="pagina-previa" style={estiloDaMarca(cor)} aria-label="Prévia da página de agendamento">
+        <div
+          className="pagina-previa"
+          style={estiloDoTema({ corMarca: cor === COR_PADRAO ? null : cor, corFundo: fundo === FUNDO_PADRAO ? null : fundo })}
+          aria-label="Prévia da página de agendamento"
+        >
           <p className="pagina-previa-rotulo">Prévia</p>
           <div className="pagina-previa-corpo">
             <p className="pagina-previa-nome">{nome}</p>
@@ -300,6 +350,13 @@ export function SecaoPaginaAgendamento({
                 {endereco.trim()}
               </p>
             )}
+            <div className="opcao pagina-previa-servico" aria-hidden="true">
+              <span className="opcao-texto">
+                <span className="opcao-titulo">Corte</span>
+                <span className="opcao-sub">30 min</span>
+              </span>
+              {regras.mostrarPrecos && <span className="opcao-valor">R$ 30,00</span>}
+            </div>
             <div className="horarios pagina-previa-horarios" aria-hidden="true">
               <span className="horario">13:40</span>
               <span className="horario" data-escolhido>

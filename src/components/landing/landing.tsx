@@ -1,31 +1,26 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, CheckCheck, ChevronDown, Circle, MessageCircle, Scissors } from "lucide-react";
+import { ArrowRight, Check, CheckCheck, ChevronDown, MessageCircle } from "lucide-react";
 import { Marca } from "@/components/ui/marca";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui/badge";
 import { TabelaPrecos } from "@/components/precos/tabela-precos";
 import { DIAS_TESTE, PRECO_ADICIONAL_WHATSAPP, WHATSAPP_VENDAS } from "@/lib/precos";
 import { formatarMoeda } from "@/lib/formatar";
-import { TrilhoDoDia } from "./trilho-do-dia";
-import { DemoAgenda } from "./demo-agenda";
-import { CarrosselPrevias } from "./carrossel-previas";
-import { RevelarSecoes } from "./revelar-secoes";
+import { ReguaDoDia } from "./regua-do-dia";
+import { CapituloDoDia, type HoraDoDia } from "./capitulo-do-dia";
+import { Carteirinha } from "./carteirinha";
 import { WhatsappFlutuante } from "./whatsapp-flutuante";
+import { fonteDisplay } from "./fonte-display";
 
-// Landing do Barbium. A abertura demonstra o mecanismo (o cliente marca pelo
-// link e a agenda recebe o horário); depois vêm as prévias ilustrativas, três
-// benefícios, o dia em quatro horas, os planos e as perguntas. Telas de exemplo
-// usam os componentes reais com dados fictícios, sempre identificados assim.
+// Landing do Barbium: o dia da barbearia como uma régua de horários. A
+// abertura mostra um horário marcado pelo celular caindo na agenda do dia; o
+// capítulo seguinte percorre o mesmo dia em quatro horas; depois, os planos
+// de corte, os preços, as perguntas e o fechamento. Telas de exemplo usam
+// dados fictícios, sempre identificados assim.
 
-function Exemplo({ children, rotulo }: { children: ReactNode; rotulo: string }) {
-  return (
-    <figure className="dia-exemplo">
-      {children}
-      <figcaption className="dia-exemplo-legenda">{rotulo} · exemplo</figcaption>
-    </figure>
-  );
-}
+const CTA_TESTE = `Começar ${DIAS_TESTE} dias grátis`;
+const ADICIONAL = formatarMoeda(PRECO_ADICIONAL_WHATSAPP);
 
 function Mensagem({ de, children }: { de: string; children: ReactNode }) {
   return (
@@ -39,43 +34,126 @@ function Mensagem({ de, children }: { de: string; children: ReactNode }) {
   );
 }
 
-function Hora({
-  hora,
-  titulo,
-  children,
-  exemplo,
-  adicional = false,
-}: {
-  hora: string;
-  titulo: string;
-  children: ReactNode;
-  exemplo: ReactNode;
-  adicional?: boolean;
-}) {
-  return (
-    <li className="dia-hora" data-hora>
-      <time className="dia-hora-relogio num">{hora}</time>
-      <span className="dia-hora-no" aria-hidden="true" />
-      <div className="dia-hora-corpo">
-        <div className="dia-hora-texto">
-          <h3 className="dia-hora-titulo">
-            {titulo}
-            {adicional && (
-              <span className="badge dia-hora-adicional" data-tom="info">
-                Adicional
-              </span>
-            )}
-          </h3>
-          {children}
+const HORAS: HoraDoDia[] = [
+  {
+    hora: "08:12",
+    titulo: "O cliente agenda pelo link",
+    legenda: "Página de agendamento",
+    texto: (
+      <p>
+        Ele escolhe o serviço, o profissional e um horário livre, sem criar conta. A agenda só oferece horários dentro do
+        expediente e fora do almoço, e o horário pode ficar garantido com um sinal no Pix.
+      </p>
+    ),
+    exemplo: (
+      <div className="dia-tela">
+        <p className="dia-tela-titulo">Escolha o horário</p>
+        <p className="texto-secundario texto-pequeno">Corte + barba · com Rafael · terça, 25/11</p>
+        <div className="horarios">
+          {["13:00", "13:40", "14:00", "14:40", "15:20", "16:00"].map((h) => (
+            <span key={h} className="horario" data-escolhido={h === "14:00" || undefined}>
+              {h}
+            </span>
+          ))}
         </div>
-        {exemplo}
       </div>
-    </li>
-  );
-}
+    ),
+  },
+  {
+    hora: "12:00",
+    titulo: "Confirmação e lembrete no WhatsApp",
+    selo: "Adicional",
+    legenda: "Lembrete automático",
+    texto: (
+      <p>
+        Quem marca recebe a confirmação na hora e, antes do horário, o lembrete com o link para remarcar ou cancelar. Você
+        recebe o aviso de cada agendamento.
+      </p>
+    ),
+    exemplo: (
+      <div className="dia-tela">
+        <Mensagem de="WhatsApp do cliente">
+          <p>Olá, Lucas!</p>
+          <p>
+            Passando pra lembrar do seu horário na <b>Barbearia Exemplo</b>: <b>hoje às 14:00</b>.
+          </p>
+          <p className="dia-mensagem-link">Precisa remarcar ou cancelar? barbium…/meu-horario/…</p>
+        </Mensagem>
+        <p className="dia-mensagem-nota">
+          <CheckCheck size={14} aria-hidden="true" />
+          Confirmação enviada às 08:12, quando ele marcou.
+        </p>
+      </div>
+    ),
+  },
+  {
+    hora: "14:00",
+    titulo: "Chegou, em atendimento, concluído",
+    legenda: "Agenda",
+    texto: (
+      <p>
+        Na agenda do dia, cada atendimento passa por chegou e em atendimento até concluir, e a equipe vê em que ponto o dia
+        está. Fica registrado quem mudou cada coisa e quando.
+      </p>
+    ),
+    exemplo: (
+      <div className="agendamento-card dia-card-agenda">
+        <Avatar nome="Lucas Andrade" tamanho={40} />
+        <div className="agendamento-corpo">
+          <div className="agendamento-topo">
+            <p className="agendamento-cliente">Lucas Andrade</p>
+            <StatusBadge status="EM_ATENDIMENTO" />
+          </div>
+          <p className="agendamento-servico">Corte + barba · 14:00 – 14:40</p>
+          <ol className="dia-historico">
+            <li>
+              <span>Marcado como Em atendimento</span>
+              <span className="texto-secundario num">14:03 · Rafael</span>
+            </li>
+            <li>
+              <span>Marcado como Chegou</span>
+              <span className="texto-secundario num">13:56 · Rafael</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    ),
+  },
+  {
+    hora: "14:40",
+    titulo: "Concluiu, o caixa já sabe",
+    legenda: "Conclusão do atendimento",
+    texto: (
+      <p>
+        Ao concluir, você marca como o cliente pagou. O valor entra no caixa e a comissão é calculada com o percentual do
+        profissional ou do serviço.
+      </p>
+    ),
+    exemplo: (
+      <dl className="fatos dia-fatos">
+        <div>
+          <dt>Pagamento</dt>
+          <dd className="num">R$ 55,00 · Pix</dd>
+        </div>
+        <div>
+          <dt>Comissão de Rafael</dt>
+          <dd className="num">R$ 22,00 · 40%</dd>
+        </div>
+        <div>
+          <dt>Caixa de hoje</dt>
+          <dd className="num dia-positivo">+ R$ 55,00</dd>
+        </div>
+      </dl>
+    ),
+  },
+];
 
-const CTA_TESTE = `Começar ${DIAS_TESTE} dias grátis`;
-const ADICIONAL = formatarMoeda(PRECO_ADICIONAL_WHATSAPP);
+const PLANOS_DE_CORTE: [string, string][] = [
+  ["Pix ou cartão", "No cartão, o Mercado Pago cobra todo mês sozinho. No Pix, o cliente renova quando quiser."],
+  ["Limite por mês", "Ilimitado ou um número de atendimentos. A agenda confere sozinha e devolve o uso quando ele cancela."],
+  ["Comissão fixa", "Você define quanto o profissional ganha em cada atendimento feito pelo plano."],
+  ["Aviso de renovação", "Perto do vencimento, o assinante recebe no WhatsApp o link para renovar. Faz parte do adicional de WhatsApp."],
+];
 
 const PERGUNTAS: [string, string][] = [
   [
@@ -85,6 +163,10 @@ const PERGUNTAS: [string, string][] = [
   [
     "O que acontece quando o teste acaba?",
     "O painel fica pausado até a assinatura. Agenda, clientes e caixa continuam guardados; assinou, tudo volta como estava.",
+  ],
+  [
+    "Como funcionam os planos de corte?",
+    "Você cria planos mensais no painel, com valor, serviços incluídos e quantos atendimentos por mês. O cliente assina pelo seu link e paga no Pix ou no cartão, pela sua conta do Mercado Pago. Quem paga no balcão, você registra no painel.",
   ],
   [
     "As mensagens no WhatsApp custam à parte?",
@@ -116,15 +198,14 @@ export function Landing() {
   const whatsapp = `https://wa.me/${WHATSAPP_VENDAS}?text=${encodeURIComponent("Olá! Quero saber mais sobre o Barbium.")}`;
 
   return (
-    <div className="landing">
-      <RevelarSecoes />
+    <div className={`landing ${fonteDisplay.variable}`}>
       <header className="landing-topo">
         <div className="landing-largura landing-topo-conteudo">
           <Link href="/" aria-label="Barbium — início" className="landing-marca">
             <Marca tamanho={30} />
           </Link>
           <nav className="landing-nav" aria-label="Seções">
-            <a href="#demonstracao" className="landing-nav-link landing-nav-opcional">
+            <a href="#o-dia" className="landing-nav-link landing-nav-opcional">
               Demonstração
             </a>
             <a href="#planos" className="landing-nav-link">
@@ -138,307 +219,133 @@ export function Landing() {
       </header>
 
       <main>
-        <section className="landing-abertura landing-largura" aria-labelledby="titulo-landing">
-          <div className="landing-abertura-texto">
-            <h1 id="titulo-landing" className="landing-titulo">
+        <section className="landing-abertura lp-abertura" aria-labelledby="titulo-landing">
+          <div className="landing-largura lp-abertura-texto">
+            <h1 id="titulo-landing" className="lp-titulo lp-entra" data-papel="titulo">
               O cliente marca sozinho. Você segue no corte.
             </h1>
-            <p className="landing-subtitulo">
-              Ele marca pelo link, sem te chamar no WhatsApp, e pode garantir o horário com um sinal no Pix. Menos horário vago por
-              cliente que falta.
-            </p>
-            <div className="landing-acoes">
-              <Link href="/cadastro" className="btn btn-primary landing-cta">
-                {CTA_TESTE}
-                <ArrowRight size={18} aria-hidden="true" />
-              </Link>
-              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary landing-cta-secundario">
-                <MessageCircle size={18} aria-hidden="true" />
-                Falar no WhatsApp
-              </a>
-            </div>
-            <p className="landing-nota">
-              <Check size={16} aria-hidden="true" />
-              Sem cartão no teste
-            </p>
-          </div>
-          <DemoAgenda />
-        </section>
-
-        <section id="demonstracao" className="landing-secao landing-previas" aria-labelledby="titulo-previas">
-          <div className="landing-largura">
-            <div className="landing-secao-cabecalho" data-revelar="">
-              <h2 id="titulo-previas" className="landing-secao-titulo">
-                Por dentro do Barbium
-              </h2>
-              <p className="landing-secao-texto">
-                Prévias ilustrativas da agenda, do agendamento pelo link, do WhatsApp, dos atendimentos e do caixa, no computador e no
-                celular.
+            <div className="lp-entra lp-abertura-apoio" data-papel="apoio">
+              <p className="lp-subtitulo">
+                Ele marca pelo link, sem te chamar no WhatsApp, e pode garantir o horário com um sinal no Pix.
+                {/* No computador o subtítulo fica numa linha, para o desfecho da cena caber na primeira tela. */}
+                <span className="lp-subtitulo-extra"> Menos horário vago por cliente que falta.</span>
               </p>
-            </div>
-            <div data-revelar="">
-              <CarrosselPrevias />
-            </div>
-          </div>
-        </section>
-
-        <section className="landing-secao landing-largura" aria-labelledby="titulo-beneficios">
-          <div className="landing-secao-cabecalho" data-revelar="">
-            <h2 id="titulo-beneficios" className="landing-secao-titulo">
-              O que muda no seu dia
-            </h2>
-          </div>
-          <ul className="beneficios" data-revelar="">
-            <li className="beneficio">
-              <ol className="beneficio-visual beneficio-dia" aria-hidden="true">
-                {[
-                  ["09:00", "Carlos · Corte", "ocupado"],
-                  ["09:40", "Livre", "livre"],
-                  ["10:20", "Bruno · Barba", "ocupado"],
-                  ["12:00", "Almoço", "pausa"],
-                ].map(([hora, texto, tipo]) => (
-                  <li key={hora} data-tipo={tipo}>
-                    <span className="num">{hora}</span>
-                    <span>{texto}</span>
-                  </li>
-                ))}
-              </ol>
-              <h3 className="beneficio-titulo">Horários organizados</h3>
-              <p className="beneficio-texto">O cliente marca sozinho e a agenda só oferece horários livres, dentro do expediente e fora do almoço.</p>
-            </li>
-            <li className="beneficio">
-              <ol className="beneficio-visual beneficio-etapas" aria-hidden="true">
-                <li data-estado="feito">
-                  <span className="beneficio-etapa-no">
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                  <span>Confirmado</span>
-                  <span className="num">08:12</span>
-                </li>
-                <li data-estado="feito">
-                  <span className="beneficio-etapa-no">
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                  <span>Chegou</span>
-                  <span className="num">13:56</span>
-                </li>
-                <li data-estado="atual">
-                  <span className="beneficio-etapa-no">
-                    <Scissors size={12} strokeWidth={2.5} />
-                  </span>
-                  <span>Em atendimento</span>
-                  <span className="num">14:03</span>
-                </li>
-                <li data-estado="proximo">
-                  <span className="beneficio-etapa-no">
-                    <Circle size={8} strokeWidth={3} />
-                  </span>
-                  <span>Concluído</span>
-                  <span className="num">—</span>
-                </li>
-              </ol>
-              <h3 className="beneficio-titulo">Atendimento acompanhado</h3>
-              <p className="beneficio-texto">Cada atendimento passa pelos estados reais na agenda, e a equipe vê em que ponto o dia está.</p>
-            </li>
-            <li className="beneficio">
-              <div className="beneficio-visual beneficio-comissoes" aria-hidden="true">
-                <p className="beneficio-comissoes-titulo">Comissões de hoje</p>
-                <dl className="fatos">
-                  <div>
-                    <dt>Rafael · 6 atendimentos</dt>
-                    <dd className="num">R$ 132,00</dd>
-                  </div>
-                  <div>
-                    <dt>Diego · 4 atendimentos</dt>
-                    <dd className="num">R$ 88,00</dd>
-                  </div>
-                  <div>
-                    <dt>Recebido hoje</dt>
-                    <dd className="num dia-positivo">R$ 550,00</dd>
-                  </div>
-                </dl>
+              <div className="lp-acoes">
+                <Link href="/cadastro" className="btn btn-primary lp-cta">
+                  {CTA_TESTE}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary lp-cta">
+                  <MessageCircle size={18} aria-hidden="true" />
+                  Falar no WhatsApp
+                </a>
+                <p className="lp-nota">
+                  <Check size={16} aria-hidden="true" />
+                  Sem cartão no teste
+                </p>
               </div>
-              <h3 className="beneficio-titulo">Caixa e comissões claros</h3>
-              <p className="beneficio-texto">Concluiu, o valor entra no caixa e a comissão de cada profissional sai calculada.</p>
-            </li>
-          </ul>
-        </section>
-
-        <section id="como-funciona" className="landing-secao landing-largura" aria-labelledby="titulo-dia">
-          <div className="landing-secao-cabecalho" data-revelar="">
-            <h2 id="titulo-dia" className="landing-secao-titulo">
-              Um dia na barbearia, hora a hora
-            </h2>
-            <p className="landing-secao-texto">Do cliente que marca de manhã ao caixa atualizado quando o atendimento termina.</p>
+            </div>
           </div>
-
-          <TrilhoDoDia>
-            <Hora
-              hora="08:12"
-              titulo="O cliente agenda pelo link"
-              exemplo={
-                <Exemplo rotulo="Página de agendamento">
-                  <div className="dia-tela">
-                    <p className="dia-tela-titulo">Escolha o horário</p>
-                    <p className="texto-secundario texto-pequeno">Corte + barba · com Rafael · terça, 25/11</p>
-                    <div className="horarios">
-                      {["13:00", "13:40", "14:00", "14:40", "15:20", "16:00"].map((h) => (
-                        <span key={h} className="horario" data-escolhido={h === "14:00" || undefined}>
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </Exemplo>
-              }
-            >
-              <p>
-                Ele escolhe o serviço, o profissional e um horário livre, sem criar conta. Se você quiser, o horário só fica garantido com
-                um sinal no Pix.
-              </p>
-            </Hora>
-
-            <Hora
-              hora="12:00"
-              titulo="Confirmação e lembrete no WhatsApp"
-              adicional
-              exemplo={
-                <Exemplo rotulo="Lembrete automático">
-                  <Mensagem de="WhatsApp do cliente">
-                    <p>Olá, Lucas!</p>
-                    <p>
-                      Passando pra lembrar do seu horário na <b>Barbearia Exemplo</b>: <b>hoje às 14:00</b>.
-                    </p>
-                    <p className="dia-mensagem-link">Precisa remarcar ou cancelar? barbium…/meu-horario/…</p>
-                  </Mensagem>
-                  <p className="dia-mensagem-nota">
-                    <CheckCheck size={14} aria-hidden="true" />
-                    Confirmação enviada às 08:12, quando ele marcou.
-                  </p>
-                </Exemplo>
-              }
-            >
-              <p>
-                Quem marca recebe a confirmação na hora e, antes do horário, o lembrete com o link para remarcar ou cancelar. Você recebe o
-                aviso de cada agendamento.
-              </p>
-            </Hora>
-
-            <Hora
-              hora="14:00"
-              titulo="Chegou, em atendimento, concluído"
-              exemplo={
-                <Exemplo rotulo="Agenda">
-                  <div className="agendamento-card dia-card-agenda">
-                    <Avatar nome="Lucas Andrade" tamanho={40} />
-                    <div className="agendamento-corpo">
-                      <div className="agendamento-topo">
-                        <p className="agendamento-cliente">Lucas Andrade</p>
-                        <StatusBadge status="EM_ATENDIMENTO" />
-                      </div>
-                      <p className="agendamento-servico">Corte + barba · 14:00 – 14:40</p>
-                      <ol className="dia-historico">
-                        <li>
-                          <span>Marcado como Em atendimento</span>
-                          <span className="texto-secundario num">14:03 · Rafael</span>
-                        </li>
-                        <li>
-                          <span>Marcado como Chegou</span>
-                          <span className="texto-secundario num">13:56 · Rafael</span>
-                        </li>
-                      </ol>
-                    </div>
-                  </div>
-                </Exemplo>
-              }
-            >
-              <p>
-                Na agenda do dia, cada atendimento passa por chegou e em atendimento até concluir. Fica registrado quem mudou cada coisa e
-                quando.
-              </p>
-            </Hora>
-
-            <Hora
-              hora="14:40"
-              titulo="Concluiu, o caixa já sabe"
-              exemplo={
-                <Exemplo rotulo="Conclusão do atendimento">
-                  <dl className="fatos dia-fatos">
-                    <div>
-                      <dt>Pagamento</dt>
-                      <dd className="num">R$ 55,00 · Pix</dd>
-                    </div>
-                    <div>
-                      <dt>Comissão de Rafael</dt>
-                      <dd className="num">R$ 22,00 · 40%</dd>
-                    </div>
-                    <div>
-                      <dt>Caixa de hoje</dt>
-                      <dd className="num dia-positivo">+ R$ 55,00</dd>
-                    </div>
-                  </dl>
-                </Exemplo>
-              }
-            >
-              <p>
-                Ao concluir, você marca como o cliente pagou. O valor entra no caixa e a comissão é calculada com o percentual do
-                profissional ou do serviço.
-              </p>
-            </Hora>
-          </TrilhoDoDia>
+          <div className="landing-largura lp-entra" data-papel="palco">
+            <ReguaDoDia />
+          </div>
         </section>
 
-        <section id="planos" className="landing-secao landing-planos" aria-labelledby="titulo-planos">
+        <section id="o-dia" className="lp-dia" aria-labelledby="titulo-dia">
           <div className="landing-largura">
-            <div className="landing-secao-cabecalho" data-revelar="">
-              <h2 id="titulo-planos" className="landing-secao-titulo">
-                Planos para cada tamanho de equipe
+            <div className="lp-cabecalho">
+              <h2 id="titulo-dia" className="lp-secao-titulo">
+                Um dia na barbearia, do primeiro horário ao caixa.
               </h2>
-              <p className="landing-secao-texto">
-                Todos têm agenda, link de agendamento, caixa, comissões e indicadores; muda quantos profissionais usam a agenda. Comece com{" "}
-                {DIAS_TESTE} dias grátis, sem cartão. Depois, o pagamento é feito pela Cakto.
+              <p className="lp-secao-texto">Do cliente que marca de manhã ao caixa atualizado quando o atendimento termina.</p>
+            </div>
+            <CapituloDoDia horas={HORAS} />
+          </div>
+        </section>
+
+        <section className="lp-planos-corte" aria-labelledby="titulo-planos-corte">
+          <div className="landing-largura lp-planos-corte-grade">
+            <div className="lp-planos-corte-texto">
+              <h2 id="titulo-planos-corte" className="lp-secao-titulo">
+                Venda planos de corte pelo seu link.
+              </h2>
+              <p className="lp-secao-texto">
+                Você cria planos mensais, como 4 cortes por mês. O cliente assina pelo link e paga no Pix ou no cartão. Depois,
+                agenda pelo plano, sem pagar na hora.
+              </p>
+              <dl className="lp-fatos-plano">
+                {PLANOS_DE_CORTE.map(([titulo, texto]) => (
+                  <div key={titulo}>
+                    <dt>{titulo}</dt>
+                    <dd>{texto}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="lp-nota-fina">
+                Para receber online, conecte o Mercado Pago da barbearia. Quem paga no balcão, você registra no painel.
+              </p>
+            </div>
+            <Carteirinha />
+          </div>
+        </section>
+
+        <section id="planos" className="lp-precos" aria-labelledby="titulo-planos">
+          <div className="landing-largura">
+            <div className="lp-cabecalho">
+              <h2 id="titulo-planos" className="lp-secao-titulo">
+                Quanto custa o Barbium.
+              </h2>
+              <p className="lp-secao-texto">
+                Todos os planos têm agenda, link de agendamento, planos de corte, caixa, comissões e indicadores; muda quantos
+                profissionais usam a agenda. Comece com {DIAS_TESTE} dias grátis, sem cartão. Depois, o pagamento é feito pela
+                Cakto.
               </p>
             </div>
             <TabelaPrecos acao="cadastro" />
           </div>
         </section>
 
-        <section className="landing-secao landing-largura landing-perguntas" aria-labelledby="titulo-perguntas">
-          <h2 id="titulo-perguntas" className="landing-secao-titulo" data-revelar="">
-            Perguntas frequentes
-          </h2>
-          <div className="landing-perguntas-lista" data-revelar="">
-            {PERGUNTAS.map(([pergunta, resposta]) => (
-              <details key={pergunta} className="landing-pergunta">
-                <summary>
-                  {pergunta}
-                  <ChevronDown size={20} className="landing-pergunta-icone" aria-hidden="true" />
-                </summary>
-                <p>{resposta}</p>
-              </details>
-            ))}
+        <section className="lp-perguntas" aria-labelledby="titulo-perguntas">
+          <div className="landing-largura lp-perguntas-grade">
+            <h2 id="titulo-perguntas" className="lp-secao-titulo">
+              Perguntas frequentes
+            </h2>
+            <div className="lp-perguntas-lista">
+              {PERGUNTAS.map(([pergunta, resposta]) => (
+                <details key={pergunta} className="lp-pergunta">
+                  <summary>
+                    {pergunta}
+                    <ChevronDown size={20} className="lp-pergunta-icone" aria-hidden="true" />
+                  </summary>
+                  <p>{resposta}</p>
+                </details>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="landing-fim landing-largura" aria-labelledby="titulo-fim">
-          <div className="landing-fim-conteudo" data-revelar="">
-            <h2 id="titulo-fim" className="landing-fim-titulo">
+        <section className="landing-fim lp-fim" aria-labelledby="titulo-fim">
+          <div className="landing-largura lp-fim-conteudo">
+            <p className="lp-fim-hora num" aria-hidden="true">
+              09:00
+            </p>
+            <h2 id="titulo-fim" className="lp-fim-titulo">
               Comece pela agenda de amanhã.
             </h2>
-            <p className="landing-secao-texto">
+            <p className="lp-secao-texto">
               Cadastre a barbearia, os serviços e o expediente em poucos minutos e mande o link para os clientes.
             </p>
-            <div className="landing-acoes landing-acoes-centro">
-              <Link href="/cadastro" className="btn btn-primary landing-cta">
+            <div className="lp-acoes">
+              <Link href="/cadastro" className="btn btn-primary lp-cta">
                 {CTA_TESTE}
                 <ArrowRight size={18} aria-hidden="true" />
               </Link>
-              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-secondary lp-cta">
                 <MessageCircle size={18} aria-hidden="true" />
                 Tirar dúvidas no WhatsApp
               </a>
             </div>
-            <ul className="landing-fim-garantias">
+            <ul className="lp-garantias">
               {["Sem cartão no teste", "Todas as funções liberadas no teste", "Seus dados ficam guardados"].map((t) => (
                 <li key={t}>
                   <Check size={16} aria-hidden="true" />

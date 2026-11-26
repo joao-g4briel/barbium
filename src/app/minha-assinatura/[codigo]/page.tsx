@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SimboloBarbium } from "@/components/ui/marca";
 import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
-import { estiloDaMarca } from "@/lib/cor-marca";
+import { TemaDaBarbearia } from "@/components/tema-barbearia";
 import { prisma } from "@/lib/prisma";
 import { assinaturaDoCodigo } from "@/lib/link-cliente";
 import { sincronizarCartao, usosNoMes } from "@/lib/planos-corte";
@@ -39,6 +39,7 @@ function carregar(id: string) {
           telefone: true,
           logoAtualizadoEm: true,
           corMarca: true,
+          corFundo: true,
           fuso: true,
           ativo: true,
         },
@@ -82,7 +83,8 @@ export default async function MinhaAssinatura({
   const b = assinatura.barbearia;
 
   return (
-    <div className="publico" style={estiloDaMarca(b.corMarca)}>
+    <div className="publico">
+      <TemaDaBarbearia corMarca={b.corMarca} corFundo={b.corFundo} />
       <CabecalhoBarbearia
         nome={b.nome}
         slug={b.slug}

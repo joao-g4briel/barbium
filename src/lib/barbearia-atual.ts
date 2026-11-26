@@ -21,6 +21,8 @@ export const obterBarbearia = cache(async (barbeariaId: string) => {
       criadoEm: true,
       endereco: true,
       corMarca: true,
+      corFundo: true,
+      temaNoPainel: true,
       logoAtualizadoEm: true,
       mensagemAgendamento: true,
       mostrarPrecos: true,

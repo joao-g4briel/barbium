@@ -51,6 +51,8 @@ interface Props {
   recado: string | null;
   mostrarPrecos: boolean;
   diasAFrente: number;
+  // Chegou pelo link de um barbeiro: ele já vem escolhido (dá pra trocar).
+  profissionalInicialId?: string | null;
 }
 
 // Nome e WhatsApp de quem já agendou neste aparelho, pra não digitar de novo.
@@ -162,16 +164,18 @@ export function AssistenteAgendamento({
   recado,
   mostrarPrecos,
   diasAFrente,
+  profissionalInicialId = null,
 }: Props) {
   const fuso = useFuso();
   const temPlanos = planos.length > 0;
   // Um profissional só: ele já vem escolhido e a etapa some.
   const unicoProfissional = profissionais.length === 1 ? profissionais[0] : null;
+  const profissionalPadrao = unicoProfissional ?? profissionais.find((p) => p.id === profissionalInicialId) ?? null;
   // Com planos, primeiro o cliente diz como vai agendar.
   const [modo, setModo] = useState<"escolher" | "avulso" | "assinante">(temPlanos ? "escolher" : "avulso");
   const [assinante, setAssinante] = useState<AssinanteVM | null>(null);
   const [servico, setServico] = useState<Servico | null>(null);
-  const [profissional, setProfissional] = useState<Profissional | null>(unicoProfissional);
+  const [profissional, setProfissional] = useState<Profissional | null>(profissionalPadrao);
   const [dia, setDia] = useState<Date | null>(null);
   const [horario, setHorario] = useState<Date | null>(null);
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<Date[]>([]);
@@ -257,7 +261,7 @@ export function AssistenteAgendamento({
 
   function trocarServico() {
     setServico(null);
-    setProfissional(unicoProfissional);
+    setProfissional(profissionalPadrao);
     trocarHorario();
   }
 

@@ -22,6 +22,13 @@ const corpoSchema = z.object({
     .nullable()
     .optional(),
   mostrarPrecos: z.boolean().optional(),
+  corFundo: z
+    .string()
+    .trim()
+    .refine((c) => corValida(c), "Cor de fundo inválida.")
+    .nullable()
+    .optional(),
+  temaNoPainel: z.boolean().optional(),
   antecedenciaMinimaMin: z.number().int().refine(antecedenciaValida, "Antecedência inválida.").optional(),
   diasAFrente: z.number().int().refine(diasAFrenteValido, "Período inválido.").optional(),
 });
@@ -41,6 +48,8 @@ export async function PATCH(request: Request) {
       ...(d.corMarca !== undefined ? { corMarca: d.corMarca ? d.corMarca.toLowerCase() : null } : {}),
       ...(d.mensagemAgendamento !== undefined ? { mensagemAgendamento: d.mensagemAgendamento || null } : {}),
       ...(d.mostrarPrecos !== undefined ? { mostrarPrecos: d.mostrarPrecos } : {}),
+      ...(d.corFundo !== undefined ? { corFundo: d.corFundo ? d.corFundo.toLowerCase() : null } : {}),
+      ...(d.temaNoPainel !== undefined ? { temaNoPainel: d.temaNoPainel } : {}),
       ...(d.antecedenciaMinimaMin !== undefined ? { antecedenciaMinimaMin: d.antecedenciaMinimaMin } : {}),
       ...(d.diasAFrente !== undefined ? { diasAFrente: d.diasAFrente } : {}),
     },
