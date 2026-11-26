@@ -4,6 +4,7 @@ import "./globals.css";
 import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
 import { MetaPixel } from "@/components/meta-pixel";
 import { Analitica } from "@/components/analitica";
+import { urlPublicaDoApp } from "@/lib/link-cliente";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -18,6 +19,16 @@ export const metadata: Metadata = {
     template: "%s · Barbium",
   },
   description: "Agenda, clientes e caixa da sua barbearia em um só lugar.",
+  // Endereço base das imagens de prévia (og:image precisa de URL completa).
+  metadataBase: new URL(urlPublicaDoApp() ?? "http://localhost:3000"),
+  // Páginas do Barbium usam a imagem da landing (app/previa.png/route.tsx).
+  openGraph: {
+    siteName: "Barbium",
+    locale: "pt_BR",
+    type: "website",
+    images: [{ url: "/previa.png", width: 1200, height: 630, alt: "Barbium: o cliente marca sozinho, você segue no corte." }],
+  },
+  twitter: { card: "summary_large_image" },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

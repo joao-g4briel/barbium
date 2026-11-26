@@ -37,6 +37,13 @@ colors:
   info-border: "#2b4a6b"
   overlay: "rgba(6, 9, 8, 0.72)"
 typography:
+  landing-display:
+    fontFamily: "Archivo, Manrope, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(2.75rem, 6.6vw, 6rem)"
+    fontWeight: 780
+    fontStretch: "72%"
+    lineHeight: 0.96
+    letterSpacing: "-0.02em"
   display:
     fontFamily: "Manrope, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "clamp(2rem, 4.5vw, 3.75rem)"
@@ -288,6 +295,7 @@ A sober, green-tinted dark field with one action green, one accent green and fou
 ## Typography
 
 **Display Font:** Manrope (next/font, `--font-manrope`), falling back to ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif
+**Landing Display Font:** Archivo condensed (next/font with the `wdth` axis, `--font-display`; font-stretch 72–88%, weight 700–800), approved by the user on 2026-11-25 for the landing's headlines and large times only, and used in the link-preview images (static instances in assets/fontes). The panel and the booking page stay in Manrope.
 **Body Font:** Manrope, same stack
 **Label/Mono Font:** none; numbers use Manrope with tabular figures
 

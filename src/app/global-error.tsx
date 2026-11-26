@@ -1,9 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+
 // Última linha de defesa: substitui o layout raiz inteiro, então não pode
 // depender do CSS global — o estilo mínimo vai inline, com os valores da
 // paleta oficial (bg-page, text-primary, text-secondary, brand-primary).
-export default function ErroGlobal({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErroGlobal({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    // Importado só aqui, para não pesar em toda página.
+    void import("@sentry/nextjs").then((Sentry) => Sentry.captureException(error));
+  }, [error]);
+
   return (
     <html lang="pt-BR">
       <body

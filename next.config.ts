@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -21,6 +22,12 @@ const nextConfig: NextConfig = {
   // O webpack do Next tenta empacotar "ws" (usado pelo driver do Neon) e
   // corrompe seu binário nativo, causando "bufferUtil.mask is not a
   // function". Isso diz pro Next deixar esses pacotes de fora do bundle.
+  // As imagens de prévia (opengraph-image) leem as fontes de assets/fontes
+  // em tempo de execução; isso garante que elas vão junto no deploy.
+  outputFileTracingIncludes: {
+    "/previa.png": ["./assets/fontes/**/*"],
+    "/agendar/[slug]/opengraph-image": ["./assets/fontes/**/*"],
+  },
   serverExternalPackages: [
     "@neondatabase/serverless",
     "ws",
@@ -53,4 +60,29 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry: com SENTRY_AUTH_TOKEN (e SENTRY_ORG/SENTRY_PROJECT) na Vercel, o
+// build envia os source maps (o erro aparece com o arquivo e a linha do
+// código) e os apaga do site depois. Sem o token, nada é enviado. Os eventos
+// passam por /monitoramento, no próprio domínio, para bloqueadores de anúncio
+// não derrubarem o registro.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoramento",
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
+  // Só erros: sem medição de desempenho nem gravação de tela, e sem embrulhar
+  // middleware, rotas e páginas (o onRequestError já registra os erros do
+  // servidor). Mantém o pacote do site e do middleware do tamanho de antes.
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeTracing: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+    excludeReplayWorker: true,
+  },
+  webpack: { autoInstrumentMiddleware: false, autoInstrumentServerFunctions: false, autoInstrumentAppDirectory: false },
+});

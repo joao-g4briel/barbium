@@ -17,6 +17,7 @@ export default function PaginaPrivacidade() {
   return (
     <PaginaLegal
       titulo="Política de privacidade"
+      atualizadoEm="26 de novembro de 2026"
       resumo={
         <p>
           Esta política explica quais dados o Barbium trata, para quê, com quem compartilha e como você exerce seus direitos pela Lei Geral de
@@ -101,6 +102,10 @@ export default function PaginaPrivacidade() {
                 <li>Vercel (hospedagem do site e do sistema, e contagem de visitas) e Neon (banco de dados).</li>
                 <li>Cakto (pagamento da assinatura) e Mercado Pago (Pix do sinal, quando a barbearia usa).</li>
                 <li>Resend (envio de e-mails, como o de redefinir senha).</li>
+                <li>
+                  Sentry (registro de erros técnicos, para encontrar e corrigir falhas do sistema). Recebe o tipo de erro, a página e o
+                  aparelho; não recebe cookies, endereço IP, senhas nem os códigos dos links pessoais dos clientes.
+                </li>
                 <li>WhatsApp e a infraestrutura de envio das mensagens automáticas, quando o adicional está ligado.</li>
               </ul>
               <p>Alguns desses fornecedores podem guardar dados fora do Brasil, com as garantias que a LGPD exige.</p>

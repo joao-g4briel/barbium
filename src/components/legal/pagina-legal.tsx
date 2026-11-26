@@ -3,15 +3,16 @@ import Link from "next/link";
 import { Marca } from "@/components/ui/marca";
 
 // Molde das páginas legais (termos e privacidade): leitura confortável,
-// sumário no topo e contato no fim.
-export const ATUALIZADO_EM = "24 de novembro de 2026";
-
+// sumário no topo e contato no fim. Cada página informa a data da própria
+// última versão.
 export function PaginaLegal({
   titulo,
+  atualizadoEm,
   resumo,
   secoes,
 }: {
   titulo: string;
+  atualizadoEm: string;
   resumo: ReactNode;
   secoes: { id: string; titulo: string; conteudo: ReactNode }[];
 }) {
@@ -30,7 +31,7 @@ export function PaginaLegal({
 
       <main className="legal-largura legal-corpo">
         <h1 className="legal-titulo">{titulo}</h1>
-        <p className="legal-data">Atualizado em {ATUALIZADO_EM}</p>
+        <p className="legal-data">Atualizado em {atualizadoEm}</p>
         <div className="legal-resumo">{resumo}</div>
 
         <nav className="legal-sumario" aria-label="Nesta página">

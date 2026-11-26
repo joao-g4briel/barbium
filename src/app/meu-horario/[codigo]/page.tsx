@@ -18,6 +18,9 @@ import { ianaDoFuso } from "@/lib/fusos";
 export const metadata: Metadata = {
   title: "Seu horário",
   robots: { index: false, follow: false },
+  // Link pessoal do cliente: prévia neutra, sem a imagem de propaganda do
+  // Barbium (o openGraph daqui substitui o do layout por inteiro).
+  openGraph: { title: "Seu horário", description: "Veja, remarque ou cancele o seu horário.", siteName: "Barbium", locale: "pt_BR", type: "website" },
   referrer: "no-referrer",
 };
 

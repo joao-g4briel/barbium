@@ -16,6 +16,7 @@ const TELEFONE = formatarTelefone(WHATSAPP_VENDAS.slice(2));
 export default function PaginaTermos() {
   return (
     <PaginaLegal
+      atualizadoEm="24 de novembro de 2026"
       titulo="Termos de uso"
       resumo={
         <p>

@@ -21,6 +21,9 @@ import { GerenciarAssinatura } from "./gerenciar-assinatura";
 export const metadata: Metadata = {
   title: "Sua assinatura",
   robots: { index: false, follow: false },
+  // Link pessoal do cliente: prévia neutra, sem a imagem de propaganda do
+  // Barbium (o openGraph daqui substitui o do layout por inteiro).
+  openGraph: { title: "Sua assinatura", description: "Veja e gerencie a sua assinatura do plano de corte.", siteName: "Barbium", locale: "pt_BR", type: "website" },
   referrer: "no-referrer",
 };
 

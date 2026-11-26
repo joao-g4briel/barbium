@@ -1,9 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Marca } from "@/components/ui/marca";
 
-export default function ErroRaiz({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErroRaiz({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  // Erro que quebrou a tela no navegador: o servidor não fica sabendo.
+  useEffect(() => {
+    // Importado só aqui, para não pesar em toda página.
+    void import("@sentry/nextjs").then((Sentry) => Sentry.captureException(error));
+  }, [error]);
+
   return (
     <main className="pagina-central">
       <div className="pagina-central-conteudo">

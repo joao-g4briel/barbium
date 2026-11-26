@@ -18,8 +18,22 @@ import { ianaDoFuso } from "@/lib/fusos";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const barbearia = await prisma.barbearia.findUnique({ where: { slug }, select: { nome: true } });
-  return { title: barbearia ? `Agendar em ${barbearia.nome}` : "Agendamento" };
+  const barbearia = await prisma.barbearia.findUnique({ where: { slug }, select: { nome: true, endereco: true } });
+  if (!barbearia) return { title: "Agendamento" };
+  // Prévia no WhatsApp: a imagem vem de ./opengraph-image.tsx.
+  const descricao = `Escolha o serviço, o profissional e o horário na ${barbearia.nome}, sem precisar ligar.${barbearia.endereco ? ` ${barbearia.endereco}.` : ""}`;
+  return {
+    title: `Agendar em ${barbearia.nome}`,
+    description: descricao,
+    openGraph: {
+      title: `Agende seu horário na ${barbearia.nome}`,
+      description: descricao,
+      url: `/agendar/${slug}`,
+      siteName: "Barbium",
+      locale: "pt_BR",
+      type: "website",
+    },
+  };
 }
 
 export default async function AgendamentoPublico({
