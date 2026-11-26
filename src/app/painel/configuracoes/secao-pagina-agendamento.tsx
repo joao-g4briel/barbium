@@ -18,30 +18,68 @@ interface RegrasPagina {
   diasAFrente: number;
 }
 
-const LADO_MAXIMO = 512;
 const BYTES_MAXIMO = 200 * 1024;
+// Maior lado da imagem enviada; se não couber em 200 KB, tenta menor.
+const LADOS = [512, 384, 256];
 
-// Reduz a imagem no navegador (até 512px no maior lado) antes de enviar.
+class ErroImagem extends Error {
+  constructor(readonly motivo: "abrir" | "tamanho") {
+    super(motivo);
+  }
+}
+
+const cabe = (dataUrl: string) => dataUrl.length * 0.75 <= BYTES_MAXIMO;
+
+// Reduz a imagem no navegador antes de enviar. O Safari (iPhone) não gera
+// WebP pelo canvas e devolve PNG no lugar; PNG de foto passa fácil de 200 KB,
+// então: WebP quando o navegador gera de verdade; senão PNG (mantém o fundo
+// transparente do logo), diminuindo o lado; por último, JPEG sobre branco.
 async function reduzirImagem(arquivo: File): Promise<string> {
   const url = URL.createObjectURL(arquivo);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const i = new Image();
       i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error("imagem inválida"));
+      i.onerror = () => reject(new ErroImagem("abrir"));
       i.src = url;
     });
-    const escala = Math.min(1, LADO_MAXIMO / Math.max(img.naturalWidth, img.naturalHeight));
+    if (!img.naturalWidth || !img.naturalHeight) throw new ErroImagem("abrir");
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * escala));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * escala));
-    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    for (const qualidade of [0.9, 0.8, 0.65, 0.5]) {
-      const dataUrl = canvas.toDataURL("image/webp", qualidade);
-      // Navegador sem WebP devolve PNG: aceita do mesmo jeito.
-      if (dataUrl.length * 0.75 <= BYTES_MAXIMO) return dataUrl;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new ErroImagem("abrir");
+    const desenhar = (lado: number, fundoBranco = false) => {
+      const escala = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * escala));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * escala));
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (fundoBranco) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+
+    for (const lado of LADOS) {
+      desenhar(lado);
+      const webp = canvas.toDataURL("image/webp", 0.9);
+      if (webp.startsWith("data:image/webp")) {
+        for (const qualidade of [0.9, 0.8, 0.65, 0.5]) {
+          const dataUrl = qualidade === 0.9 ? webp : canvas.toDataURL("image/webp", qualidade);
+          if (cabe(dataUrl)) return dataUrl;
+        }
+      } else {
+        const png = canvas.toDataURL("image/png");
+        if (cabe(png)) return png;
+      }
     }
-    throw new Error("grande demais");
+    for (const lado of LADOS) {
+      desenhar(lado, true);
+      for (const qualidade of [0.85, 0.7, 0.55]) {
+        const jpeg = canvas.toDataURL("image/jpeg", qualidade);
+        if (cabe(jpeg)) return jpeg;
+      }
+    }
+    throw new ErroImagem("tamanho");
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -122,8 +160,12 @@ export function SecaoPaginaAgendamento({
       let dataUrl: string;
       try {
         dataUrl = await reduzirImagem(arquivo);
-      } catch {
-        setErro("Não deu para usar essa imagem. Tente um PNG ou JPG.");
+      } catch (e) {
+        setErro(
+          e instanceof ErroImagem && e.motivo === "tamanho"
+            ? "Essa imagem ficou grande demais mesmo reduzida. Tente outra."
+            : "Não deu para abrir essa imagem. Se for uma foto HEIC, salve como JPG (ou tire um print dela) e envie de novo.",
+        );
         return;
       }
       const resposta = await fetch("/api/painel/barbearia/logo", {
@@ -186,7 +228,9 @@ export function SecaoPaginaAgendamento({
               </span>
             )}
             <div className="form-acoes">
-              <input ref={entradaArquivo} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={escolherLogo} tabIndex={-1} />
+              {/* image/* abre a galeria e a câmera no celular; qualquer formato que o
+                  navegador abra é convertido antes do envio. */}
+              <input ref={entradaArquivo} type="file" accept="image/*" className="sr-only" onChange={escolherLogo} tabIndex={-1} />
               <Botao pequeno onClick={() => entradaArquivo.current?.click()} carregando={enviandoLogo} textoCarregando="Enviando…">
                 <ImagePlus size={16} aria-hidden="true" />
                 {logoUrl ? "Trocar logo" : "Enviar logo"}
