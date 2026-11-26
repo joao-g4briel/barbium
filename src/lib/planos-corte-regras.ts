@@ -116,3 +116,10 @@ export function validadeDoCartao(validaAte: Date | null, dataCobranca: Date): Da
   const nova = new Date(somarUmMes(dataCobranca).getTime() + FOLGA_CARTAO_DIAS * MS_DIA);
   return validaAte && validaAte > nova ? validaAte : nova;
 }
+
+// "Plano X" para o caixa e o Mercado Pago, sem repetir quando o nome já
+// começa com "Plano" (ex.: "Plano de Corte").
+export function nomeDoPlano(nome: string): string {
+  const limpo = nome.trim();
+  return /^plano\b/i.test(limpo) ? limpo : `Plano ${limpo}`;
+}

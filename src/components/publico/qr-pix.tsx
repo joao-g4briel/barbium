@@ -2,12 +2,12 @@
 
 import { CopiarTexto } from "@/components/ui/copiar-texto";
 
-// QR code e código copia e cola de um Pix gerado pelo Mercado Pago.
+// QR code e código copia e cola de um Pix (do Mercado Pago ou da chave da barbearia).
 export function QrPix({ qrCode, qrCodeBase64, alt }: { qrCode: string; qrCodeBase64: string | null; alt: string }) {
   return (
     <>
       {qrCodeBase64 && (
-        // QR gerado pelo Mercado Pago, já em base64: não passa por otimização de imagem.
+        // QR já em base64 (Mercado Pago ou gerado no servidor): não passa por otimização de imagem.
         // eslint-disable-next-line @next/next/no-img-element
         <img className="pix-qr" src={`data:image/png;base64,${qrCodeBase64}`} alt={alt} />
       )}

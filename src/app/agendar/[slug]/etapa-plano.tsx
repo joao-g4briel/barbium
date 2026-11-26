@@ -6,7 +6,7 @@ import { BadgeCheck, CalendarPlus, ChevronLeft, ChevronRight, MessageCircle, Rep
 import { Botao } from "@/components/ui/botao";
 import { Campo, ariaCampo } from "@/components/ui/campo";
 import { Alerta } from "@/components/ui/alerta";
-import { QrPix, formatarContagem } from "@/components/publico/qr-pix";
+import { PixDoPlano, type PixPlanoVM } from "@/components/publico/pix-do-plano";
 import { useFuso } from "@/components/fuso-contexto";
 import { apenasDigitos, formatarDataInstante, formatarMoeda } from "@/lib/formatar";
 import { descreverUsos, mesDoPlano } from "@/lib/planos-corte-regras";
@@ -34,12 +34,7 @@ interface RespostaAssinante {
   usosRestantes?: number | null;
 }
 
-interface PixPlano {
-  pagamentoId: string;
-  valor: number;
-  expiraEm: string;
-  qrCode: string;
-  qrCodeBase64: string | null;
+interface PixPlano extends PixPlanoVM {
   planoNome: string;
 }
 
@@ -59,7 +54,8 @@ function Voltar({ onClick }: { onClick: () => void }) {
 export function EtapaPlano({
   slug,
   planos,
-  assinaturaOnline,
+  pixOnline,
+  cartaoOnline,
   whatsappBarbearia,
   telefoneInicial,
   nomeInicial,
@@ -69,8 +65,10 @@ export function EtapaPlano({
 }: {
   slug: string;
   planos: PlanoPublicoVM[];
-  // A barbearia recebe pelo Mercado Pago: dá pra assinar e renovar aqui.
-  assinaturaOnline: boolean;
+  // A barbearia recebe Pix online (Mercado Pago ou a chave dela): dá pra
+  // assinar e renovar aqui. Cartão com renovação automática: só Mercado Pago.
+  pixOnline: boolean;
+  cartaoOnline: boolean;
   whatsappBarbearia: string | null;
   telefoneInicial: string;
   nomeInicial: string;
@@ -92,6 +90,7 @@ export function EtapaPlano({
   const [escolhido, setEscolhido] = useState<PlanoPublicoVM | null>(null);
   const [pix, setPix] = useState<PixPlano | null>(null);
   const [pixExpirado, setPixExpirado] = useState(false);
+  const [pixInformado, setPixInformado] = useState(false);
   const [validaAte, setValidaAte] = useState<string | null>(null);
   const [agora, setAgora] = useState(() => Date.now());
 
@@ -118,6 +117,8 @@ export function EtapaPlano({
           setTela("ativo");
         } else if (dados.status === "EXPIRADO") {
           setPixExpirado(true);
+        } else if (dados.informado) {
+          setPixInformado(true);
         }
       } catch {
         // Sem conexão agora: tenta de novo na próxima rodada.
@@ -319,7 +320,7 @@ export function EtapaPlano({
 
   if (tela === "consultar") {
     const plano = resultado?.plano;
-    const podeRenovar = assinaturaOnline && plano?.ativo;
+    const podeRenovar = pixOnline && plano?.ativo;
     const mesAtual =
       resultado?.situacao === "ATIVA" && resultado.validaAte
         ? mesDoPlano(new Date(resultado.validaAte), new Date())
@@ -431,7 +432,7 @@ export function EtapaPlano({
                   </li>
                 ))}
               </ul>
-              {assinaturaOnline && (
+              {pixOnline && (
                 <Botao
                   variante="primary"
                   bloco
@@ -446,7 +447,7 @@ export function EtapaPlano({
             </li>
           ))}
         </ul>
-        {!assinaturaOnline &&
+        {!pixOnline &&
           (whatsappBarbearia ? (
             <a href={whatsappBarbearia} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-bloco">
               <MessageCircle size={18} aria-hidden="true" />
@@ -496,6 +497,7 @@ export function EtapaPlano({
               onChange={(e) => setTelefone(e.target.value)}
             />
           </Campo>
+          {cartaoOnline && (
           <fieldset className="campo forma-plano">
             <legend className="campo-rotulo">Como pagar</legend>
             <label className="forma-plano-opcao">
@@ -513,6 +515,7 @@ export function EtapaPlano({
               </span>
             </label>
           </fieldset>
+          )}
           {forma === "cartao" && (
             <Campo id="plano-email" rotulo="E-mail" dica="O Mercado Pago pede para a assinatura no cartão." erro={erroCampo.email}>
               <input
@@ -548,7 +551,6 @@ export function EtapaPlano({
   }
 
   if (tela === "pix" && pix) {
-    const restanteMs = Date.parse(pix.expiraEm) - agora;
     return (
       <section className="card confirmacao" aria-labelledby="titulo-pix-plano">
         <h2 id="titulo-pix-plano" className="etapa-titulo">
@@ -571,18 +573,15 @@ export function EtapaPlano({
             </Botao>
           </>
         ) : (
-          <>
-            <p className="num valor-destaque">{formatarMoeda(pix.valor)}</p>
-            <QrPix qrCode={pix.qrCode} qrCodeBase64={pix.qrCodeBase64} alt="QR code do Pix do plano" />
-            <p className="pix-espera">
-              <span className="spinner" aria-hidden="true" />
-              <span role="status">{restanteMs > 0 ? "Aguardando pagamento" : "Conferindo o pagamento…"}</span>
-              {restanteMs > 0 && <span className="num">· vale por {formatarContagem(restanteMs)}</span>}
-            </p>
-            <p className="texto-pequeno texto-secundario">
-              Assim que o pagamento cair, o plano passa a valer por 30 dias.
-            </p>
-          </>
+          <PixDoPlano
+            slug={slug}
+            pix={pix}
+            agora={agora}
+            informado={pixInformado}
+            aoInformar={() => setPixInformado(true)}
+            aoExpirar={() => setPixExpirado(true)}
+            depoisDePago="o plano passa a valer por 30 dias"
+          />
         )}
       </section>
     );

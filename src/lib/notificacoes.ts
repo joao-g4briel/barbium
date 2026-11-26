@@ -23,7 +23,8 @@ export type EventoNotificacao =
   | "agendamento.lembrete" // lembrete pro cliente antes do horário (ver lib/lembretes)
   | "agendamento.cancelado_pelo_cliente" // o cliente cancelou pelo link da mensagem
   | "agendamento.remarcado_pelo_cliente" // o cliente mudou o horário pelo link da mensagem
-  | "sinal.pago_sem_horario"; // Pix pago depois do prazo, com o horário já ocupado: precisa devolver
+  | "sinal.pago_sem_horario" // Pix pago depois do prazo, com o horário já ocupado: precisa devolver
+  | "sinal.informado"; // cliente avisou que fez o Pix pela chave da barbearia: o dono confere
 
 // Eventos em que o cliente também recebe mensagem (o lembrete sai por lib/lembretes).
 type EventoCliente = Extract<
@@ -106,6 +107,7 @@ export function dadosDaMensagem(ag: AgendamentoNotificacao, anterior?: Date): Da
     servico: ag.servico.nome,
     profissional: ag.barbeiro.nome,
     sinalPago: ag.sinalStatus === "PAGO" && ag.sinalValor !== null ? Number(ag.sinalValor) : null,
+    sinalValor: ag.sinalValor !== null ? Number(ag.sinalValor) : null,
     plano: ag.assinatura?.plano.nome ?? null,
     barbearia: ag.barbearia.nome,
     telefoneBarbearia: ag.barbearia.telefone ? formatarTelefone(ag.barbearia.telefone) : null,
@@ -152,8 +154,10 @@ async function enviar(
     envios.push({ destinatario: "barbearia", para: whatsappBarbearia, mensagem: montarMensagem(evento, dados) });
   }
   // O cliente fica sabendo do horário marcado, mudado ou cancelado. O Pix
-  // pago sem horário é a barbearia que resolve com ele.
-  if (evento !== "sinal.pago_sem_horario" && evento !== "agendamento.lembrete" && whatsappCliente) {
+  // pago sem horário é a barbearia que resolve com ele, e o Pix pela chave o
+  // dono confere antes (o cliente recebe a confirmação quando ele confirmar).
+  const soBarbearia = evento === "sinal.pago_sem_horario" || evento === "sinal.informado" || evento === "agendamento.lembrete";
+  if (!soBarbearia && whatsappCliente) {
     envios.push({ destinatario: "cliente", para: whatsappCliente, mensagem: montarMensagemCliente(dados, evento) });
   }
 
@@ -200,6 +204,8 @@ export interface DadosMensagem {
   servico: string;
   profissional: string;
   sinalPago: number | null;
+  // Valor do sinal, pago ou não (o aviso do Pix pela chave precisa dele).
+  sinalValor?: number | null;
   // Agendado pelo plano de corte do cliente (nome do plano).
   plano?: string | null;
   barbearia: string;
@@ -218,6 +224,18 @@ export function montarMensagem(evento: EventoNotificacao, d: DadosMensagem): str
       "",
       `${d.cliente} (${d.telefone}) pagou o Pix de ${d.sinalPago !== null ? formatarMoeda(d.sinalPago) : "sinal"} depois do prazo, e o horário de ${d.quando} já foi ocupado.`,
       "Combine um novo horário ou devolva o sinal pelo Mercado Pago.",
+    ].join("\n");
+  }
+  if (evento === "sinal.informado") {
+    return [
+      "💰 *Pix do sinal para conferir*",
+      "",
+      `*Cliente:* ${d.cliente} (${d.telefone})`,
+      `*Valor:* ${d.sinalValor != null ? formatarMoeda(d.sinalValor) : "sinal"}`,
+      `*Serviço:* ${d.servico} com ${d.profissional}`,
+      `*Quando:* ${d.quando}`,
+      "",
+      "O cliente disse que fez o Pix para a sua chave. Confira no app do banco e, se o dinheiro entrou, toque em *Recebi o Pix* na agenda do Barbium. Até lá, o horário fica reservado.",
     ].join("\n");
   }
   const titulo = {

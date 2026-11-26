@@ -14,11 +14,16 @@ import { SINAL_RESERVA_MINUTOS, obterTokenMercadoPago } from "./sinal";
 import {
   estenderValidade,
   mesDoPlano,
+  nomeDoPlano,
   situacaoAssinatura,
   validadeDoCartao,
   type SituacaoAssinatura,
 } from "./planos-corte-regras";
 import { codigoDaAssinatura, urlPublicaDoApp } from "./link-cliente";
+import { obterChavePix, pixPelaChave } from "./pix-chave";
+import { notificacoesConfiguradas, postarWebhook } from "./notificacoes";
+import { whatsappLigado } from "./whatsapp-adicional";
+import { formatarMoeda, formatarTelefone, numeroWhatsApp } from "./formatar";
 
 type Tx = Prisma.TransactionClient;
 type Banco = Tx | typeof prisma;
@@ -27,11 +32,8 @@ type Banco = Tx | typeof prisma;
 // agendamento puro; o prefixo separa os dois no webhook.
 export const PREFIXO_REFERENCIA_ASSINATURA = "assinatura:";
 
-// "Plano X" para o caixa e o Mercado Pago, sem repetir quando o nome já
-// começa com "Plano" (ex.: "Plano de Corte").
-export function nomeDoPlano(nome: string): string {
-  return /^plano/i.test(nome.trim()) ? nome.trim() : `Plano ${nome.trim()}`;
-}
+// Fica em planos-corte-regras (sem banco, testável); exportado aqui também.
+export { nomeDoPlano };
 // Referência da assinatura no cartão (e das cobranças que ela gera).
 export const PREFIXO_REFERENCIA_CARTAO = "plano-cartao:";
 
@@ -169,19 +171,22 @@ export interface PixDaAssinatura {
   expiraEm: string;
   qrCode: string;
   qrCodeBase64: string | null;
+  // Pix pela chave da barbearia: o cliente avisa que pagou e o dono confirma.
+  viaChave: boolean;
 }
 
-// Gera o Pix de um mês de plano na conta do Mercado Pago da barbearia.
+// Gera o Pix de um mês de plano: na conta do Mercado Pago da barbearia
+// (confirmação automática) ou, sem ele, pela chave Pix dela.
 export async function criarPixDaAssinatura(dados: {
   barbearia: { id: string; nome: string };
   assinaturaId: string;
   plano: { nome: string; valor: number };
   origem: string;
 }): Promise<PixDaAssinatura> {
-  const token = await obterTokenMercadoPago(dados.barbearia.id);
-  if (!token) throw new Error("Sem token do Mercado Pago.");
-
   const expiraEm = new Date(Date.now() + SINAL_RESERVA_MINUTOS * 60 * 1000);
+  const token = await obterTokenMercadoPago(dados.barbearia.id);
+  if (!token) return criarPixDaAssinaturaPelaChave(dados, expiraEm);
+
   const pagamento = await prisma.pagamentoAssinatura.create({
     data: {
       barbeariaId: dados.barbearia.id,
@@ -214,11 +219,114 @@ export async function criarPixDaAssinatura(dados: {
       expiraEm: expiraEm.toISOString(),
       qrCode: pix.qr_code,
       qrCodeBase64: pix.qr_code_base64 ?? null,
+      viaChave: false,
     };
   } catch (erro) {
     await prisma.pagamentoAssinatura.update({ where: { id: pagamento.id }, data: { status: "EXPIRADO" } });
     throw erro;
   }
+}
+
+async function criarPixDaAssinaturaPelaChave(
+  dados: { barbearia: { id: string; nome: string }; assinaturaId: string; plano: { nome: string; valor: number } },
+  expiraEm: Date,
+): Promise<PixDaAssinatura> {
+  const chave = await obterChavePix(dados.barbearia.id);
+  if (!chave) throw new Error("A barbearia não recebe Pix online.");
+  const pagamento = await prisma.pagamentoAssinatura.create({
+    data: {
+      barbeariaId: dados.barbearia.id,
+      assinaturaId: dados.assinaturaId,
+      valor: dados.plano.valor,
+      formaPagamento: "PIX",
+      online: true,
+      viaChave: true,
+      expiraEm,
+    },
+  });
+  try {
+    const pix = await pixPelaChave({
+      chave,
+      barbeariaNome: dados.barbearia.nome,
+      valor: dados.plano.valor,
+      txid: pagamento.id,
+      descricao: nomeDoPlano(dados.plano.nome),
+    });
+    return { pagamentoId: pagamento.id, valor: dados.plano.valor, expiraEm: expiraEm.toISOString(), viaChave: true, ...pix };
+  } catch (erro) {
+    await prisma.pagamentoAssinatura.update({ where: { id: pagamento.id }, data: { status: "EXPIRADO" } });
+    throw erro;
+  }
+}
+
+// --- Mês do plano pela chave Pix ---------------------------------------------
+
+export class ErroPixPlano extends Error {}
+
+// O cliente tocou em "Já fiz o Pix": o pagamento deixa de vencer e espera o
+// dono conferir. Avisa o dono uma vez.
+export async function informarPixDaAssinatura(barbeariaId: string, pagamentoId: string): Promise<boolean> {
+  const r = await prisma.pagamentoAssinatura.updateMany({
+    where: { id: pagamentoId, barbeariaId, viaChave: true, status: "PENDENTE", informadoEm: null },
+    data: { informadoEm: new Date(), expiraEm: null },
+  });
+  if (r.count > 0) await avisarDonoPixDoPlano(pagamentoId).catch((erro) => {
+    console.error("Aviso de Pix do plano:", erro instanceof Error ? erro.message : erro);
+  });
+  return r.count > 0;
+}
+
+async function avisarDonoPixDoPlano(pagamentoId: string): Promise<void> {
+  if (!notificacoesConfiguradas()) return;
+  const p = await prisma.pagamentoAssinatura.findUnique({
+    where: { id: pagamentoId },
+    include: {
+      assinatura: { include: { cliente: { select: { nome: true, telefone: true } }, plano: { select: { nome: true } } } },
+      barbearia: {
+        select: { id: true, nome: true, slug: true, telefone: true, telefoneAvisos: true, whatsappAtivo: true, emTeste: true, acessoAte: true },
+      },
+    },
+  });
+  if (!p || !whatsappLigado(p.barbearia)) return;
+  const para = numeroWhatsApp(p.barbearia.telefoneAvisos ?? p.barbearia.telefone ?? "");
+  if (!para) return;
+  const cliente = p.assinatura.cliente;
+  await postarWebhook({
+    evento: "plano.pix_informado",
+    barbearia: { id: p.barbearia.id, nome: p.barbearia.nome, slug: p.barbearia.slug },
+    destinatario: "barbearia",
+    para,
+    mensagem: [
+      "💰 *Pix do plano para conferir*",
+      "",
+      `*Cliente:* ${cliente.nome} (${formatarTelefone(cliente.telefone)})`,
+      `*Plano:* ${nomeDoPlano(p.assinatura.plano.nome)}`,
+      `*Valor:* ${formatarMoeda(Number(p.valor))}`,
+      "",
+      "O cliente disse que fez o Pix para a sua chave. Confira no app do banco e, se o dinheiro entrou, toque em *Recebi* em Planos de corte, no Barbium. O plano passa a valer quando você confirmar.",
+    ].join("\n"),
+  });
+}
+
+// O dono conferiu: o mês vale e o valor entra no caixa.
+export async function confirmarPixDaAssinatura(barbeariaId: string, pagamentoId: string): Promise<Date> {
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.pagamentoAssinatura.findUnique({ where: { id: pagamentoId } });
+    if (!p || p.barbeariaId !== barbeariaId || !p.viaChave) throw new ErroPixPlano("Pagamento não encontrado.");
+    if (p.status !== "PENDENTE") throw new ErroPixPlano("Este pagamento já foi resolvido. Atualize a página.");
+    const validaAte = await registrarMesPago(tx, p.id);
+    if (!validaAte) throw new ErroPixPlano("Este pagamento já foi resolvido. Atualize a página.");
+    return validaAte;
+  });
+}
+
+// O dono não achou o Pix na conta: o pagamento é descartado.
+export async function recusarPixDaAssinatura(barbeariaId: string, pagamentoId: string): Promise<void> {
+  const r = await prisma.pagamentoAssinatura.updateMany({
+    where: { id: pagamentoId, barbeariaId, viaChave: true, status: "PENDENTE" },
+    data: { status: "EXPIRADO" },
+  });
+  if (r.count === 0) throw new ErroPixPlano("Este pagamento já foi resolvido. Atualize a página.");
 }
 
 // Pagamento lido da API do Mercado Pago (nunca do corpo do webhook).
@@ -249,6 +357,8 @@ export async function sincronizarPagamentoAssinatura(pagamento: {
   status: string;
   expiraEm: Date | null;
 }): Promise<void> {
+  // Pix pela chave que o cliente avisou ter pago: sem prazo (expiraEm vazio),
+  // espera o dono conferir.
   if (pagamento.status !== "PENDENTE") return;
   if (pagamento.mpPagamentoId) {
     const token = await obterTokenMercadoPago(pagamento.barbeariaId);

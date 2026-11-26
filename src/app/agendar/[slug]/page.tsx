@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Scissors, UserX } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/sessao";
-import { obterSinalPublico } from "@/lib/sinal";
+import { meiosDeRecebimento, obterSinalPublico } from "@/lib/sinal";
 import { obterPlanosPublicos } from "@/lib/planos-corte";
 import { linkWhatsApp } from "@/lib/formatar";
 import { SimboloBarbium } from "@/components/ui/marca";
@@ -65,13 +65,10 @@ export default async function AgendamentoPublico({
   // Barbearia suspensa ou com o acesso vencido não recebe agendamento novo.
   if (!barbearia || !barbearia.ativo || acessoVencido(barbearia)) notFound();
 
-  const [sinal, planos, pagamento] = await Promise.all([
+  const [sinal, planos, meios] = await Promise.all([
     obterSinalPublico(barbearia.id),
     obterPlanosPublicos(barbearia.id),
-    prisma.configuracaoPagamento.findUnique({
-      where: { barbeariaId: barbearia.id },
-      select: { mpAccessTokenCifrado: true },
-    }),
+    meiosDeRecebimento(barbearia.id),
   ]);
   const contato = barbearia.telefone ? linkWhatsApp(barbearia.telefone) : null;
   const whatsappPlanos = contato
@@ -124,7 +121,8 @@ export default async function AgendamentoPublico({
               slug={slug}
               barbearia={{ nome: barbearia.nome, endereco: barbearia.endereco }}
               planos={planos}
-              assinaturaOnline={Boolean(pagamento?.mpAccessTokenCifrado)}
+              pixOnline={meios.pix !== null}
+              cartaoOnline={meios.cartao}
               whatsappBarbearia={whatsappPlanos}
               recado={barbearia.mensagemAgendamento}
               mostrarPrecos={barbearia.mostrarPrecos}

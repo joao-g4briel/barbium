@@ -2865,13 +2865,98 @@ button.horario:hover {
 }
 .pix-espera {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: var(--space-1) var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  text-align: center;
+}
+/* Planos: meses pagos pela chave Pix esperando o dono conferir. */
+.lista-pix-conferir {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lista-pix-conferir-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.lista-pix-conferir-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Pix pela chave: o cliente já avisou que pagou e espera o dono conferir. */
+.pix-informado {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-md);
+  background: var(--color-selected);
+  text-align: left;
+  line-height: 1.5;
+}
+.pix-informado svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-accent-text);
 }
 
 /* Configurações de pagamento */
+.pagamento-bloco {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+.pagamento-bloco:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+.pagamento-bloco-titulo {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-weight: 700;
+}
+.pagamento-bloco-titulo + * {
+  clear: both;
+}
+.pagamento-avancado summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pagamento-avancado[open] summary {
+  margin-bottom: var(--space-2);
+}
+.pagamento-chave-campos {
+  display: grid;
+  gap: var(--space-3);
+}
+@media (min-width: 640px) {
+  .pagamento-chave-campos {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  }
+}
 .conta-conectada {
   display: flex;
   align-items: center;

@@ -55,6 +55,7 @@ function useAtualizarAgendamento() {
         | { status: StatusAgendamento; formaPagamento?: FormaPagamento }
         | { servicoId: string }
         | { acao: "sinal-devolvido" }
+        | { acao: "sinal-recebido" }
         | { acao: "reagendar"; inicio: string; profissionalId: string },
     ): Promise<Record<string, unknown> | null> => {
       setProcessandoId(id);
@@ -96,6 +97,11 @@ function useAtualizarAgendamento() {
     async (id: string) => (await enviar(id, { acao: "sinal-devolvido" })) !== null,
     [enviar],
   );
+  // Pix pela chave: o dono conferiu no banco e confirma o recebimento.
+  const receberSinal = useCallback(
+    async (id: string) => (await enviar(id, { acao: "sinal-recebido" })) !== null,
+    [enviar],
+  );
   // Devolve se o cliente vai receber o novo horário no WhatsApp, ou null se falhou.
   const reagendar = useCallback(
     async (id: string, escolha: HorarioEscolhido) => {
@@ -106,14 +112,17 @@ function useAtualizarAgendamento() {
   );
   const limparErro = useCallback(() => setErro(null), []);
 
-  return { alterar, trocarServico, devolverSinal, reagendar, processandoId, atualizando, erro, limparErro };
+  return { alterar, trocarServico, devolverSinal, receberSinal, reagendar, processandoId, atualizando, erro, limparErro };
 }
 
 function descreverSinal(ag: AgendamentoVM): string {
   if (!ag.sinal) return "";
   if (ag.sinal.devolvido) return "devolvido";
   if (ag.sinal.status === "PAGO") return "pago";
-  if (ag.sinal.status === "PENDENTE") return ag.status === "CANCELADO" ? "não pago no prazo" : "aguardando Pix";
+  if (ag.sinal.status === "PENDENTE") {
+    if (ag.status === "CANCELADO") return "não pago no prazo";
+    return ag.sinal.informadoEm ? "Pix informado, a conferir" : "aguardando Pix";
+  }
   return "dispensado";
 }
 
@@ -167,7 +176,7 @@ export function AgendaInterativa({
   const agoraMs = Date.parse(agora);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [modoAbertura, setModoAbertura] = useState<"concluir" | null>(null);
-  const { alterar, trocarServico, devolverSinal, reagendar, processandoId, atualizando, erro, limparErro } =
+  const { alterar, trocarServico, devolverSinal, receberSinal, reagendar, processandoId, atualizando, erro, limparErro } =
     useAtualizarAgendamento();
   // Confirmação de horário mudado. Fica aqui, fora do painel, porque o
   // agendamento pode ter ido pra outro dia e sumido desta tela.
@@ -252,6 +261,7 @@ export function AgendaInterativa({
         alterar={alterar}
         trocarServico={trocarServico}
         devolverSinal={devolverSinal}
+        receberSinal={receberSinal}
         reagendar={reagendar}
         profissionais={profissionais}
         aoReagendar={setAvisoGeral}
@@ -505,6 +515,7 @@ function PainelAgendamento({
   alterar,
   trocarServico,
   devolverSinal,
+  receberSinal,
   reagendar,
   profissionais,
   aoReagendar,
@@ -522,6 +533,7 @@ function PainelAgendamento({
   alterar: (id: string, status: StatusAgendamento, formaPagamento?: FormaPagamento) => Promise<boolean>;
   trocarServico: (id: string, servicoId: string) => Promise<boolean>;
   devolverSinal: (id: string) => Promise<boolean>;
+  receberSinal: (id: string) => Promise<boolean>;
   reagendar: (id: string, escolha: HorarioEscolhido) => Promise<{ clienteAvisado: boolean } | null>;
   profissionais: { id: string; nome: string }[];
   aoReagendar: (aviso: string) => void;
@@ -582,6 +594,13 @@ function PainelAgendamento({
     limparErro();
     setForma(null);
     setConfirmacao("concluir");
+  }
+
+  async function confirmarRecebimento() {
+    if (!ag) return;
+    setAviso(null);
+    const ok = await receberSinal(ag.id);
+    if (ok) fechar();
   }
 
   async function registrarDevolucao() {
@@ -694,8 +713,8 @@ function PainelAgendamento({
     rodape = (
       <>
         <p className="texto-pequeno" style={{ flexBasis: "100%" }}>
-          Você já devolveu {formatarMoeda(ag.sinal.valor)} ao cliente pelo Mercado Pago? A entrada do sinal sai do
-          caixa.
+          Você já devolveu {formatarMoeda(ag.sinal.valor)} ao cliente {ag.sinal.viaChave ? "pelo seu banco" : "pelo Mercado Pago"}? A
+          entrada do sinal sai do caixa.
         </p>
         <Botao onClick={() => setConfirmacao(null)} disabled={processando}>
           Voltar
@@ -744,7 +763,12 @@ function PainelAgendamento({
       <>
         <p className="texto-pequeno" style={{ flexBasis: "100%" }}>
           Cancelar este agendamento? O horário volta a ficar livre para novos agendamentos.
-          {ag.status === "AGUARDANDO_PAGAMENTO" && " O Pix do sinal deixa de valer."}
+          {ag.status === "AGUARDANDO_PAGAMENTO" &&
+            (ag.sinal?.viaChave
+              ? ag.sinal.informadoEm
+                ? " Se o Pix tiver entrado na sua conta, devolva ao cliente pelo seu banco."
+                : ""
+              : " O Pix do sinal deixa de valer.")}
           {ag.sinal?.status === "PAGO" &&
             !ag.sinal.devolvido &&
             ` O sinal de ${formatarMoeda(ag.sinal.valor)} continua no caixa até você registrar a devolução.`}
@@ -781,6 +805,27 @@ function PainelAgendamento({
           textoCarregando="Reabrindo…"
         >
           Reabrir agendamento
+        </Botao>
+      </>
+    );
+  } else if (ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.viaChave && souDono) {
+    // Pix pela chave: quem confirma é o dono, depois de conferir no banco.
+    rodape = (
+      <>
+        <Botao variante="danger-outline" onClick={() => setConfirmacao("cancelar")} disabled={processando}>
+          {ag.sinal.informadoEm ? "Não recebi" : "Cancelar"}
+        </Botao>
+        <Botao onClick={() => executar("CONFIRMADO")} disabled={processando}>
+          Confirmar sem sinal
+        </Botao>
+        <Botao
+          variante="primary"
+          icone={<Check size={18} aria-hidden="true" />}
+          onClick={confirmarRecebimento}
+          carregando={processando}
+          textoCarregando="Confirmando…"
+        >
+          Recebi o Pix · {formatarMoeda(ag.sinal.valor)}
         </Botao>
       </>
     );
@@ -900,16 +945,25 @@ function PainelAgendamento({
       <div className="pilha-sm">
         {erro && confirmacao !== "trocar" && confirmacao !== "reagendar" && <Alerta tom="perigo">{erro}</Alerta>}
         {aviso && <Alerta tom="sucesso">{aviso}</Alerta>}
-        {ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.expiraEm && (
+        {ag.status === "AGUARDANDO_PAGAMENTO" && ag.sinal?.informadoEm && (
+          <Alerta tom="atencao" titulo="Pix do sinal para conferir">
+            O cliente avisou às {formatarHora(new Date(ag.sinal.informadoEm), fuso)} que fez o Pix de{" "}
+            {formatarMoeda(ag.sinal.valor)} para a sua chave. Confira no app do banco
+            {souDono ? ": se o dinheiro entrou, toque em Recebi o Pix" : " e avise o dono"}. O horário fica reservado até
+            alguém decidir.
+          </Alerta>
+        )}
+        {ag.status === "AGUARDANDO_PAGAMENTO" && !ag.sinal?.informadoEm && ag.sinal?.expiraEm && (
           <Alerta tom="atencao">
-            O cliente ainda não pagou o Pix do sinal. O horário fica reservado até{" "}
+            O cliente ainda não pagou o Pix do sinal{ag.sinal.viaChave ? " para a sua chave" : ""}. O horário fica reservado até{" "}
             {formatarHora(new Date(ag.sinal.expiraEm), fuso)} e depois volta a ficar livre.
           </Alerta>
         )}
         {(ag.status === "CANCELADO" || ag.status === "FALTA") && ag.sinal?.status === "PAGO" && !ag.sinal.devolvido && (
           <Alerta tom="atencao">
             O cliente pagou um sinal de {formatarMoeda(ag.sinal.valor)}, que continua no caixa. Se for devolver, faça o
-            reembolso pelo Mercado Pago{souDono ? " e registre a devolução aqui" : ""}.
+            reembolso {ag.sinal.viaChave ? "pelo seu banco" : "pelo Mercado Pago"}
+            {souDono ? " e registre a devolução aqui" : ""}.
           </Alerta>
         )}
         {confirmacao === "concluir" && (
@@ -1119,6 +1173,8 @@ function descreverHistorico(h: HistoricoVM): string {
   if (h.acao === "CRIADO") return "Agendamento criado";
   if (h.acao === "HORARIO") return `Horário mudado: ${h.detalhe ?? ""}`;
   if (h.acao === "SERVICO") return `Serviço trocado: ${h.detalhe ?? ""}`;
+  // Registro sem mudança de status (ex.: o cliente avisou que fez o Pix).
+  if (!h.statusPara) return h.detalhe ?? "";
   const para = h.statusPara ? ROTULO_STATUS[h.statusPara] : "";
   const texto =
     h.statusPara === "CONFIRMADO" && h.statusDe && h.statusDe !== "AGUARDANDO_PAGAMENTO"

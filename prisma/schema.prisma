@@ -34,6 +34,14 @@ enum StatusAgendamento {
   AGUARDANDO_PAGAMENTO // horário reservado até o Pix do sinal ser pago (ou expirar)
 }
 
+enum TipoChavePix {
+  CPF
+  CNPJ
+  TELEFONE
+  EMAIL
+  ALEATORIA
+}
+
 enum SinalStatus {
   PENDENTE
   PAGO
@@ -144,14 +152,25 @@ model Barbearia {
 // acesso nunca venha junto nas consultas comuns da barbearia. O token é
 // guardado cifrado (AES-256-GCM, chave em SEGREDOS_CHAVE), nunca em texto puro.
 model ConfiguracaoPagamento {
-  id                   String    @id @default(cuid())
-  barbeariaId          String    @unique
-  barbearia            Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  sinalAtivo           Boolean   @default(false)
-  sinalPercentual      Int       @default(50)
-  mpAccessTokenCifrado String?
-  mpContaDescricao     String?
-  atualizadoEm         DateTime  @updatedAt
+  id                    String        @id @default(cuid())
+  barbeariaId           String        @unique
+  barbearia             Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  sinalAtivo            Boolean       @default(false)
+  sinalPercentual       Int           @default(50)
+  mpAccessTokenCifrado  String?
+  mpContaDescricao      String?
+  // Conectado pelo botão "Conectar com Mercado Pago" (OAuth): o token vale
+  // 180 dias e é renovado com o refresh token (cifrado como o access token).
+  // Vazio: token colado à mão (não expira por aqui).
+  mpRefreshTokenCifrado String?
+  mpTokenExpiraEm       DateTime?
+  mpUsuarioId           String?
+  // Pix pela chave da própria barbearia (qualquer banco), para quem não usa
+  // o Mercado Pago: o cliente paga pelo QR e o dono confirma o recebimento.
+  pixTipoChave          TipoChavePix?
+  pixChave              String?
+  pixCidade             String?
+  atualizadoEm          DateTime      @updatedAt
 
   @@map("configuracoes_pagamento")
 }
@@ -322,6 +341,10 @@ model Agendamento {
   sinalPagoEm      DateTime?
   // A barbearia devolveu o sinal pelo Mercado Pago (a entrada sai do caixa).
   sinalDevolvidoEm DateTime?
+  // Sinal pela chave Pix da barbearia (sem confirmação automática): o
+  // cliente avisa que pagou e o dono confere e confirma.
+  sinalViaChave    Boolean      @default(false)
+  sinalInformadoEm DateTime?
 
   // Comissão do profissional, calculada e guardada na conclusão: mudar o
   // percentual depois não altera atendimentos já fechados.
@@ -528,6 +551,9 @@ model PagamentoAssinatura {
   // Pago pelo Pix online (Mercado Pago); falso quando registrado no balcão.
   online         Boolean                   @default(false)
   mpPagamentoId  String?                   @unique
+  // Pix pela chave da barbearia: o cliente avisa que pagou e o dono confirma.
+  viaChave       Boolean                   @default(false)
+  informadoEm    DateTime?
   status         StatusPagamentoAssinatura @default(PENDENTE)
   expiraEm       DateTime?
   pagoEm         DateTime?

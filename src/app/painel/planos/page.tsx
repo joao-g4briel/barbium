@@ -20,6 +20,9 @@ import {
 } from "@/lib/planos-corte-regras";
 import type { TomBadge } from "@/lib/status-agendamento";
 import { AcoesAssinante } from "./acoes-assinante";
+import { AcoesPixDoPlano } from "./pix-para-conferir";
+import { meiosDeRecebimento } from "@/lib/sinal";
+import { nomeDoPlano } from "@/lib/planos-corte";
 
 export const metadata: Metadata = { title: "Planos de corte" };
 
@@ -44,7 +47,7 @@ export default async function PaginaPlanos() {
   const barbeariaId = sessao.barbeariaId;
   const fuso = sessao.fuso;
 
-  const [planos, assinaturas, pagamento] = await Promise.all([
+  const [planos, assinaturas, meios, pixParaConferir] = await Promise.all([
     prisma.planoCorte.findMany({
       where: { barbeariaId },
       orderBy: [{ ativo: "desc" }, { valor: "asc" }],
@@ -61,7 +64,13 @@ export default async function PaginaPlanos() {
         plano: { select: { nome: true, valor: true, usosPorMes: true } },
       },
     }),
-    prisma.configuracaoPagamento.findUnique({ where: { barbeariaId }, select: { mpAccessTokenCifrado: true } }),
+    meiosDeRecebimento(barbeariaId),
+    // Meses pagos pela chave Pix que o cliente avisou ter pago: o dono confere.
+    prisma.pagamentoAssinatura.findMany({
+      where: { barbeariaId, viaChave: true, status: "PENDENTE", informadoEm: { not: null } },
+      orderBy: { informadoEm: "asc" },
+      include: { assinatura: { include: { cliente: { select: { nome: true, telefone: true } }, plano: { select: { nome: true } } } } },
+    }),
   ]);
 
   const agora = new Date();
@@ -73,7 +82,7 @@ export default async function PaginaPlanos() {
       return { ...a, situacao, usados, link: linkDaAssinatura(a.id) };
     }),
   );
-  const mpConectado = Boolean(pagamento?.mpAccessTokenCifrado);
+  const recebeOnline = meios.pix !== null;
   const ativos = linhas.filter((l) => l.situacao === "ATIVA").length;
 
   return (
@@ -89,14 +98,46 @@ export default async function PaginaPlanos() {
         }
       />
 
-      {planos.length > 0 && !mpConectado && (
+      {planos.length > 0 && !recebeOnline && (
         <Alerta tom="info">
-          Para o cliente assinar e pagar pelo Pix no link de agendamento, conecte o Mercado Pago em{" "}
+          Para o cliente assinar e pagar pelo Pix no link de agendamento, conecte o Mercado Pago ou cadastre a sua chave Pix
+          em{" "}
           <Link href="/painel/configuracoes" className="link">
             Configurações
           </Link>
           . Enquanto isso, os planos aparecem no link e você registra os pagamentos aqui, no balcão.
         </Alerta>
+      )}
+
+      {pixParaConferir.length > 0 && (
+        <section className="card" aria-labelledby="titulo-pix-conferir" style={{ marginBottom: 24 }}>
+          <div className="card-cabecalho">
+            <div>
+              <h2 id="titulo-pix-conferir" className="card-titulo">
+                Pix para conferir
+              </h2>
+              <p className="card-descricao">
+                Estes clientes disseram que pagaram o plano pela sua chave Pix. Confira no app do banco: o mês só passa a valer
+                quando você toca em Recebi.
+              </p>
+            </div>
+          </div>
+          <ul className="lista-pix-conferir">
+            {pixParaConferir.map((p) => (
+              <li key={p.id} className="lista-pix-conferir-item">
+                <div className="lista-item-principal">
+                  <p style={{ fontWeight: 700 }}>{p.assinatura.cliente.nome}</p>
+                  <p className="texto-secundario texto-pequeno">
+                    {nomeDoPlano(p.assinatura.plano.nome)} · <span className="num">{formatarMoeda(Number(p.valor))}</span> · avisou{" "}
+                    {formatarDataInstante(p.informadoEm!, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }, fuso)}
+                  </p>
+                  <p className="texto-secundario texto-pequeno num">{formatarTelefone(p.assinatura.cliente.telefone)}</p>
+                </div>
+                <AcoesPixDoPlano pagamentoId={p.id} cliente={p.assinatura.cliente.nome} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <section className="card card-sem-padding" aria-labelledby="titulo-planos">

@@ -11,7 +11,16 @@ export interface AgendamentoVM {
   servico: ServicoOpcaoVM;
   profissional: { id: string; nome: string };
   // null quando o agendamento não teve cobrança de sinal.
-  sinal: { valor: number; status: "PENDENTE" | "PAGO" | null; expiraEm: string | null; devolvido: boolean } | null;
+  // viaChave: Pix pela chave da barbearia (o dono confere); informadoEm:
+  // quando o cliente avisou que pagou.
+  sinal: {
+    valor: number;
+    status: "PENDENTE" | "PAGO" | null;
+    expiraEm: string | null;
+    devolvido: boolean;
+    viaChave: boolean;
+    informadoEm: string | null;
+  } | null;
   // Quanto do sinal está no caixa agora (0 se não pago ou devolvido).
   sinalNoCaixa: number;
   // Lançamento da conclusão: o restante recebido na hora e como foi pago.

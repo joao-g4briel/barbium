@@ -5,6 +5,7 @@ import { SimboloBarbium } from "@/components/ui/marca";
 import { CabecalhoBarbearia } from "@/components/publico/cabecalho-barbearia";
 import { TemaDaBarbearia } from "@/components/tema-barbearia";
 import { prisma } from "@/lib/prisma";
+import { meiosDeRecebimento } from "@/lib/sinal";
 import { assinaturaDoCodigo } from "@/lib/link-cliente";
 import { sincronizarCartao, usosNoMes } from "@/lib/planos-corte";
 import { mesDoPlano, situacaoAssinatura } from "@/lib/planos-corte-regras";
@@ -79,10 +80,7 @@ export default async function MinhaAssinatura({
   const situacao = situacaoAssinatura(assinatura, agora);
   const mes = situacao === "ATIVA" && assinatura.validaAte ? mesDoPlano(assinatura.validaAte, agora) : null;
   const usados = mes ? await usosNoMes(prisma, assinatura.id, mes) : null;
-  const pagamentoOnline = await prisma.configuracaoPagamento.findUnique({
-    where: { barbeariaId: assinatura.barbeariaId },
-    select: { mpAccessTokenCifrado: true },
-  });
+  const meios = await meiosDeRecebimento(assinatura.barbeariaId);
   const b = assinatura.barbearia;
 
   return (
@@ -114,7 +112,7 @@ export default async function MinhaAssinatura({
               usados,
               cartaoStatus: assinatura.cartaoStatus,
             }}
-            pixOnline={Boolean(pagamentoOnline?.mpAccessTokenCifrado)}
+            pixOnline={meios.pix !== null}
             whatsappBarbearia={b.telefone ? linkWhatsApp(b.telefone) : null}
           />
         </ProvedorFuso>

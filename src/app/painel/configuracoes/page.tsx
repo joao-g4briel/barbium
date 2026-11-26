@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { chaveSegredosConfigurada } from "@/lib/segredos";
 import { SINAL_PERCENTUAL_MAX, SINAL_PERCENTUAL_MIN } from "@/lib/sinal";
 import { SecaoPagamento } from "./secao-pagamento";
+import { oauthConfigurado, urlDeRetornoOAuth } from "@/lib/mercadopago-oauth";
 import { SecaoPaginaAgendamento } from "./secao-pagina-agendamento";
 import { urlDoLogo } from "@/components/publico/cabecalho-barbearia";
 import { FormularioBarbearia, FormularioPerfil, FormularioSenha } from "./formularios-conta";
@@ -23,7 +24,8 @@ import { ianaDoFuso } from "@/lib/fusos";
 
 export const metadata: Metadata = { title: "Configurações" };
 
-export default async function PaginaConfiguracoes() {
+export default async function PaginaConfiguracoes({ searchParams }: { searchParams: Promise<{ mp?: string }> }) {
+  const { mp: resultadoConexao } = await searchParams;
   const sessao = await obterSessao();
   if (!sessao?.barbeariaId) return null;
 
@@ -34,7 +36,17 @@ export default async function PaginaConfiguracoes() {
     souDono
       ? prisma.configuracaoPagamento.findUnique({
           where: { barbeariaId: sessao.barbeariaId },
-          select: { sinalAtivo: true, sinalPercentual: true, mpContaDescricao: true, mpAccessTokenCifrado: true },
+          select: {
+            sinalAtivo: true,
+            sinalPercentual: true,
+            mpContaDescricao: true,
+            mpAccessTokenCifrado: true,
+            mpRefreshTokenCifrado: true,
+            mpTokenExpiraEm: true,
+            pixTipoChave: true,
+            pixChave: true,
+            pixCidade: true,
+          },
         })
       : Promise.resolve(null),
   ]);
@@ -168,8 +180,19 @@ export default async function PaginaConfiguracoes() {
 
           {souDono && (
             <SecaoPagamento
-              conectado={Boolean(pagamento?.mpAccessTokenCifrado)}
-              contaDescricao={pagamento?.mpContaDescricao ?? null}
+              mercadoPago={{
+                conectado: Boolean(pagamento?.mpAccessTokenCifrado),
+                contaDescricao: pagamento?.mpContaDescricao ?? null,
+                porBotao: Boolean(pagamento?.mpRefreshTokenCifrado),
+                vencido: Boolean(pagamento?.mpTokenExpiraEm && pagamento.mpTokenExpiraEm < new Date()),
+              }}
+              conexaoDisponivel={oauthConfigurado() && urlDeRetornoOAuth() !== null}
+              chavePix={
+                pagamento?.pixTipoChave && pagamento.pixChave
+                  ? { tipo: pagamento.pixTipoChave, chave: pagamento.pixChave, cidade: pagamento.pixCidade ?? "" }
+                  : null
+              }
+              resultadoConexao={resultadoConexao ?? null}
               sinalAtivo={pagamento?.sinalAtivo ?? false}
               sinalPercentual={pagamento?.sinalPercentual ?? 50}
               chaveConfigurada={chaveSegredosConfigurada()}

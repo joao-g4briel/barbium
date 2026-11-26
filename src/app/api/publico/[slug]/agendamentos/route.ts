@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { obterChavePix, pixPelaChave } from "@/lib/pix-chave";
 import { acessoVencido } from "@/lib/acesso";
 import { AUTOR_CLIENTE_AGENDAMENTO, registrarHistorico } from "@/lib/historico";
 import { z } from "zod";
@@ -191,7 +192,9 @@ export async function POST(
           servicoId: servico.id,
           barbeiroId: profissional.id,
           assinaturaId,
-          ...(sinal ? { sinalValor, sinalStatus: "PENDENTE" as const, sinalExpiraEm } : {}),
+          ...(sinal
+            ? { sinalValor, sinalStatus: "PENDENTE" as const, sinalExpiraEm, sinalViaChave: sinal.metodo === "chave" }
+            : {}),
         },
       });
       await registrarHistorico(tx, criado.id, AUTOR_CLIENTE_AGENDAMENTO, { acao: "CRIADO", statusPara: criado.status });
@@ -214,6 +217,37 @@ export async function POST(
       agendamento: { id: agendamento.id, status: agendamento.status },
       codigo: codigoDoAgendamento(agendamento.id),
     });
+  }
+
+  // Pix pela chave da barbearia: o código é montado aqui, com o valor certo.
+  // Sem confirmação automática: o cliente avisa que pagou e o dono confere.
+  if (sinal.metodo === "chave") {
+    try {
+      const chave = await obterChavePix(barbearia.id);
+      if (!chave) throw new Error("Sem chave Pix.");
+      const pix = await pixPelaChave({
+        chave,
+        barbeariaNome: barbearia.nome,
+        valor: sinalValor,
+        txid: agendamento.id,
+        descricao: `Sinal ${servico.nome}`,
+      });
+      return NextResponse.json({
+        agendamento: { id: agendamento.id, status: agendamento.status },
+        codigo: codigoDoAgendamento(agendamento.id),
+        pagamento: { valor: sinalValor, expiraEm: sinalExpiraEm.toISOString(), viaChave: true, ...pix },
+      });
+    } catch (erro) {
+      console.error("Falha ao gerar Pix pela chave:", erro instanceof Error ? erro.message : erro);
+      await prisma.agendamento.update({
+        where: { id: agendamento.id },
+        data: { status: "CANCELADO", sinalStatus: null, sinalExpiraEm: null },
+      });
+      return NextResponse.json(
+        { erro: "Não foi possível gerar o Pix do sinal agora. Tente de novo em instantes." },
+        { status: 502 },
+      );
+    }
   }
 
   try {
@@ -246,6 +280,7 @@ export async function POST(
         expiraEm: sinalExpiraEm.toISOString(),
         qrCode: dadosPix.qr_code,
         qrCodeBase64: dadosPix.qr_code_base64 ?? null,
+        viaChave: false,
       },
     });
   } catch (erro) {

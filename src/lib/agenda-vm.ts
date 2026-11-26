@@ -47,6 +47,8 @@ export function paraAgendamentoVM(agendamento: AgendamentoCompleto): Agendamento
             status: agendamento.sinalStatus,
             expiraEm: agendamento.sinalExpiraEm?.toISOString() ?? null,
             devolvido: agendamento.sinalDevolvidoEm !== null,
+            viaChave: agendamento.sinalViaChave,
+            informadoEm: agendamento.sinalInformadoEm?.toISOString() ?? null,
           },
     sinalNoCaixa: Number(sinalNoCaixa?.valor ?? 0),
     pagamento: atendimento ? { valor: Number(atendimento.valor), forma: atendimento.formaPagamento } : null,

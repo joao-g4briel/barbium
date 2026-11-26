@@ -7,7 +7,7 @@ import { BadgeCheck, CalendarPlus, CreditCard, MessageCircle, QrCode } from "luc
 import { Botao } from "@/components/ui/botao";
 import { Alerta } from "@/components/ui/alerta";
 import { DialogoConfirmacao } from "@/components/ui/dialogo-confirmacao";
-import { QrPix, formatarContagem } from "@/components/publico/qr-pix";
+import { PixDoPlano, type PixPlanoVM } from "@/components/publico/pix-do-plano";
 import { useFuso } from "@/components/fuso-contexto";
 import { formatarDataInstante, formatarMoeda } from "@/lib/formatar";
 import { ROTULO_SITUACAO_ASSINATURA, descreverUsos, type SituacaoAssinatura } from "@/lib/planos-corte-regras";
@@ -25,13 +25,7 @@ interface AssinaturaVM {
   cartaoStatus: string | null;
 }
 
-interface PixVM {
-  pagamentoId: string;
-  valor: number;
-  expiraEm: string;
-  qrCode: string;
-  qrCodeBase64: string | null;
-}
+type PixVM = PixPlanoVM;
 
 const INTERVALO_CONSULTA_MS = 5000;
 
@@ -57,6 +51,7 @@ export function GerenciarAssinatura({
   const [confirmarCancelamento, setConfirmarCancelamento] = useState(false);
   const [pix, setPix] = useState<PixVM | null>(null);
   const [pixExpirado, setPixExpirado] = useState(false);
+  const [pixInformado, setPixInformado] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
 
   const data = (iso: string) => formatarDataInstante(new Date(iso), { day: "2-digit", month: "2-digit", year: "numeric" }, fuso);
@@ -85,6 +80,7 @@ export function GerenciarAssinatura({
           setPix(null);
           router.refresh();
         } else if (dados.status === "EXPIRADO") setPixExpirado(true);
+        else if (dados.informado) setPixInformado(true);
       } catch {
         // Sem conexão agora: tenta na próxima rodada.
       }
@@ -113,6 +109,7 @@ export function GerenciarAssinatura({
       if (acao === "renovar-pix") {
         setAgora(Date.now());
         setPixExpirado(false);
+        setPixInformado(false);
         setPix(dados.pagamento);
       } else {
         setConfirmarCancelamento(false);
@@ -126,7 +123,6 @@ export function GerenciarAssinatura({
   }
 
   if (pix) {
-    const restanteMs = Date.parse(pix.expiraEm) - agora;
     return (
       <section className="card confirmacao" aria-labelledby="titulo-pix-renovacao">
         <h2 id="titulo-pix-renovacao" className="etapa-titulo">
@@ -141,16 +137,15 @@ export function GerenciarAssinatura({
             </Botao>
           </>
         ) : (
-          <>
-            <p className="num valor-destaque">{formatarMoeda(pix.valor)}</p>
-            <QrPix qrCode={pix.qrCode} qrCodeBase64={pix.qrCodeBase64} alt="QR code do Pix da renovação" />
-            <p className="pix-espera">
-              <span className="spinner" aria-hidden="true" />
-              <span role="status">{restanteMs > 0 ? "Aguardando pagamento" : "Conferindo o pagamento…"}</span>
-              {restanteMs > 0 && <span className="num">· vale por {formatarContagem(restanteMs)}</span>}
-            </p>
-            <p className="texto-pequeno texto-secundario">Assim que o pagamento cair, o plano ganha mais 30 dias.</p>
-          </>
+          <PixDoPlano
+            slug={slug}
+            pix={pix}
+            agora={agora}
+            informado={pixInformado}
+            aoInformar={() => setPixInformado(true)}
+            aoExpirar={() => setPixExpirado(true)}
+            depoisDePago="o plano ganha mais 30 dias"
+          />
         )}
       </section>
     );

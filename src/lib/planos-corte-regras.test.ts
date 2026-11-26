@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  nomeDoPlano,
   descreverUsos,
   estenderValidade,
   mesDoPlano,
@@ -126,5 +127,16 @@ describe("cartão", () => {
   it("nunca encurta uma validade maior (ex.: Pix pago antes)", () => {
     const longe = d("2027-03-01T00:00:00Z");
     expect(validadeDoCartao(longe, d("2026-11-25T15:00:00Z"))).toEqual(longe);
+  });
+});
+
+describe("nomeDoPlano", () => {
+  it("não repete Plano quando o nome já começa com ele", () => {
+    expect(nomeDoPlano("Plano de Corte")).toBe("Plano de Corte");
+    expect(nomeDoPlano("  plano VIP ")).toBe("plano VIP");
+  });
+  it("põe Plano na frente dos outros nomes", () => {
+    expect(nomeDoPlano("Corte Mensal")).toBe("Plano Corte Mensal");
+    expect(nomeDoPlano("Planalto")).toBe("Plano Planalto");
   });
 });

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/avisos-teste",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/renovar-mercadopago",
+      "schedule": "30 11 * * *"
     }
   ]
 }

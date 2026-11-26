@@ -4,7 +4,7 @@ import type { Agendamento, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirUsuarioDaBarbearia } from "@/lib/sessao";
 import { formatarHora, numeroWhatsApp } from "@/lib/formatar";
-import { cancelarPixPendente } from "@/lib/sinal";
+import { ErroSinalChave, cancelarPixPendente, confirmarSinalPelaChave } from "@/lib/sinal";
 import { ehConflitoDeHorario } from "@/lib/conflito-horario";
 import { fusoDaBarbearia, opcoesHorarioPainel } from "@/lib/agenda";
 import { validarProfissional } from "@/lib/agendamento-painel";
@@ -28,6 +28,7 @@ const corpoSchema = z.union([
     formaPagamento: z.enum(["PIX", "DINHEIRO", "DEBITO", "CREDITO"]).optional(),
   }),
   z.object({ acao: z.literal("sinal-devolvido") }),
+  z.object({ acao: z.literal("sinal-recebido") }),
   z.object({
     acao: z.literal("reagendar"),
     inicio: z.string().datetime(),
@@ -79,6 +80,19 @@ export async function PATCH(
   if ("acao" in dados.data) {
     if (dados.data.acao === "reagendar") {
       return reagendar(agendamento, sessao, new Date(dados.data.inicio), dados.data.profissionalId);
+    }
+    if (dados.data.acao === "sinal-recebido") {
+      // Pix pela chave: o dono conferiu no banco. Dinheiro: só o dono.
+      if (sessao.role !== "DONO") {
+        return NextResponse.json({ erro: "Só o dono pode confirmar o recebimento do sinal." }, { status: 403 });
+      }
+      try {
+        await confirmarSinalPelaChave(agendamento.barbeariaId, agendamento.id, autorDaSessao(sessao));
+        return NextResponse.json({ ok: true });
+      } catch (erro) {
+        if (erro instanceof ErroSinalChave) return NextResponse.json({ erro: erro.message }, { status: 409 });
+        throw erro;
+      }
     }
     return marcarSinalDevolvido(agendamento, sessao.role);
   }

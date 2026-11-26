@@ -45,7 +45,8 @@ interface Props {
   sinal: { percentual: number } | null;
   // Planos de corte à venda (vazio: a etapa do plano nem aparece).
   planos: PlanoPublicoVM[];
-  assinaturaOnline: boolean;
+  pixOnline: boolean;
+  cartaoOnline: boolean;
   whatsappBarbearia: string | null;
   // Personalização da barbearia (Configurações > Página de agendamento).
   recado: string | null;
@@ -88,6 +89,9 @@ interface PagamentoPix {
   expiraEm: string;
   qrCode: string;
   qrCodeBase64: string | null;
+  // Pix pela chave da barbearia: sem confirmação automática, o cliente avisa
+  // que pagou e o dono confere.
+  viaChave: boolean;
 }
 
 const INTERVALO_CONSULTA_MS = 5000;
@@ -159,7 +163,8 @@ export function AssistenteAgendamento({
   profissionais,
   sinal,
   planos,
-  assinaturaOnline,
+  pixOnline,
+  cartaoOnline,
   whatsappBarbearia,
   recado,
   mostrarPrecos,
@@ -192,6 +197,9 @@ export function AssistenteAgendamento({
   const [pagamento, setPagamento] = useState<PagamentoPix | null>(null);
   const [sinalPago, setSinalPago] = useState(false);
   const [pixExpirado, setPixExpirado] = useState(false);
+  const [informado, setInformado] = useState(false);
+  const [informando, setInformando] = useState(false);
+  const [erroInformar, setErroInformar] = useState<string | null>(null);
   const [agora, setAgora] = useState(() => Date.now());
 
   // Quem já agendou neste aparelho não digita nome e WhatsApp de novo.
@@ -222,6 +230,8 @@ export function AssistenteAgendamento({
           setConfirmado(true);
         } else if (dados.status === "CANCELADO") {
           setPixExpirado(true);
+        } else if (dados.informado) {
+          setInformado(true);
         }
       } catch {
         // Sem conexão agora: tenta de novo na próxima rodada.
@@ -378,6 +388,32 @@ export function AssistenteAgendamento({
     }
   }
 
+  // Pix pela chave: avisa a barbearia que o cliente pagou. Não confirma
+  // nada sozinho; o horário fica reservado até o dono conferir.
+  async function avisarPixFeito() {
+    if (!pagamento) return;
+    setInformando(true);
+    setErroInformar(null);
+    try {
+      const resposta = await fetch(`/api/publico/${slug}/agendamentos/${pagamento.agendamentoId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "pix-informado" }),
+      });
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        if (resposta.status === 409) setPixExpirado(true);
+        else setErroInformar(dados?.erro ?? "Não foi possível avisar a barbearia. Tente de novo.");
+        return;
+      }
+      setInformado(true);
+    } catch {
+      setErroInformar("Falha de conexão. Tente de novo.");
+    } finally {
+      setInformando(false);
+    }
+  }
+
   if (confirmado && servico && profissional && horario) {
     const evento = {
       id: codigo?.split(".")[0] ?? horario.toISOString(),
@@ -466,9 +502,11 @@ export function AssistenteAgendamento({
         <span className="confirmacao-icone" data-tom="atencao" aria-hidden="true">
           <Hourglass size={26} />
         </span>
-        <h2 className="etapa-titulo">O prazo para pagar acabou</h2>
+        <h2 className="etapa-titulo">{informado ? "A barbearia não confirmou o Pix" : "O prazo para pagar acabou"}</h2>
         <p className="texto-secundario">
-          O horário foi liberado. Se você chegou a pagar o Pix, fale com a barbearia antes de agendar de novo.
+          {informado
+            ? "O agendamento foi cancelado. Se você pagou, fale com a barbearia para resolver."
+            : "O horário foi liberado. Se você chegou a pagar o Pix, fale com a barbearia antes de agendar de novo."}
         </p>
         <Botao variante="primary" onClick={recomecar}>
           Agendar de novo
@@ -491,11 +529,38 @@ export function AssistenteAgendamento({
         <p className="num valor-destaque">
           {formatarMoeda(pagamento.valor)}
         </p>
-        <QrPix qrCode={pagamento.qrCode} qrCodeBase64={pagamento.qrCodeBase64} alt="QR code do Pix do sinal" />
+        {pagamento.viaChave && informado ? (
+          <div className="pix-informado" role="status">
+            <CheckCircle2 size={22} aria-hidden="true" />
+            <p>
+              <strong>Pronto, avisamos a barbearia.</strong> Ela vai conferir o Pix e confirmar o seu horário. Você
+              recebe a confirmação no WhatsApp; até lá, o horário fica reservado para você.
+            </p>
+          </div>
+        ) : (
+          <QrPix qrCode={pagamento.qrCode} qrCodeBase64={pagamento.qrCodeBase64} alt="QR code do Pix do sinal" />
+        )}
+        {pagamento.viaChave && !informado && (
+          <>
+            <p className="texto-pequeno texto-secundario">O Pix vai direto para a conta da barbearia. Depois de pagar, toque abaixo.</p>
+            {erroInformar && <Alerta tom="perigo">{erroInformar}</Alerta>}
+            <Botao variante="primary" bloco onClick={avisarPixFeito} carregando={informando} textoCarregando="Avisando…">
+              Já fiz o Pix
+            </Botao>
+          </>
+        )}
         <p className="pix-espera">
           <span className="spinner" aria-hidden="true" />
-          <span role="status">{restanteMs > 0 ? "Aguardando pagamento" : "Conferindo o pagamento…"}</span>
-          {restanteMs > 0 && <span className="num">· horário reservado por {formatarContagem(restanteMs)}</span>}
+          <span role="status">
+            {pagamento.viaChave
+              ? informado
+                ? "Aguardando a barbearia confirmar"
+                : "Aguardando você pagar"
+              : restanteMs > 0
+                ? "Aguardando pagamento"
+                : "Conferindo o pagamento…"}
+          </span>
+          {restanteMs > 0 && !informado && <span className="num">· horário reservado por {formatarContagem(restanteMs)}</span>}
         </p>
         <p className="texto-pequeno texto-secundario">
           O restante, {formatarMoeda(Math.max(0, servico.preco - pagamento.valor))}, é pago no atendimento.
@@ -513,7 +578,8 @@ export function AssistenteAgendamento({
         <EtapaPlano
           slug={slug}
           planos={planos}
-          assinaturaOnline={assinaturaOnline}
+          pixOnline={pixOnline}
+          cartaoOnline={cartaoOnline}
           whatsappBarbearia={whatsappBarbearia}
           telefoneInicial={lembrado.telefone}
           nomeInicial={lembrado.nome}

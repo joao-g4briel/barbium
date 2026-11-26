@@ -41,6 +41,7 @@ import { FUSO_PADRAO } from "@/lib/fusos";
 import { comissaoDoMes } from "@/lib/comissoes";
 import { ProximoCliente } from "@/components/app/proximo-cliente";
 import { CopiarTexto } from "@/components/ui/copiar-texto";
+import { Alerta } from "@/components/ui/alerta";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -179,6 +180,19 @@ export default async function VisaoGeral({
     }
   }
 
+  // Pix pela chave que o cliente avisou ter pago e o dono ainda não conferiu
+  // (sinal na agenda, mês de plano em Planos de corte).
+  const [sinaisParaConferir, planosParaConferir] = souDono
+    ? await Promise.all([
+        prisma.agendamento.count({
+          where: { barbeariaId, status: "AGUARDANDO_PAGAMENTO", sinalViaChave: true, sinalInformadoEm: { not: null } },
+        }),
+        prisma.pagamentoAssinatura.count({
+          where: { barbeariaId, viaChave: true, status: "PENDENTE", informadoEm: { not: null } },
+        }),
+      ])
+    : [0, 0];
+
   return (
     <>
       <CabecalhoPagina
@@ -188,6 +202,31 @@ export default async function VisaoGeral({
       />
 
       <div className="pilha">
+        {(sinaisParaConferir > 0 || planosParaConferir > 0) && (
+          <Alerta tom="atencao" titulo="Pix para conferir">
+            {sinaisParaConferir > 0 && (
+              <>
+                {sinaisParaConferir === 1
+                  ? "1 cliente disse que pagou o sinal pela sua chave Pix."
+                  : `${sinaisParaConferir} clientes disseram que pagaram o sinal pela sua chave Pix.`}{" "}
+                <Link href="/painel/agenda" className="link">
+                  Conferir na agenda
+                </Link>
+                .{" "}
+              </>
+            )}
+            {planosParaConferir > 0 && (
+              <>
+                {planosParaConferir === 1 ? "1 pagamento de plano espera" : `${planosParaConferir} pagamentos de plano esperam`} a sua
+                confirmação.{" "}
+                <Link href="/painel/planos" className="link">
+                  Conferir em Planos de corte
+                </Link>
+                .
+              </>
+            )}
+          </Alerta>
+        )}
         {destaque && (
           <ProximoCliente
             id={destaque.id}

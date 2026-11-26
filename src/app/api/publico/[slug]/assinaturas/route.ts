@@ -5,13 +5,13 @@ import { acessoVencido } from "@/lib/acesso";
 import { apenasDigitos, formatarDataInstante } from "@/lib/formatar";
 import { obterOuCriarCliente } from "@/lib/cliente-por-telefone";
 import { ErroCartao, assinarNoCartao, criarPixDaAssinatura, prepararAssinatura } from "@/lib/planos-corte";
-import { obterTokenMercadoPago } from "@/lib/sinal";
+import { meiosDeRecebimento } from "@/lib/sinal";
 import { MENSAGEM_LIMITE, dentroDosLimites, ipDaRequisicao } from "@/lib/limite-tentativas";
 
-// Assinar (ou renovar) um plano pela página de agendamento, na conta do
-// Mercado Pago da barbearia:
-// - pix: gera o Pix de um mês; vale quando o Pix é pago (webhook ou a
-//   consulta da tela do Pix);
+// Assinar (ou renovar) um plano pela página de agendamento:
+// - pix: gera o Pix de um mês (Mercado Pago da barbearia, ou a chave Pix
+//   dela); vale quando o Pix é pago (webhook ou a consulta da tela do Pix)
+//   ou, pela chave, quando o dono confirma o recebimento;
 // - cartao: cria a assinatura no cartão e devolve a página do Mercado Pago
 //   onde o cliente põe o cartão; ele volta para /minha-assinatura.
 const corpoSchema = z.object({
@@ -44,8 +44,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   if (!plano || plano.barbeariaId !== barbearia.id || !plano.ativo) {
     return NextResponse.json({ erro: "Plano não encontrado." }, { status: 404 });
   }
-  if (!(await obterTokenMercadoPago(barbearia.id))) {
-    return NextResponse.json({ erro: "Esta barbearia ainda não recebe pagamentos online. Fale com ela." }, { status: 409 });
+  const meios = await meiosDeRecebimento(barbearia.id);
+  if (!meios.pix || (cartao && !meios.cartao)) {
+    return NextResponse.json(
+      { erro: cartao ? "Esta barbearia não recebe no cartão. Escolha o Pix." : "Esta barbearia ainda não recebe pagamentos online. Fale com ela." },
+      { status: 409 },
+    );
   }
 
   const permitido = await dentroDosLimites([
